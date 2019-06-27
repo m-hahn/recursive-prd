@@ -25,6 +25,7 @@ parser.add_argument("--beta", type=float, default=math.exp(-random.choice([3.0, 
 parser.add_argument("--flow_length", type=int, default=0) #random.choice([0,1]))
 parser.add_argument("--flowtype", type=str, default=random.choice(["ddsf", "dsf"]))
 parser.add_argument("--flow_hid_dim", type=int, default=512)
+parser.add_argument("--flow_num_layers", type=int, default=2)
 parser.add_argument("--myID", type=int, default=random.randint(0,10000000))
 
 args=parser.parse_args()
@@ -120,8 +121,11 @@ for name, param in rnn_both.named_parameters():
 decoder = nn.Linear(args.rnn_dim,outVocabSize).cuda()
 #pos_ptb_decoder = nn.Linear(128,len(posFine)+3).cuda()
 
+startHidden = nn.Linear(1, args.rnn_dim).cuda()
+startHidden.bias.data.fill_(0)
 
-components = [rnn_both, decoder, word_pos_morph_embeddings]
+
+components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
 
 
 #           klLoss = [None for _ in inputEmbeddings]
@@ -285,7 +289,7 @@ elif args.flowtype == 'ddsf':
 components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden, sampleToCell]
 
 context_dim = 1
-flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=2, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
+flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=args.flow_num_layers, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
 
 
 components = components + flows
@@ -400,6 +404,8 @@ hidden = None
 zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
 beginning = zeroBeginning
 
+zeroHidden = torch.FloatTensor([0 for _ in range(args.batchSize)]).cuda().view(args.batchSize, 1)
+
 
 def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
        global counter
@@ -410,9 +416,14 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
        global hidden
        global beginning
 
-       if hidden is not None:
+       if hidden is not None and (random() < 0.8):
            hidden = tuple([Variable(x.data).detach() for x in hidden])
        else:
+#           print("Restart")
+           sampled = startHidden(zeroHidden)
+           hiddenNew = sampleToHidden(sampled).unsqueeze(0)
+           cellNew = sampleToCell(sampled).unsqueeze(0)
+           hidden = (hiddenNew, cellNew)
            beginning = zeroBeginning
 
        numeric = torch.cat([beginning, numeric], dim=0)
@@ -469,11 +480,12 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
               klLoss = [None for _ in inputEmbeddings]
               logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0][0])
    #           print(torch.exp(logStandardDeviationHidden))
-              memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=torch.exp(logStandardDeviationHidden))
+              scaleForDist = torch.log(1+torch.exp(logStandardDeviationHidden))
+              memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
    #           sampled = memoryDistribution.rsample()
    
               encodedEpsilon = standardNormalPerStep.sample()
-              sampled = meanHidden + torch.exp(logStandardDeviationHidden) * encodedEpsilon
+              sampled = meanHidden + scaleForDist * encodedEpsilon
    
 
               sampled_vectors.append(sampled)
@@ -565,7 +577,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
        if printHere:
          print loss/wordNum
          print lossWords/wordNum
-         print ["CROSS ENTROPY", crossEntropy, exp(crossEntropy)]
+         print ["CROSS ENTROPY", crossEntropy] #, exp(crossEntropy)]
          print ("beta", args.beta)
        crossEntropy = 0.99 * crossEntropy + 0.01 * (lossWords/wordNum).data.cpu().numpy()
        totalQuality = loss.data.cpu().numpy() # consists of lossesWord + lossesPOS
@@ -588,8 +600,8 @@ def  doBackwardPass(loss, baselineLoss, policy_related_loss):
          print "BACKWARD 3 "+__file__+" "+args.language+" "+str(args.myID)+" "+str(counter)+" "+str(lastDevLoss)+" "+str(failedDevRuns)+"  "+str(args)
          print devLosses
          print lastDevLoss
-#       torch.nn.utils.clip_grad_norm(parameterList, 5.0, norm_type='inf')
 #       print("MAX NORM", max(p.grad.data.abs().max() for p in parameterList))
+       torch.nn.utils.clip_grad_norm(parameterList, 2.0, norm_type='inf')
        optimizer.step()
        for param in parameters():
          if param.grad is None:

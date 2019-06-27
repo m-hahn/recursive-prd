@@ -25,7 +25,12 @@ parser.add_argument("--beta", type=float, default=math.exp(-random.choice([3.0, 
 parser.add_argument("--flow_length", type=int, default=0) #random.choice([0,1]))
 parser.add_argument("--flowtype", type=str, default=random.choice(["ddsf", "dsf"]))
 parser.add_argument("--flow_hid_dim", type=int, default=512)
+parser.add_argument("--flow_num_layers", type=int, default=2)
 parser.add_argument("--myID", type=int, default=random.randint(0,10000000))
+parser.add_argument("--weight_decay", type=float, default=1e-5)
+parser.add_argument("--norm_clip", type=float, default=2.0)
+
+
 
 args=parser.parse_args()
 print(str(args))
@@ -33,7 +38,6 @@ print(str(args))
 model = "REAL"
 
 
-weight_decay=1e-5
 
 assert args.dropout_rate <= 0.5
 assert args.input_dropoutRate <= 0.5
@@ -110,7 +114,7 @@ assert len(itos_total) == outVocabSize
 
 dropout = nn.Dropout(args.dropout_rate).cuda()
 
-rnn_both = nn.LSTM(args.emb_dim, args.rnn_dim, args.rnn_layers).cuda()
+rnn_both = nn.GRU(args.emb_dim, args.rnn_dim, args.rnn_layers).cuda()
 for name, param in rnn_both.named_parameters():
   if 'bias' in name:
      nn.init.constant(param, 0.0)
@@ -134,19 +138,10 @@ components = [rnn_both, decoder, word_pos_morph_embeddings]
 
 
 hiddenToLogSDHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
-cellToMean = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
-sampleToHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
-sampleToCell = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 
-hiddenToLogSDHidden.bias.data.fill_(0)
-cellToMean.bias.data.fill_(0)
-sampleToHidden.bias.data.fill_(0)
-sampleToCell.bias.data.fill_(0)
 
 hiddenToLogSDHidden.weight.data.fill_(0)
-cellToMean.weight.data.fill_(0)
-sampleToHidden.weight.data.fill_(0)
-sampleToCell.weight.data.fill_(0)
+hiddenToLogSDHidden.bias.data.fill_(0)
 
 
 
@@ -282,10 +277,10 @@ elif args.flowtype == 'ddsf':
 
 
 
-components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden, sampleToCell]
+components = components + [hiddenToLogSDHidden]
 
 context_dim = 1
-flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=2, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
+flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=args.flow_num_layers, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
 
 
 components = components + flows
@@ -332,7 +327,7 @@ crossEntropy = 10.0
 
 #loss = torch.nn.CrossEntropyLoss(reduce=False, ignore_index = 0)
 
-optimizer = torch.optim.Adam(parameters(), lr=args.lr, betas=(0.9, 0.999) , weight_decay=weight_decay)
+optimizer = torch.optim.Adam(parameters(), lr=args.lr, betas=(0.9, 0.999) , weight_decay=args.weight_decay)
 
 
 import torch.cuda
@@ -411,7 +406,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
        global beginning
 
        if hidden is not None:
-           hidden = tuple([Variable(x.data).detach() for x in hidden])
+           hidden = Variable(hidden.data).detach()
        else:
            beginning = zeroBeginning
 
@@ -461,19 +456,22 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
            logProbConditionals = []
 
            for i in range(inputEmbeddings.size()[0]):
+  #            if hidden is not None:
+   #              print(i, hidden.abs().max())
               output1, hidden = rnn_both(inputEmbeddings[i].unsqueeze(0), hidden)
    
               assert args.rnn_layers == 1
-              meanHidden = cellToMean(hidden[1][0])
+              meanHidden = hidden[0]
    
               klLoss = [None for _ in inputEmbeddings]
-              logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0][0])
+              logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0])
    #           print(torch.exp(logStandardDeviationHidden))
-              memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=torch.exp(logStandardDeviationHidden))
+              scaleForDist = torch.log(1+torch.exp(logStandardDeviationHidden))
+              memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
    #           sampled = memoryDistribution.rsample()
    
               encodedEpsilon = standardNormalPerStep.sample()
-              sampled = meanHidden + torch.exp(logStandardDeviationHidden) * encodedEpsilon
+              sampled = meanHidden + scaleForDist * encodedEpsilon
    
 
               sampled_vectors.append(sampled)
@@ -481,11 +479,12 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
               logProbConditionals.append(logProbConditional)
 
 
-              hiddenNew = sampleToHidden(sampled).unsqueeze(0)
+              hiddenNew = sampled.unsqueeze(0)
               # this also serves as the output for prediction
               
-              cellNew = sampleToCell(sampled).unsqueeze(0)
-              hidden = (hiddenNew, cellNew)
+              hidden = hiddenNew
+
+#              print(hidden.abs().max())
 
 #              output, _ = rnn_both(torch.cat([word_pos_morph_embeddings(torch.cuda.LongTensor([[2 for _ in range(args.batchSizeHere)]])), inputEmbeddings[halfSeqLen+1:]], dim=0), (hiddenNew, cellNew))
  #             output = torch.cat([output1[:halfSeqLen], output], dim=0)
@@ -538,6 +537,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
               klLossMean = klLoss.mean()
               print(args.beta, args.flow_length, klLossMean, lossesWord.mean(), args.beta * klLoss.mean() + lossesWord.mean() )
               if float(klLossMean) != float(klLossMean):
+                 print(hidden.abs().max())
                  assert False, "got NA, abort"
            loss = loss + args.beta * klLossSum
 #           print lossesWord
@@ -583,13 +583,18 @@ parameterList = list(parameters())
 def  doBackwardPass(loss, baselineLoss, policy_related_loss):
        global lastDevLoss
        global failedDevRuns
+
+#       penalty = (hiddenToLogSDHidden.weight * hiddenToLogSDHidden.weight).mean()
+ #      loss += 1e-4 * penalty
+  #     print(penalty)
+
        loss.backward()
        if printHere:
          print "BACKWARD 3 "+__file__+" "+args.language+" "+str(args.myID)+" "+str(counter)+" "+str(lastDevLoss)+" "+str(failedDevRuns)+"  "+str(args)
          print devLosses
          print lastDevLoss
-#       torch.nn.utils.clip_grad_norm(parameterList, 5.0, norm_type='inf')
 #       print("MAX NORM", max(p.grad.data.abs().max() for p in parameterList))
+       torch.nn.utils.clip_grad_norm(parameterList, args.norm_clip, norm_type='inf')
        optimizer.step()
        for param in parameters():
          if param.grad is None:

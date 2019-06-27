@@ -25,6 +25,7 @@ parser.add_argument("--beta", type=float, default=math.exp(-random.choice([3.0, 
 parser.add_argument("--flow_length", type=int, default=0) #random.choice([0,1]))
 parser.add_argument("--flowtype", type=str, default=random.choice(["ddsf", "dsf"]))
 parser.add_argument("--flow_hid_dim", type=int, default=512)
+parser.add_argument("--flow_num_layers", type=int, default=2)
 parser.add_argument("--myID", type=int, default=random.randint(0,10000000))
 
 args=parser.parse_args()
@@ -285,7 +286,7 @@ elif args.flowtype == 'ddsf':
 components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden, sampleToCell]
 
 context_dim = 1
-flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=2, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
+flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=args.flow_num_layers, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
 
 
 components = components + flows
@@ -588,8 +589,8 @@ def  doBackwardPass(loss, baselineLoss, policy_related_loss):
          print "BACKWARD 3 "+__file__+" "+args.language+" "+str(args.myID)+" "+str(counter)+" "+str(lastDevLoss)+" "+str(failedDevRuns)+"  "+str(args)
          print devLosses
          print lastDevLoss
-#       torch.nn.utils.clip_grad_norm(parameterList, 5.0, norm_type='inf')
 #       print("MAX NORM", max(p.grad.data.abs().max() for p in parameterList))
+       torch.nn.utils.clip_grad_norm(parameterList, 2.0, norm_type='inf')
        optimizer.step()
        for param in parameters():
          if param.grad is None:
