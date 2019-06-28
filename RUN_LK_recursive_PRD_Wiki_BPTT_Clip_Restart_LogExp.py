@@ -12,6 +12,8 @@ import argparse
 import math
 
 parser = argparse.ArgumentParser()
+parser.add_argument("--load-from", type=str)
+
 parser.add_argument("--language", type=str, default="english")
 parser.add_argument("--dropout_rate", type=float, default=random.choice([0.0, 0.1]))
 parser.add_argument("--emb_dim", type=int, default=100)
@@ -681,17 +683,17 @@ while failedDevRuns < 10:
          
 
 
-          print(devSurprisalTable[args.horizon/2])
-          print(devMemories)
-          with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
-              print >> outFile, str(args)
-              print >> outFile, " ".join(map(str,devLosses))
-              print >> outFile, " ".join(map(str,devSurprisalTable))
-              print >> outFile, " ".join(map(str, devMemories))
-              print >> outFile, str(sum([x-y for x, y in zip(devSurprisalTable[:args.horizon/2], devSurprisalTable[args.horizon/2:])]))
-          state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in components]}
-          torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-
+#          print(devSurprisalTable[args.horizon/2])
+#          print(devMemories)
+#          with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
+#              print >> outFile, str(args)
+#              print >> outFile, " ".join(map(str,devLosses))
+#              print >> outFile, " ".join(map(str,devSurprisalTable))
+#              print >> outFile, " ".join(map(str, devMemories))
+#              print >> outFile, str(sum([x-y for x, y in zip(devSurprisalTable[:args.horizon/2], devSurprisalTable[args.horizon/2:])]))
+#          state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in components]}
+#          torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+#
 
 
           if lastDevLoss is None or newDevLoss < lastDevLoss:

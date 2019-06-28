@@ -17,9 +17,9 @@ parser.add_argument("--dropout_rate", type=float, default=random.choice([0.0, 0.
 parser.add_argument("--emb_dim", type=int, default=100)
 parser.add_argument("--rnn_dim", type=int, default=512)
 parser.add_argument("--rnn_layers", type=int, default=1)
-parser.add_argument("--lr", type=float, default=random.choice([0.00001, 0.00002, 0.00005, 0.0001,0.0002, 0.001]))
+parser.add_argument("--lr", type=float, default=random.choice([0.00002, 0.00005, 0.0001,0.0002, 0.001])) # 0.00001, 
 parser.add_argument("--input_dropoutRate", type=float, default=0.0)
-parser.add_argument("--batchSize", type=int, default=256)
+parser.add_argument("--batchSize", type=int, default=512)
 parser.add_argument("--horizon", type=int, default=20)
 parser.add_argument("--beta", type=float, default=math.exp(-random.choice([3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0])))
 parser.add_argument("--flow_length", type=int, default=0) #random.choice([0,1]))
@@ -27,6 +27,10 @@ parser.add_argument("--flowtype", type=str, default=random.choice(["ddsf", "dsf"
 parser.add_argument("--flow_hid_dim", type=int, default=512)
 parser.add_argument("--flow_num_layers", type=int, default=2)
 parser.add_argument("--myID", type=int, default=random.randint(0,10000000))
+parser.add_argument("--weight_decay", type=float, default=1e-5)
+parser.add_argument("--norm_clip", type=float, default=2.0)
+
+
 
 args=parser.parse_args()
 print(str(args))
@@ -34,7 +38,6 @@ print(str(args))
 model = "REAL"
 
 
-weight_decay=1e-5
 
 assert args.dropout_rate <= 0.5
 assert args.input_dropoutRate <= 0.5
@@ -111,7 +114,7 @@ assert len(itos_total) == outVocabSize
 
 dropout = nn.Dropout(args.dropout_rate).cuda()
 
-rnn_both = nn.LSTM(args.emb_dim, args.rnn_dim, args.rnn_layers).cuda()
+rnn_both = nn.GRU(args.emb_dim, args.rnn_dim, args.rnn_layers).cuda()
 for name, param in rnn_both.named_parameters():
   if 'bias' in name:
      nn.init.constant(param, 0.0)
@@ -140,17 +143,14 @@ components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
 hiddenToLogSDHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 cellToMean = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 sampleToHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
-sampleToCell = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 
 hiddenToLogSDHidden.bias.data.fill_(0)
 cellToMean.bias.data.fill_(0)
 sampleToHidden.bias.data.fill_(0)
-sampleToCell.bias.data.fill_(0)
 
 hiddenToLogSDHidden.weight.data.fill_(0)
 cellToMean.weight.data.fill_(0)
 sampleToHidden.weight.data.fill_(0)
-sampleToCell.weight.data.fill_(0)
 
 
 
@@ -286,7 +286,7 @@ elif args.flowtype == 'ddsf':
 
 
 
-components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden, sampleToCell]
+components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden]
 
 context_dim = 1
 flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=args.flow_num_layers, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
@@ -336,7 +336,7 @@ crossEntropy = 10.0
 
 #loss = torch.nn.CrossEntropyLoss(reduce=False, ignore_index = 0)
 
-optimizer = torch.optim.Adam(parameters(), lr=args.lr, betas=(0.9, 0.999) , weight_decay=weight_decay)
+optimizer = torch.optim.Adam(parameters(), lr=args.lr, betas=(0.9, 0.999) , weight_decay=args.weight_decay)
 
 
 import torch.cuda
@@ -373,6 +373,7 @@ standardNormalPerStep = torch.distributions.Normal(loc=torch.FloatTensor([[0.0 f
 
 
 def prepareDatasetChunks(data, train=True):
+      numeric = [0]
       count = 0
       print("Prepare chunks")
       numerified = []
@@ -416,13 +417,12 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
        global beginning
 
        if hidden is not None and (random() < 0.8):
-           hidden = tuple([Variable(x.data).detach() for x in hidden])
+           hidden = Variable(hidden.data).detach()
        else:
-#           print("Restart")
+           print("Restart")
            sampled = startHidden(zeroHidden)
            hiddenNew = sampleToHidden(sampled).unsqueeze(0)
-           cellNew = sampleToCell(sampled).unsqueeze(0)
-           hidden = (hiddenNew, cellNew)
+           hidden = hiddenNew
            beginning = zeroBeginning
 
        numeric = torch.cat([beginning, numeric], dim=0)
@@ -471,15 +471,19 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
            logProbConditionals = []
 
            for i in range(inputEmbeddings.size()[0]):
+              print(i, hidden.abs().max())
+
               output1, hidden = rnn_both(inputEmbeddings[i].unsqueeze(0), hidden)
    
               assert args.rnn_layers == 1
-              meanHidden = cellToMean(hidden[1][0])
+              meanHidden = cellToMean(hidden[0])
    
               klLoss = [None for _ in inputEmbeddings]
-              logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0][0])
+              logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0])
    #           print(torch.exp(logStandardDeviationHidden))
-              scaleForDist = torch.log(1+torch.exp(logStandardDeviationHidden))
+              scaleForDist = torch.sigmoid(logStandardDeviationHidden)
+#              print(logStandardDeviationHidden.abs().mean(), scaleForDist.mean())
+
               memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
    #           sampled = memoryDistribution.rsample()
    
@@ -495,8 +499,9 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
               hiddenNew = sampleToHidden(sampled).unsqueeze(0)
               # this also serves as the output for prediction
               
-              cellNew = sampleToCell(sampled).unsqueeze(0)
-              hidden = (hiddenNew, cellNew)
+              hidden = hiddenNew
+
+#              print(hidden.abs().max())
 
 #              output, _ = rnn_both(torch.cat([word_pos_morph_embeddings(torch.cuda.LongTensor([[2 for _ in range(args.batchSizeHere)]])), inputEmbeddings[halfSeqLen+1:]], dim=0), (hiddenNew, cellNew))
  #             output = torch.cat([output1[:halfSeqLen], output], dim=0)
@@ -549,6 +554,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
               klLossMean = klLoss.mean()
               print(args.beta, args.flow_length, klLossMean, lossesWord.mean(), args.beta * klLoss.mean() + lossesWord.mean() )
               if float(klLossMean) != float(klLossMean):
+                 print(hidden.abs().max())
                  assert False, "got NA, abort"
            loss = loss + args.beta * klLossSum
 #           print lossesWord
@@ -576,7 +582,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
        if printHere:
          print loss/wordNum
          print lossWords/wordNum
-         print ["CROSS ENTROPY", crossEntropy] #, exp(crossEntropy)]
+         print ["CROSS ENTROPY", crossEntropy, exp(crossEntropy)]
          print ("beta", args.beta)
        crossEntropy = 0.99 * crossEntropy + 0.01 * (lossWords/wordNum).data.cpu().numpy()
        totalQuality = loss.data.cpu().numpy() # consists of lossesWord + lossesPOS
@@ -594,13 +600,23 @@ parameterList = list(parameters())
 def  doBackwardPass(loss, baselineLoss, policy_related_loss):
        global lastDevLoss
        global failedDevRuns
+
+
+      # print(cellToMean.weight)
+      # print(cellToMean.bias)
+      # print(hiddenToLogSDHidden.weight)
+      # print(hiddenToLogSDHidden.bias)
+
+
+
+
        loss.backward()
        if printHere:
          print "BACKWARD 3 "+__file__+" "+args.language+" "+str(args.myID)+" "+str(counter)+" "+str(lastDevLoss)+" "+str(failedDevRuns)+"  "+str(args)
          print devLosses
          print lastDevLoss
 #       print("MAX NORM", max(p.grad.data.abs().max() for p in parameterList))
-       torch.nn.utils.clip_grad_norm(parameterList, 2.0, norm_type='inf')
+       torch.nn.utils.clip_grad_norm(parameterList, args.norm_clip, norm_type='inf')
        optimizer.step()
        for param in parameters():
          if param.grad is None:
@@ -608,6 +624,34 @@ def  doBackwardPass(loss, baselineLoss, policy_related_loss):
 #           continue
 #         param.data.sub_(lr_lm * param.grad.data)
 
+
+
+def createStream(corpus):
+#    global counter
+    global crossEntropy
+    global printHere
+    global devLosses
+
+    input_indices = [2] # Start of Segment
+    wordStartIndices = []
+#    sentenceStartIndices = []
+    sentCount = 0
+    for sentence in corpus:
+       sentCount += 1
+       #printHere = (sentCount % 10 == 0)
+       ordered = sentence
+
+#       sentenceStartIndices.append(len(input_indices))
+       for line in ordered:
+          wordStartIndices.append(len(input_indices))
+          if line not in stoi:
+            input_indices.append(1)
+          else:
+            input_indices.append(stoi[line]+3)
+          if len(wordStartIndices) == args.horizon:
+             yield input_indices, wordStartIndices
+             input_indices = [2] # Start of Segment (makes sure that first word can be predicted from this token)
+             wordStartIndices = []
 
 
 

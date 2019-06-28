@@ -17,9 +17,9 @@ parser.add_argument("--dropout_rate", type=float, default=random.choice([0.0, 0.
 parser.add_argument("--emb_dim", type=int, default=100)
 parser.add_argument("--rnn_dim", type=int, default=512)
 parser.add_argument("--rnn_layers", type=int, default=1)
-parser.add_argument("--lr", type=float, default=random.choice([0.00001, 0.00002, 0.00005, 0.0001,0.0002, 0.001]))
+parser.add_argument("--lr", type=float, default=random.choice([0.00002, 0.00005, 0.0001,0.0002, 0.001])) # 0.00001, 
 parser.add_argument("--input_dropoutRate", type=float, default=0.0)
-parser.add_argument("--batchSize", type=int, default=256)
+parser.add_argument("--batchSize", type=int, default=512)
 parser.add_argument("--horizon", type=int, default=20)
 parser.add_argument("--beta", type=float, default=math.exp(-random.choice([3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0])))
 parser.add_argument("--flow_length", type=int, default=0) #random.choice([0,1]))
@@ -419,7 +419,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
        if hidden is not None and (random() < 0.8):
            hidden = Variable(hidden.data).detach()
        else:
-#           print("Restart")
+           print("Restart")
            sampled = startHidden(zeroHidden)
            hiddenNew = sampleToHidden(sampled).unsqueeze(0)
            hidden = hiddenNew
@@ -471,6 +471,8 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
            logProbConditionals = []
 
            for i in range(inputEmbeddings.size()[0]):
+              print(i, hidden.abs().max())
+
               output1, hidden = rnn_both(inputEmbeddings[i].unsqueeze(0), hidden)
    
               assert args.rnn_layers == 1
