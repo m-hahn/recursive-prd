@@ -423,8 +423,10 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
            #print(forRestart)
            sampled = startHidden(zeroHidden)
            hiddenNew = sampleToHidden(sampled).unsqueeze(0)
-           hidden = forRestart.unsqueeze(0).unsqueeze(2) * hiddenNew + (1-forRestart).unsqueeze(0).unsqueeze(2) * hidden
+#           hidden = forRestart.unsqueeze(0).unsqueeze(2) * hiddenNew + (1-forRestart).unsqueeze(0).unsqueeze(2) * hidden
  #          print(torch.where)
+           hidden = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, hiddenNew, hidden)
+
            beginning = torch.where(forRestart.unsqueeze(0) == 1, zeroBeginning, beginning)
 #           beginning = forRestart.unsqueeze(0).unsqueeze(2) * zeroBeginning + (1-forRestart).unsqueeze(0).unsqueeze(2) * beginning
        else:

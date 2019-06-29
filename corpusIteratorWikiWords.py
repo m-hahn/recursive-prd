@@ -22,7 +22,7 @@ def load(language, partition="train", removeMarkup=True):
           index = len(line)-1
       word = line[:index]
       chunk.append(word.lower())
-      if len(chunk) > 500000:
+      if len(chunk) > 1000000:
       #   random.shuffle(chunk)
          yield chunk
          chunk = []
