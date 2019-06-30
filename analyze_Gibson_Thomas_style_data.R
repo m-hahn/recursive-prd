@@ -1,3 +1,5 @@
+# PROBLEM the conditions are not matched for length
+
 library(tidyr)
 library(dplyr)
 library(lme4)
