@@ -8,7 +8,7 @@ PATH = "/u/scr/mhahn/FAIR18/WIKIPEDIA/farsi/"
 for partition in ["test", "valid", "train"]:
   lineCounter = 0
 
-  with open(PATH+"/farsi-test-"+partition+".txt", "w") as outFile:
+  with open(PATH+"/farsi-"+partition+".txt", "w") as outFile:
     with open(PATH+"/farsi-"+partition+".txt", "r") as inFile:
       buff = ""
       for line in inFile:
