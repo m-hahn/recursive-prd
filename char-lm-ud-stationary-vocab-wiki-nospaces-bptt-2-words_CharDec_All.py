@@ -27,7 +27,7 @@ parser.add_argument("--verbose", type=bool, default=False)
 parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 parser.add_argument("--char_emb_dim", type=int, default=128)
 parser.add_argument("--char_enc_hidden_dim", type=int, default=64)
-parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
+parser.add_argument("--char_dec_hidden_dim", type=int, default=256)
 
 model = "REAL_REAL"
 
@@ -268,15 +268,15 @@ def forward(numeric, train=True, printHere=False):
      # print(target_tensor_chars.size())
       out_flattened = out.view(-1, 1024)
       target_tensor_chars_flattened = target_tensor_chars.view(args.sequence_length * args.batchSize, 16)
-      oovs = (target_tensor.view(-1) == 2)
-      out_relevant = out_flattened[oovs]
-      target_tensor_chars_relevant = target_tensor_chars_flattened[oovs].t()
+      #
+      out_relevant = out_flattened#[oovs]
+      target_tensor_chars_relevant = target_tensor_chars_flattened.t() #[oovs].t()
    #   print(out_relevant.size())
   #    print(character_embeddings(target_tensor_chars_relevant[:-1]).size())
       out_chars, _ = char_decoder_rnn(torch.cat([character_embeddings(target_tensor_chars_relevant[:-1]), out_relevant.unsqueeze(0).expand(15, -1, -1)], dim=2))
       out_chars = logsoftmax(char_decoder_output(out_chars))
  #     print(out_chars.size())
-      loss_chars = train_loss_chars(out_chars.view(-1, len(itos_chars_total)), target_tensor_chars_relevant[1:].contiguous().view(-1)).view(15, -1)
+      loss_chars = train_loss_chars(out_chars.view(-1, len(itos_chars_total)), target_tensor_chars_relevant[1:].contiguous().view(-1)).view(15, -1, args.batchSize)
 
       loss_chars_total = loss_chars.sum() / (args.sequence_length * args.batchSize)
 #      print(loss_chars)
@@ -285,18 +285,20 @@ def forward(numeric, train=True, printHere=False):
 #      if train:
 #          out = dropout(out)
 
-      logits = output(out) 
-      log_probs = logsoftmax(logits)
+#      logits = output(out) 
+#      log_probs = logsoftmax(logits)
    #   print(logits)
   #    print(log_probs)
  #     print(target_tensor)
 
       
-      loss = train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)) + loss_chars_total
+      # train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)) + 
+      loss = loss_chars_total
 
       if printHere:
-         lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
-         lossTensor.masked_scatter_(mask=oovs, source=loss_chars.sum(dim=0))
+#         oovs = (target_tensor.view(-1) == 2)
+         lossTensor = loss_chars.sum(0) #print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
+#         lossTensor.masked_scatter_(mask=oovs, source=loss_chars.sum(dim=0)[oovs])
 
          lossTensor = lossTensor.view(-1, args.batchSize)
          
@@ -310,7 +312,8 @@ def forward(numeric, train=True, printHere=False):
    #            boundaries_index[0] += 1
     #        else:
      #          boundary = False
-            print((losses[i][0], itos[numericCPU[i+1][0]-3]))
+            word =          itos[numericCPU[i+1][0]-3]
+            print((losses[i][0], word, loss_chars[:, i, 0].tolist()))
       return loss, target_tensor.view(-1).size()[0]
 
 def backward(loss, printHere):

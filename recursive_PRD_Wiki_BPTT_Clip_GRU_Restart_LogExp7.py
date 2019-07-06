@@ -557,7 +557,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
    
            plainPriorLogProb = standardNormal.log_prob(epsilon).sum(dim=1) #- (0.5 * torch.sum(sampled * sampled, dim=1))
            logProbMarginal = plainPriorLogProb + logdet
-   
+           print(loss, logProbConditionalsTotal.mean(), logProbMarginal.mean())   
    
            klLoss = (logProbConditionalsTotal - logProbMarginal)
    #           print(logProbConditional, logProbMarginal)
