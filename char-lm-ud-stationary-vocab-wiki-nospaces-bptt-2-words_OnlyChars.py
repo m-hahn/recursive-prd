@@ -26,8 +26,9 @@ parser.add_argument("--sequence_length", type=int, default=random.choice([50]))
 parser.add_argument("--verbose", type=bool, default=False)
 parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 parser.add_argument("--char_emb_dim", type=int, default=128)
-parser.add_argument("--char_enc_hidden_dim", type=int, default=64)
+parser.add_argument("--char_enc_hidden_dim", type=int, default=128)
 parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
+
 
 model = "REAL_REAL"
 
@@ -78,7 +79,7 @@ print(torch.__version__)
 from weight_drop import WeightDrop
 
 
-rnn = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+rnn = torch.nn.LSTM(args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
 
 rnn_parameter_names = [name for name, _ in rnn.named_parameters()]
 print(rnn_parameter_names)
@@ -89,7 +90,7 @@ rnn_drop = WeightDrop(rnn, [(name, args.weight_dropout_in) for name, _ in rnn.na
 
 output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 
-word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=args.word_embedding_size).cuda()
+#word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=args.word_embedding_size).cuda()
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
 
@@ -100,7 +101,7 @@ char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
 
 train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
 
-modules = [rnn, output, word_embeddings]
+modules = [rnn, output] # , word_embeddings
 
 
 character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
@@ -108,11 +109,11 @@ character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)
 char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
 char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
 
-char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
-char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
+#char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
+#char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
 
 
-modules += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
+modules += [character_embeddings, char_composition, char_composition_output] #, char_decoder_rnn, char_decoder_output]
 def parameters():
    for module in modules:
        for param in module.parameters():
@@ -252,13 +253,13 @@ def forward(numeric, train=True, printHere=False):
       #if train and (embedding_full_dropout_prob is not None):
       #   embedded = embedded_dropout(word_embeddings, input_tensor, dropout=embedding_full_dropout_prob, scale=None) #word_embeddings(input_tensor)
       #else:
-      embedded = word_embeddings(input_tensor)
+#      embedded = word_embeddings(input_tensor)
       #print(embedded.size())
 #      print("=========")
 #      print(numeric[:,5])
 #      print(embedded[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
 #      print(embedded_chars[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
-      embedded = torch.cat([embedded, embedded_chars], dim=2)
+      embedded = embedded_chars #torch.cat([embedded, embedded_chars], dim=2)
       #print(embedded.size())
       if train:
          embedded = char_dropout(embedded)
@@ -313,7 +314,6 @@ for epoch in range(10000):
    training_data = corpusIteratorWikiWords.training(args.language)
    print("Got data")
    training_chars = prepareDatasetChunks(training_data, train=True)
-
 
 
    rnn_drop.train(True)

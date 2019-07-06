@@ -1,4 +1,3 @@
-assert False, "Unfinished"
 
 import torchkit.optim
 import torchkit.nn, torchkit.flows, torchkit.utils
@@ -30,8 +29,6 @@ parser.add_argument("--flow_num_layers", type=int, default=2)
 parser.add_argument("--myID", type=int, default=random.randint(0,10000000))
 parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--norm_clip", type=float, default=2.0)
-parser.add_argument("--char_emb_dim", type=int, default=50)
-parser.add_argument("--char_rnn_dim", type=int, default=128)
 
 
 
@@ -117,7 +114,7 @@ assert len(itos_total) == outVocabSize
 
 dropout = nn.Dropout(args.dropout_rate).cuda()
 
-rnn_both = nn.GRU(2*args.emb_dim, args.rnn_dim, args.rnn_layers).cuda()
+rnn_both = nn.GRU(args.emb_dim, args.rnn_dim, args.rnn_layers).cuda()
 for name, param in rnn_both.named_parameters():
   if 'bias' in name:
      nn.init.constant(param, 0.0)
@@ -133,15 +130,6 @@ startHidden.bias.data.fill_(0)
 
 components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
 
-char_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim)
-
-char_composition = nn.GRU(args.char_emb_dim, args.char_rnn_dim, 1, bidirectional=True).cuda()
-char_composition_output = nn.Linear(2*args.char_rnn_dim, args.emb_dim)
-
-char_decoder_rnn = nn.GRU(args.char_emb_dim, args.rnn_dim, 1).cuda()
-char_decoder_output = nn.Linear(args.rnn_dim, len(itos_chars_total))
-
-components += [char_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
 #           klLoss = [None for _ in inputEmbeddings]
 #           logStandardDeviationHidden = hiddenToLogSDHidden(hidden[1][0])
@@ -199,6 +187,114 @@ sampleToHidden.weight.data.fill_(0)
 
 
 
+import torchkit.nn as nn_
+
+
+
+class BaseFlow(torch.nn.Module):
+    def cuda(self):
+        self.gpu = True
+        return super(BaseFlow, self).cuda()
+
+
+
+
+
+class IAF(BaseFlow):
+    
+    def __init__(self, dim, hid_dim, context_dim, num_layers,
+                 activation=nn.ELU(), realify=nn_.sigmoid, fixed_order=False):
+        super(IAF, self).__init__()
+        self.realify = realify
+        
+        self.dim = dim
+        self.context_dim = context_dim
+        
+        if type(dim) is int:
+            self.mdl = torchkit.iaf_modules.cMADE(
+                    dim, hid_dim, context_dim, num_layers, 2, 
+                    activation, fixed_order)
+            self.reset_parameters()
+        else:
+           assert False        
+        
+    def reset_parameters(self):
+        self.mdl.hidden_to_output.cscale.weight.data.uniform_(-0.001, 0.001)
+        self.mdl.hidden_to_output.cscale.bias.data.uniform_(0.0, 0.0)
+        self.mdl.hidden_to_output.cbias.weight.data.uniform_(-0.001, 0.001)
+        self.mdl.hidden_to_output.cbias.bias.data.uniform_(0.0, 0.0)
+        if self.realify == nn_.softplus:
+            inv = np.log(np.exp(1-nn_.delta)-1) 
+            self.mdl.hidden_to_output.cbias.bias.data[1::2].uniform_(inv,inv)
+        elif self.realify == nn_.sigmoid:
+            self.mdl.hidden_to_output.cbias.bias.data[1::2].uniform_(2.0,2.0)
+        
+        
+    def forward(self, inputs):
+        x, logdet, context = inputs
+        if torch.isnan(x).any():
+           assert False, x
+        if torch.isnan(context).any():
+           assert False, context
+
+        out, _ = self.mdl((x, context))
+        if torch.isnan(out).any():
+           assert False, out
+        if isinstance(self.mdl, torchkit.iaf_modules.cMADE):
+            mean = out[:,:,0]
+            lstd = out[:,:,1]
+        else:
+            assert False
+    
+        std = self.realify(lstd)
+        
+        if self.realify == nn_.softplus:
+            x_ = mean + std * x
+        elif self.realify == nn_.sigmoid:
+            x_ = (-std+1.0) * mean + std * x
+        elif self.realify == nn_.sigmoid2:
+            x_ = (-std+2.0) * mean + std * x
+        logdet_ = nn_.sum_from_one(torch.log(std)) + logdet
+        return x_, logdet_, context
+
+ 
+
+
+
+num_ds_dim = 16 #64
+num_ds_layers = 1
+
+if args.flowtype == 'affine':
+    flow = IAF
+elif args.flowtype == 'dsf':
+    flow = lambda **kwargs:torchkit.flows.IAF_DSF(num_ds_dim=num_ds_dim,
+                                         num_ds_layers=num_ds_layers,
+                                         **kwargs)
+elif args.flowtype == 'ddsf':
+    flow = lambda **kwargs:torchkit.flows.IAF_DDSF(num_ds_dim=num_ds_dim,
+                                          num_ds_layers=num_ds_layers,
+                                          **kwargs)
+
+
+#           hiddenMade = torch.nn.ReLU(torch.nn.functional.linear(sampled, weight_made * mask, bias_made))
+#
+#           muMade = torch.ReLU(torch.nn.functional.linear(hiddenMade, weight_made_mu * mask, bias_made_mu))
+#           logSigmaMade = (torch.nn.functional.linear(hiddenMade, weight_made_sigma * mask, bias_made_sigma))
+#           sigmaMade = torch.exp(logSigmaMade)
+
+
+
+
+
+components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden]
+
+context_dim = 1
+flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=args.flow_num_layers, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
+
+
+components = components + flows
+
+
 
 
 def parameters():
@@ -216,13 +312,31 @@ def parameters():
 #for pa in parameters():
 #  print pa
 
+initrange = 0.1
+#word_embeddings.weight.data.uniform_(-initrange, initrange)
+#pos_u_embeddings.weight.data.uniform_(-initrange, initrange)
+#pos_p_embeddings.weight.data.uniform_(-initrange, initrange)
+#morph_embeddings.weight.data.uniform_(-initrange, initrange)
+word_pos_morph_embeddings.weight.data.uniform_(-initrange, initrange)
+
 decoder.bias.data.fill_(0)
+decoder.weight.data.uniform_(-initrange, initrange)
+#pos_ptb_decoder.bias.data.fill_(0)
+#pos_ptb_decoder.weight.data.uniform_(-initrange, initrange)
+#baseline.bias.data.fill_(0)
+#baseline.weight.data.uniform_(-initrange, initrange)
+
+
 
 
 crossEntropy = 10.0
 
+#def encodeWord(w):
+#   return stoi[w]+3 if stoi[w] < vocab_size else 1
 
-optimizer = torch.optim.SGD(parameters(), lr=args.lr)
+#loss = torch.nn.CrossEntropyLoss(reduce=False, ignore_index = 0)
+
+optimizer = torch.optim.Adam(parameters(), lr=args.lr, betas=(0.9, 0.999) , weight_decay=args.weight_decay)
 
 
 import torch.cuda
@@ -368,7 +482,6 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
 
            for i in range(inputEmbeddings.size()[0]):
               #print(i, hidden.abs().max())
-              torch.clamp(hidden, min=-10, max=10)
 
               output1, hidden = rnn_both(inputEmbeddings[i].unsqueeze(0), hidden)
    
@@ -393,8 +506,12 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
 
               hiddenNew = sampleToHidden(sampled).unsqueeze(0)
               # this also serves as the output for prediction
-              
+
+            
               hidden = hiddenNew
+
+              hidden = torch.clamp(hidden, min=-20, max=20)
+
 
 #              print(hidden.abs().max())
 
@@ -404,8 +521,13 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
               if doDropout:
                  output = dropout(output)
               word_logits = decoder(output)
+#              torch.clamp(hidden, min=-5, max=5)
+
+
               word_logits = word_logits.view(batchSizeHere, outVocabSize)
               word_softmax = logsoftmax(word_logits)
+#              print(word_logits.abs().max(), word_softmax.abs().max())
+             
               lossesWord = lossModuleTest(word_softmax, inputTensorOut[i].view(batchSizeHere))
               lossesWordTotal.append(lossesWord) 
 

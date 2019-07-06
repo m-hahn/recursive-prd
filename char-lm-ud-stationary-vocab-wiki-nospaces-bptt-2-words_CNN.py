@@ -27,6 +27,7 @@ parser.add_argument("--char_emb_dim", type=int, default=128)
 parser.add_argument("--char_enc_hidden_dim", type=int, default=64)
 parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
+model = "REAL_REAL"
 
 import math
 

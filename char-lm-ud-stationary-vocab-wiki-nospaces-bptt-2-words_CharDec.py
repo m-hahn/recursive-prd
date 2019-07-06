@@ -98,7 +98,7 @@ print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
 char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
 
 
-train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
+train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='none')
 
 modules = [rnn, output, word_embeddings]
 
@@ -109,7 +109,7 @@ char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1,
 char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
 
 char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
-char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
+char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total)).cuda()
 
 
 modules += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
@@ -237,7 +237,7 @@ def forward(numeric, train=True, printHere=False):
       target_tensor = Variable(numeric[1:], requires_grad=False)
 
       input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
-      target_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
+      target_tensor_chars = Variable(numeric_chars[1:], requires_grad=False)
 
       embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
       embedded_chars = embedded_chars.contiguous().view(16, -1)
@@ -264,6 +264,24 @@ def forward(numeric, train=True, printHere=False):
          embedded = char_dropout(embedded)
 
       out, hidden = rnn_drop(embedded, hidden)
+    #  print(out.size())
+     # print(target_tensor_chars.size())
+      out_flattened = out.view(-1, 1024)
+      target_tensor_chars_flattened = target_tensor_chars.view(args.sequence_length * args.batchSize, 16)
+      oovs = (target_tensor.view(-1) == 2)
+      out_relevant = out_flattened[oovs]
+      target_tensor_chars_relevant = target_tensor_chars_flattened[oovs].t()
+   #   print(out_relevant.size())
+  #    print(character_embeddings(target_tensor_chars_relevant[:-1]).size())
+      out_chars, _ = char_decoder_rnn(torch.cat([character_embeddings(target_tensor_chars_relevant[:-1]), out_relevant.unsqueeze(0).expand(15, -1, -1)], dim=2))
+      out_chars = logsoftmax(char_decoder_output(out_chars))
+ #     print(out_chars.size())
+      loss_chars = train_loss_chars(out_chars.view(-1, len(itos_chars_total)), target_tensor_chars_relevant[1:].contiguous().view(-1)).view(15, -1)
+
+      loss_chars_total = loss_chars.sum() / (args.sequence_length * args.batchSize)
+#      print(loss_chars)
+#      quit()
+
 #      if train:
 #          out = dropout(out)
 
@@ -274,10 +292,14 @@ def forward(numeric, train=True, printHere=False):
  #     print(target_tensor)
 
       
-      loss = train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
+      loss = train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)) + loss_chars_total
 
       if printHere:
-         lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
+         lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
+         lossTensor.masked_scatter_(mask=oovs, source=loss_chars.sum(dim=0))
+
+         lossTensor = lossTensor.view(-1, args.batchSize)
+         
          losses = lossTensor.data.cpu().numpy()
          numericCPU = numeric.cpu().data.numpy()
 #         boundaries_index = [0 for _ in numeric]
@@ -330,7 +352,7 @@ for epoch in range(10000):
       printHere = (counter % 50 == 0)
       loss, charCounts = forward(numeric, printHere=printHere, train=True)
       backward(loss, printHere)
-      if loss.data.cpu().numpy() > 15.0:
+      if loss.data.cpu().numpy() > 40.0:
           lossHasBeenBad += 1
       else:
           lossHasBeenBad = 0
