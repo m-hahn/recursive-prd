@@ -1,4 +1,4 @@
-print("Character aware!")
+#print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model
 
@@ -13,7 +13,7 @@ parser.add_argument("--language", dest="language", type=str, default="english")
 import random
 
 parser.add_argument("--batchSize", type=int, default=random.choice([128]))
-parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
+parser.add_argument("--word_embedding_size", type=int, default=random.choice([1024]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([1024]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
 parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.05]))
@@ -78,7 +78,7 @@ print(torch.__version__)
 from weight_drop import WeightDrop
 
 
-rnn = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+rnn = torch.nn.LSTM(args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
 
 rnn_parameter_names = [name for name, _ in rnn.named_parameters()]
 print(rnn_parameter_names)
@@ -102,47 +102,6 @@ train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
 
 modules = [rnn, output, word_embeddings]
 
-
-character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim, padding_idx=0).cuda()
-
-#char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
-#char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
-
-#char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
-#char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
-
-
-modules += [character_embeddings] #, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
-
-import torch.nn as nn
-
-class Highway(nn.Module):
-    def __init__(self, input_size):
-        super(Highway, self).__init__()
-        self.proj = nn.Linear(input_size, input_size, bias=True)
-        self.gate = nn.Linear(input_size, input_size, bias=True)
-
-    def forward(self, input):
-        projected = nn.functional.relu(self.proj(input))
-        gate_value = torch.sigmoid(self.gate(input))
-        return (gate_value * projected) + ((1 - gate_value) * input)
-
-class CNN(nn.Module):
-    def __init__(self, n_conv_filters=100, n_channels=50):
-        super(CNN, self).__init__()
-        self.conv1 = nn.Conv1d(n_channels, n_conv_filters, kernel_size=5, padding=0)
-        self.conv1.weight.data.uniform_(-0.1, 0.1)
-    def forward(self, input):
-        output = self.conv1(input)
-        output = nn.functional.relu(output)
-        output, _ = torch.max(output, dim=2)
-        return output
-
-
-cnn = CNN(n_conv_filters=args.word_embedding_size, n_channels=args.char_emb_dim).cuda()
-highway = Highway(args.word_embedding_size).cuda()
-
-modules += [cnn, highway]
 
 
 
@@ -179,7 +138,7 @@ def prepareDatasetChunks(data, train=True):
       count = 0
       print("Prepare chunks")
       numerified = []
-      numerified_chars = []
+      #numerified_chars = []
       for chunk in data:
        #print(len(chunk))
        for char in chunk:
@@ -189,31 +148,31 @@ def prepareDatasetChunks(data, train=True):
 #         if count % 100000 == 0:
 #             print(count/len(data))
          numerified.append((stoi[char]+3 if char in stoi else 2))
-         numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
+ #        numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
 
        if len(numerified) > (args.batchSize*args.sequence_length):
          sequenceLengthHere = args.sequence_length
 
          cutoff = int(len(numerified)/(args.batchSize*sequenceLengthHere)) * (args.batchSize*sequenceLengthHere)
          numerifiedCurrent = numerified[:cutoff]
-         numerifiedCurrent_chars = numerified_chars[:cutoff]
+#         numerifiedCurrent_chars = numerified_chars[:cutoff]
 
-         for i in range(len(numerifiedCurrent_chars)):
-            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
-            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
+#         for i in range(len(numerifiedCurrent_chars)):
+ #           numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
+  #          numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
 
 
          numerified = numerified[cutoff:]
-         numerified_chars = numerified_chars[cutoff:]
+         #numerified_chars = numerified_chars[cutoff:]
        
          numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
-         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
+#         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
 
 #         print(numerifiedCurrent_chars.size())
  #        quit()
          numberOfSequences = numerifiedCurrent.size()[0]
          for i in range(numberOfSequences):
-             yield numerifiedCurrent[i], numerifiedCurrent_chars[i]
+             yield numerifiedCurrent[i], None
          hidden = None
        else:
          print("Skipping")
@@ -238,67 +197,25 @@ bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in r
 def forward(numeric, train=True, printHere=False):
       global hidden
       global beginning
-      global beginning_chars
-      if hidden is None:
+      if hidden is None or (train and random.random() > 0.9):
           hidden = None
           beginning = zeroBeginning
-          beginning_chars = zeroBeginning_chars
       elif hidden is not None:
-          hidden1 = Variable(hidden[0]).detach()
-          hidden2 = Variable(hidden[1]).detach()
-          forRestart = bernoulli.sample()
-          hidden1 = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroHidden, hidden1)
-          hidden2 = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroHidden, hidden2)
-          hidden = (hidden1, hidden2)
-          beginning = torch.where(forRestart.unsqueeze(0) == 1, zeroBeginning, beginning)
-          beginning_chars = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroBeginning_chars, beginning_chars)
+          hidden = tuple([Variable(x.data).detach() for x in hidden])
 
 
 
-
-      numeric, numeric_chars = numeric
+      numeric, _ = numeric
 #      print(numeric_chars.size())
       numeric = torch.cat([beginning, numeric], dim=0)
 
-      numeric_chars = torch.cat([beginning_chars, numeric_chars], dim=0)
-
       beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize)
-      beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, args.batchSize, 16)
 
 
       input_tensor = Variable(numeric[:-1], requires_grad=False)
       target_tensor = Variable(numeric[1:], requires_grad=False)
 
-      input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
-      target_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
-
-      embedded_chars = input_tensor_chars.contiguous()
-
-      embedded_chars = embedded_chars.view(-1, 16)
-      embedded_chars = character_embeddings(embedded_chars)
-
-      embedded_chars = embedded_chars.view(-1, 16, args.char_emb_dim)
-      embedded_chars = embedded_chars.transpose(1, 2)
-
-      embedded_chars = cnn(embedded_chars)        
-      embedded_chars = highway(embedded_chars)
-#      embedded_chars = dropout(embedded_chars)
-
-      embedded_chars = embedded_chars.view(args.sequence_length, args.batchSize, args.word_embedding_size)
-
-
-
-
-
-
-      #_, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
-      #embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
-      #print(embedded_chars.size())
-
-      #embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
-      #print(embedded_chars.size())
-
-    #  print(word_embeddings)
+    #  print(char_embeddings)
       #if train and (embedding_full_dropout_prob is not None):
       #   embedded = embedded_dropout(word_embeddings, input_tensor, dropout=embedding_full_dropout_prob, scale=None) #word_embeddings(input_tensor)
       #else:
@@ -308,7 +225,7 @@ def forward(numeric, train=True, printHere=False):
 #      print(numeric[:,5])
 #      print(embedded[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
 #      print(embedded_chars[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
-      embedded = torch.cat([embedded, embedded_chars], dim=2)
+#      embedded = torch.cat([embedded, embedded_chars], dim=2)
       #print(embedded.size())
       if train:
          embedded = char_dropout(embedded)
@@ -396,6 +313,7 @@ for epoch in range(10000):
           print(devLosses)
           print("Words per sec "+str(trainChars/(time.time()-startTime)))
           print(learning_rate)
+          print(__file__)
           print(args)
       if counter % 20000 == 0: # and epoch == 0:
      #   if args.save_to is not None:

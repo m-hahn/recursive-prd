@@ -17,7 +17,7 @@ parser.add_argument("--word_embedding_size", type=int, default=random.choice([51
 parser.add_argument("--hidden_dim", type=int, default=random.choice([1024]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
 parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.05]))
-parser.add_argument("--weight_dropout_hidden", type=float, default=random.choice([0.15]))
+parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
 parser.add_argument("--learning_rate", type = float, default= random.choice([1.0]))
@@ -75,7 +75,7 @@ import torch
 
 print(torch.__version__)
 
-from weight_drop import WeightDrop
+#from weight_drop import WeightDrop
 
 
 rnn = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
@@ -85,7 +85,7 @@ print(rnn_parameter_names)
 #quit()
 
 
-rnn_drop = WeightDrop(rnn, layer_names=[(name, args.weight_dropout_in) for name, _ in rnn.named_parameters() if name.startswith("weight_ih_")] + [ (name, args.weight_dropout_hidden) for name, _ in rnn.named_parameters() if name.startswith("weight_hh_")])
+rnn_drop = rnn #WeightDrop(rnn, layer_names=[(name, args.weight_dropout_in) for name, _ in rnn.named_parameters() if name.startswith("weight_ih_")] + [ (name, args.weight_dropout_hidden) for name, _ in rnn.named_parameters() if name.startswith("weight_hh_")])
 
 output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 
@@ -103,49 +103,16 @@ train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
 modules = [rnn, output, word_embeddings]
 
 
-character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim, padding_idx=0).cuda()
+character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
 
-#char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
-#char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
+char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
+char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
 
-#char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
-#char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
-
-
-modules += [character_embeddings] #, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
-
-import torch.nn as nn
-
-class Highway(nn.Module):
-    def __init__(self, input_size):
-        super(Highway, self).__init__()
-        self.proj = nn.Linear(input_size, input_size, bias=True)
-        self.gate = nn.Linear(input_size, input_size, bias=True)
-
-    def forward(self, input):
-        projected = nn.functional.relu(self.proj(input))
-        gate_value = torch.sigmoid(self.gate(input))
-        return (gate_value * projected) + ((1 - gate_value) * input)
-
-class CNN(nn.Module):
-    def __init__(self, n_conv_filters=100, n_channels=50):
-        super(CNN, self).__init__()
-        self.conv1 = nn.Conv1d(n_channels, n_conv_filters, kernel_size=5, padding=0)
-        self.conv1.weight.data.uniform_(-0.1, 0.1)
-    def forward(self, input):
-        output = self.conv1(input)
-        output = nn.functional.relu(output)
-        output, _ = torch.max(output, dim=2)
-        return output
+char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
+char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
 
 
-cnn = CNN(n_conv_filters=args.word_embedding_size, n_channels=args.char_emb_dim).cuda()
-highway = Highway(args.word_embedding_size).cuda()
-
-modules += [cnn, highway]
-
-
-
+modules += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 def parameters():
    for module in modules:
        for param in module.parameters():
@@ -234,6 +201,11 @@ zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda
 
 bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
+bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
+bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
+
+
+
 
 def forward(numeric, train=True, printHere=False):
       global hidden
@@ -272,30 +244,13 @@ def forward(numeric, train=True, printHere=False):
       input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
       target_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
 
-      embedded_chars = input_tensor_chars.contiguous()
-
-      embedded_chars = embedded_chars.view(-1, 16)
-      embedded_chars = character_embeddings(embedded_chars)
-
-      embedded_chars = embedded_chars.view(-1, 16, args.char_emb_dim)
-      embedded_chars = embedded_chars.transpose(1, 2)
-
-      embedded_chars = cnn(embedded_chars)        
-      embedded_chars = highway(embedded_chars)
-#      embedded_chars = dropout(embedded_chars)
-
-      embedded_chars = embedded_chars.view(args.sequence_length, args.batchSize, args.word_embedding_size)
-
-
-
-
-
-
-      #_, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
-      #embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
+      embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
+      embedded_chars = embedded_chars.contiguous().view(16, -1)
+      _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
+      embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
       #print(embedded_chars.size())
 
-      #embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
+      embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
       #print(embedded_chars.size())
 
     #  print(word_embeddings)
@@ -312,10 +267,21 @@ def forward(numeric, train=True, printHere=False):
       #print(embedded.size())
       if train:
          embedded = char_dropout(embedded)
+         mask = bernoulli_input.sample()
+         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         embedded = embedded * mask
 
       out, hidden = rnn_drop(embedded, hidden)
 #      if train:
 #          out = dropout(out)
+
+
+      if train:
+        mask = bernoulli_output.sample()
+        mask = mask.view(1, args.batchSize, args.hidden_dim)
+        out = out * mask
+
+
 
       logits = output(out) 
       log_probs = logsoftmax(logits)
@@ -396,6 +362,7 @@ for epoch in range(10000):
           print(devLosses)
           print("Words per sec "+str(trainChars/(time.time()-startTime)))
           print(learning_rate)
+          print(__file__)
           print(args)
       if counter % 20000 == 0: # and epoch == 0:
      #   if args.save_to is not None:

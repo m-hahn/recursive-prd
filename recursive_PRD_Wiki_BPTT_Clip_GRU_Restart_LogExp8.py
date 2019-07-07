@@ -491,14 +491,14 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
               klLoss = [None for _ in inputEmbeddings]
               logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0])
    #           print(torch.exp(logStandardDeviationHidden))
-              scaleForDist = torch.log(1+torch.exp(logStandardDeviationHidden))
+              scaleForDist = 1e-3 + torch.log(1+torch.exp(logStandardDeviationHidden))
               memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
    #           sampled = memoryDistribution.rsample()
    
               encodedEpsilon = standardNormalPerStep.sample()
 
 
-              encodedEpsilon = torch.clamp(encodedEpsilon, min=-10, max=10)
+#              encodedEpsilon = torch.clamp(encodedEpsilon, min=-10, max=10)
 
               sampled = meanHidden + scaleForDist * encodedEpsilon
    

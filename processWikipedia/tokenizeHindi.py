@@ -9,7 +9,7 @@ PATH = "/u/scr/mhahn/FAIR18/WIKIPEDIA/hindi/"
 for partition in ["test", "valid", "train"]:
   lineCounter = 0
 
-  with open(PATH+"/hindi-"+partition+".txt", "w") as outFile:
+  with open(PATH+"/hindi-"+partition+"-tokenized.txt", "w") as outFile:
     with open(PATH+"/hindi-"+partition+".txt", "r") as inFile:
       buff = ""
       for line in inFile:
