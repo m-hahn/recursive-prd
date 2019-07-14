@@ -43,7 +43,7 @@ print(args)
 
 
 
-import corpusIterator_Bartek_GG
+import corpusIterator_Bartek_GG_Py37
 
 
 
@@ -310,7 +310,7 @@ if True:
    rnn_drop.train(False)
 
 
-   test_data = corpusIterator_Bartek_GG.load(args.language, tokenize=False)
+   test_data = corpusIterator_Bartek_GG_Py37.load(args.language, tokenize=True)
    print("Got data")
    test_chars = prepareDatasetChunks(test_data, train=False)
 

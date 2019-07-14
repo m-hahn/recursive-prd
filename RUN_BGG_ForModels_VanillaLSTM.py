@@ -21,6 +21,7 @@ with open("results/models_vanillaLSTM_"+language+".tsv", "w") as outFile:
        print >> outFile, "\t".join([str(x) for x in [ID, script, surprisal]])
 
 
-       command = ["/u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python", "RUN_LK_"+script, "--language=english", "--load-from="+ID]
+       command = ["/u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python", "RUN_BGG_"+script, "--language=english", "--load-from="+ID]
+       print " ".join(command)
        subprocess.call(command)
 
