@@ -1,3 +1,5 @@
+# version 9: marginal prob ends up at -inf, and surprisal bcomes gigantic for a long time
+
 
 import torchkit.optim
 import torchkit.nn, torchkit.flows, torchkit.utils

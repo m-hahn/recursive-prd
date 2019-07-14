@@ -1,6 +1,6 @@
-# ./python27 recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp10.py --language english --beta 4.539993e-05
-# Worked OK until it was killed, seems fine.
-
+# recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11.py
+# Works without NA
+# ./python27 recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11.py --beta 4.539993e-05 --lr 0.0001
 
 import torchkit.optim
 import torchkit.nn, torchkit.flows, torchkit.utils
@@ -494,7 +494,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
               klLoss = [None for _ in inputEmbeddings]
               logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0])
    #           print(torch.exp(logStandardDeviationHidden))
-              scaleForDist = 1e-10 + torch.log(1+torch.exp(logStandardDeviationHidden))
+              scaleForDist = 1e-8 + torch.log(1+torch.exp(logStandardDeviationHidden))
               memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
    #           sampled = memoryDistribution.rsample()
    
@@ -520,7 +520,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
             
               hidden = hiddenNew
 
-              hidden = torch.clamp(hidden, min=-20, max=20)
+              hidden = torch.clamp(hidden, min=-5, max=5)
 
 
 #              print(hidden.abs().max())

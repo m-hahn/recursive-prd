@@ -1,3 +1,5 @@
+# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_OnlyChars_NoWeightDrop.py works, though perplexities after one epoch seem not as good as char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py.
+
 print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model

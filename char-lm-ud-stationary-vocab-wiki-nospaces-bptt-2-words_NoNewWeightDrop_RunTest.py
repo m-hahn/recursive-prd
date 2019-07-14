@@ -1,6 +1,3 @@
-# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_CNN_NoewDropout.py: Uses a CNN (instead of LSTM) to create character-based word embeddings. Seems to also work fine, not clear how exactly it compares to the character-LSTM-encoder version.
-
-
 print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model
@@ -10,7 +7,7 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-#parser.add_argument("--load-from", dest="load_from", type=str)
+parser.add_argument("--load-from", dest="load_from", type=str)
 #parser.add_argument("--save-to", dest="save_to", type=str)
 
 import random
@@ -106,49 +103,16 @@ train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
 modules = [rnn, output, word_embeddings]
 
 
-character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim, padding_idx=0).cuda()
+character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
 
-#char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
-#char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
+char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
+char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
 
-#char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
-#char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
-
-
-modules += [character_embeddings] #, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
-
-import torch.nn as nn
-
-class Highway(nn.Module):
-    def __init__(self, input_size):
-        super(Highway, self).__init__()
-        self.proj = nn.Linear(input_size, input_size, bias=True)
-        self.gate = nn.Linear(input_size, input_size, bias=True)
-
-    def forward(self, input):
-        projected = nn.functional.relu(self.proj(input))
-        gate_value = torch.sigmoid(self.gate(input))
-        return (gate_value * projected) + ((1 - gate_value) * input)
-
-class CNN(nn.Module):
-    def __init__(self, n_conv_filters=100, n_channels=50):
-        super(CNN, self).__init__()
-        self.conv1 = nn.Conv1d(n_channels, n_conv_filters, kernel_size=5, padding=0)
-        self.conv1.weight.data.uniform_(-0.1, 0.1)
-    def forward(self, input):
-        output = self.conv1(input)
-        output = nn.functional.relu(output)
-        output, _ = torch.max(output, dim=2)
-        return output
+char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
+char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
 
 
-cnn = CNN(n_conv_filters=args.word_embedding_size, n_channels=args.char_emb_dim).cuda()
-highway = Highway(args.word_embedding_size).cuda()
-
-modules += [cnn, highway]
-
-
-
+modules += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 def parameters():
    for module in modules:
        for param in module.parameters():
@@ -163,10 +127,16 @@ optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.
 
 #named_modules = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
 
-#if args.load_from is not None:
-#  checkpoint = torch.load(MODELS_HOME+"/"+args.load_from+".pth.tar")
-#  for name, module in named_modules.items():
- #     module.load_state_dict(checkpoint[name])
+
+#   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
+#   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+
+
+
+if args.load_from is not None:
+  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_RunTest", "")+"_code_"+str(args.load_from)+".txt")
+  for i in range(len(checkpoint["components"])):
+      modules[i].load_state_dict(checkpoint["components"][i])
 
 from torch.autograd import Variable
 
@@ -174,7 +144,6 @@ from torch.autograd import Variable
 # ([0] + [stoi[training_data[x]]+1 for x in range(b, b+sequence_length) if x < len(training_data)]) 
 
 #from embed_regularize import embedded_dropout
-
 
 
 def prepareDatasetChunks(data, train=True):
@@ -280,30 +249,13 @@ def forward(numeric, train=True, printHere=False):
       input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
       target_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
 
-      embedded_chars = input_tensor_chars.contiguous()
-
-      embedded_chars = embedded_chars.view(-1, 16)
-      embedded_chars = character_embeddings(embedded_chars)
-
-      embedded_chars = embedded_chars.view(-1, 16, args.char_emb_dim)
-      embedded_chars = embedded_chars.transpose(1, 2)
-
-      embedded_chars = cnn(embedded_chars)        
-      embedded_chars = highway(embedded_chars)
-#      embedded_chars = dropout(embedded_chars)
-
-      embedded_chars = embedded_chars.view(args.sequence_length, args.batchSize, args.word_embedding_size)
-
-
-
-
-
-
-      #_, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
-      #embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
+      embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
+      embedded_chars = embedded_chars.contiguous().view(16, -1)
+      _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
+      embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
       #print(embedded_chars.size())
 
-      #embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
+      embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
       #print(embedded_chars.size())
 
     #  print(word_embeddings)
@@ -369,110 +321,46 @@ def backward(loss, printHere):
       optim.step()
 
 
-lossHasBeenBad = 0
+
 
 import time
 
-totalStartTime = time.time()
+testLosses = []
 
-
-devLosses = []
-for epoch in range(10000):
-   print(epoch)
-   training_data = corpusIteratorWikiWords.training(args.language)
-   print("Got data")
-   training_chars = prepareDatasetChunks(training_data, train=True)
-
-
-
-   rnn_drop.train(True)
-   startTime = time.time()
-   trainChars = 0
-   counter = 0
-   hidden, beginning = None, None
-   while True:
-      counter += 1
-      try:
-         numeric = next(training_chars)
-      except StopIteration:
-         break
-      printHere = (counter % 50 == 0)
-      loss, charCounts = forward(numeric, printHere=printHere, train=True)
-      backward(loss, printHere)
-      if loss.data.cpu().numpy() > 15.0:
-          lossHasBeenBad += 1
-      else:
-          lossHasBeenBad = 0
-      if lossHasBeenBad > 100:
-          print("Loss exploding, has been bad for a while")
-          print(loss)
-          quit()
-      trainChars += charCounts 
-      if printHere:
-          print(("Loss here", loss))
-          print((epoch,counter))
-          print("Dev losses")
-          print(devLosses)
-          print("Words per sec "+str(trainChars/(time.time()-startTime)))
-          print(learning_rate)
-          print(__file__)
-          print(args)
-      if counter % 20000 == 0: # and epoch == 0:
-     #   if args.save_to is not None:
-        state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
-        torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-
-      if (time.time() - totalStartTime)/60 > 4000:
-          print("Breaking early to get some result within 72 hours")
-          totalStartTime = time.time()
-          break
-
- #     break
+if True:
    rnn_drop.train(False)
 
 
-   dev_data = corpusIteratorWikiWords.dev(args.language)
+   test_data = corpusIteratorWikiWords.test(args.language)
    print("Got data")
-   dev_chars = prepareDatasetChunks(dev_data, train=False)
+   test_chars = prepareDatasetChunks(test_data, train=False)
 
 
      
-   dev_loss = 0
-   dev_char_count = 0
+   test_loss = 0
+   test_char_count = 0
    counter = 0
    hidden, beginning = None, None
    while True:
        counter += 1
        try:
-          numeric = next(dev_chars)
+          numeric = next(test_chars)
        except StopIteration:
           break
        printHere = (counter % 50 == 0)
        loss, numberOfCharacters = forward(numeric, printHere=printHere, train=False)
-       dev_loss += numberOfCharacters * loss.cpu().data.numpy()
-       dev_char_count += numberOfCharacters
-   devLosses.append(dev_loss/dev_char_count)
-   print(devLosses)
-#   quit()
-   #if args.save_to is not None:
- #     torch.save(dict([(name, module.state_dict()) for name, module in named_modules.items()]), MODELS_HOME+"/"+args.save_to+".pth.tar")
-
-   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
+       test_loss += numberOfCharacters * loss.cpu().data.numpy()
+       test_char_count += numberOfCharacters
+   testLosses.append(test_loss/test_char_count)
+   print(testLosses)
+   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.load_from)+"_"+model+".txt", "w") as outFile:
        print(str(args), file=outFile)
-       print(" ".join([str(x) for x in devLosses]), file=outFile)
-
-   if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
-      break
-
-   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
-   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+       print(" ".join([str(x) for x in testLosses]), file=outFile)
 
 
 
 
 
 
-   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
-   optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.9
 
 
