@@ -70,3 +70,13 @@ model = brm(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c + 
 
 summary(model)
 
+
+#                 Estimate Est.Error l-95% CI u-95% CI Eff.Sample Rhat
+#Intercept            9.33      0.40     8.54    10.13        569 1.01
+#pp_rc                0.01      0.09    -0.17     0.20       1294 1.00
+#emb_c               -0.04      0.07    -0.17     0.10       1826 1.00
+#someIntervention     0.75      0.17     0.41     1.10       1248 1.00
+#pp_rc:emb_c          0.06      0.01     0.03     0.09       4000 1.00
+
+
+

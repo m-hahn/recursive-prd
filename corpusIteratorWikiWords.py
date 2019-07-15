@@ -10,7 +10,7 @@ def load(language, partition="train", removeMarkup=True):
   elif language == "german":
     path = WIKIPEDIA_HOME+""+language+"-"+partition+"-tagged.txt"
   else:
-    assert False
+    path = WIKIPEDIA_HOME+"/WIKIPEDIA/"+language+"/"+language+"-"+partition+"-tagged.txt"
   chunk = []
   with open(path, "r") as inFile:
     for line in inFile:

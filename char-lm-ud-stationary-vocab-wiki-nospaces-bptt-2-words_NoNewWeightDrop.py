@@ -54,7 +54,7 @@ def plus(it1, it2):
    for x in it2:
       yield x
 
-char_vocab_path = {"german" : "vocabularies/german-wiki-word-vocab-50000.txt", "italian" : "vocabularies/italian-wiki-word-vocab-50000.txt", "english" : "vocabularies/english-wiki-word-vocab-50000.txt"}[args.language]
+char_vocab_path = "vocabularies/"+args.language.lower()+"-wiki-word-vocab-50000.txt"
 
 with open(char_vocab_path, "r") as inFile:
      itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
