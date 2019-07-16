@@ -23,7 +23,7 @@ stoi_chars = dict([(itos_chars[i],i) for i in range(len(itos_chars))])
 
 with open("stimuli/husain_etal_2014_hindi/final_items_all.txt", "r") as inFile:
  with open("stimuli/husain_etal_2014_hindi/final_items_all_tokenized.txt", "w") as outFile:
-   print("\t".join([str(z) for z in ["ItemCondition", "OriginalTokenNumber", "Region", "TokenizedTokenNumber", "TokenizedWord"]]), file=outFile)
+   print("\t".join([str(z) for z in ["ItemCondition", "OriginalTokenNumber", "Region", "TokenizedTokenNumber", "TokenizedWord", "Experiment", "Item", "Condition"]]), file=outFile)
 
    typ = None
    for line in inFile:
@@ -57,6 +57,13 @@ with open("stimuli/husain_etal_2014_hindi/final_items_all.txt", "r") as inFile:
          posTxt = 0
          posWrd = 1
          i = 0
+
+         typs = typ.split(" ")[1:]
+         experiment = typs[0]
+         item=typs[1]
+         condition=typs[2]
+         assert len(typs)==3
+
          for x, r in words:
                for y in x:
               #   if y not in stoi:
@@ -64,7 +71,7 @@ with open("stimuli/husain_etal_2014_hindi/final_items_all.txt", "r") as inFile:
                   #  print("\t".join(("WORD", y, str(len([_ for _ in y])), str(posTxt), str(posWrd))))
                     for _ in y:
                        if posWrd == len(text_tokenized[posTxt]):
-                           print("\t".join([str(z) for z in [typ, i, r, posTxt, text_tokenized[posTxt]]]), file=outFile)
+                           print("\t".join([str(z) for z in [typ, i, r, posTxt, text_tokenized[posTxt], experiment, item, condition]]), file=outFile)
 #                           print(i, posTxt, posWrd, y, "\t", text_tokenized[posTxt], "XXXXXXXXXXXXXX" if y != text_tokenized[posTxt] else "")
                            if r != "NONE":
                              if ("RC1" in typ and r == "RCVerb") or ("RC2" in typ and r in ["NP1", "RCPn"]) or ("PP1" in typ and r == "HeadNP") or("CP1" in typ and r == "CPLightVerb"):
