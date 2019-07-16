@@ -54,7 +54,7 @@ def plus(it1, it2):
    for x in it2:
       yield x
 
-char_vocab_path = {"german" : "vocabularies/german-wiki-word-vocab-50000.txt", "italian" : "vocabularies/italian-wiki-word-vocab-50000.txt", "english" : "vocabularies/english-wiki-word-vocab-50000.txt"}[args.language]
+char_vocab_path = "vocabularies/"+args.language.lower()+"-wiki-word-vocab-50000.txt"
 
 with open(char_vocab_path, "r") as inFile:
      itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
@@ -131,13 +131,16 @@ optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.
 #   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
 #   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
 
-
-
-if args.load_from is not None:
-  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_RunTest", "")+"_code_"+str(args.load_from)+".txt")
-  for i in range(len(checkpoint["components"])):
-      modules[i].load_state_dict(checkpoint["components"][i])
-
+assert __file__ == "char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_RunTest.py"
+for options in ["char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_RunTest.py", "char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_Search_RunTest.py", "char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_Farsi_RunTest.py"]:
+  try:
+    if args.load_from is not None:
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+options.replace("_RunTest", "")+"_code_"+str(args.load_from)+".txt")
+     for i in range(len(checkpoint["components"])):
+        modules[i].load_state_dict(checkpoint["components"][i])
+  except FileNotFoundError:
+    continue
+  break
 from torch.autograd import Variable
 
 
