@@ -26,7 +26,7 @@ library(dplyr)
 ## preliminary data processing:
 data <- read.table("~/scr/recursive-prd/VSLK_LCP/E1_EN_SPR/data/e1_en_spr_data.txt")
 colnames(data) <- c("subject","expt","item","condition","position","word","rt")
-data$LineNumber = (1:nrow(data))-1
+
 
 models = c(
 905843526 ,  
@@ -42,16 +42,15 @@ for(model in models) {
    datModel = rbind(datModel, datModel2)
 }
 
-data = merge(data, datModel, by=c("LineNumber"))
-
-data = data %>% filter(!grepl("OOV", RegionLSTM))
-
 data <- subset(data,expt=="gug")
 data$expt <- factor(data$expt)
 
 ## make every position start with 1 instead of 0
 data$position <- as.numeric(data$position)+1
 
+## don't need this
+#dataq <- read.table("engugspr1q.txt")
+#colnames(dataq) <- c("subj","expt","item","condition","dummy","response","correct","RT")
 
 library(reshape)
 
@@ -80,7 +79,7 @@ d.rs$roi <- ifelse(d.rs$position==2,1, # NP1
 ## NP3:
 pos05data <- subset(d.rs,roi==5)
 
-d.rs.NP3 <- melt(pos05data, id=c("subject" ,  "expt"  ,    "item"   ,   "condition" ,"position" , "word", "Surprisal", "Model"),
+d.rs.NP3 <- melt(pos05data, id=c("subject" ,  "expt"  ,    "item"   ,   "condition" ,"position" , "word"),
                 measure=c("rt"), variable_name="times",
                 na.rm=FALSE)
 
@@ -105,7 +104,7 @@ d.rs.NP3$int <- ifelse(d.rs.NP3$condition%in%c("a","c"),"hi","lo")
 ## V3:
 pos09data <- subset(d.rs,position==9)
 
-d.rs.V3 <- melt(pos09data, id=c("subject" ,  "expt"  ,    "item" ,     "condition" ,"position" , "word", "Surprisal", "Model"),
+d.rs.V3 <- melt(pos09data, id=c("subject" ,  "expt"  ,    "item" ,     "condition" ,"position" , "word"),
                 measure=c("rt"), variable_name="times",
                 na.rm=FALSE)
 
@@ -124,7 +123,7 @@ data.cd <- subset(data,condition%in%c("c","d"))
 
 pos10data <- subset(data.ab,position==10) ## V2 in a,b
 
-d.rs.V2ab <- melt(pos10data, id=c("subject" ,  "expt"   ,   "item"   ,   "condition", "position" , "word", "Surprisal", "Model"),
+d.rs.V2ab <- melt(pos10data, id=c("subject" ,  "expt"   ,   "item"   ,   "condition", "position" , "word"),
                 measure=c("rt"), variable_name="times",
                 na.rm=TRUE)
 
@@ -140,7 +139,7 @@ pos11data <- subset(data.ab,position==11)
 pos10data <- subset(data.cd,position==10)
 pos1011data <- rbind(pos10data,pos11data)
 
-d.rs.V1 <- melt(pos1011data, id=c("subject" ,  "expt"  ,    "item"   ,   "condition", "position",  "word", "Surprisal", "Model"),
+d.rs.V1 <- melt(pos1011data, id=c("subject" ,  "expt"  ,    "item"   ,   "condition", "position",  "word"),
                 measure="rt", variable_name="times",
                 na.rm=TRUE)
 
@@ -154,7 +153,7 @@ pos12data <- subset(data.ab,position==12)
 pos11data <- subset(data.cd,position==11)
 pos1112data <- rbind(pos12data,pos11data)
 
-d.rs.postV1 <- melt(pos1112data, id=c("subject"  , "expt"    ,  "item"  ,    "condition", "position" , "word", "Surprisal", "Model"),
+d.rs.postV1 <- melt(pos1112data, id=c("subject"  , "expt"    ,  "item"  ,    "condition", "position" , "word"),
                 measure="rt", variable_name="times",
                 na.rm=TRUE)
 
@@ -256,8 +255,6 @@ summary(fm3 <- lmer(log(value)~ g+i+gxi+(1|subject)+(1|item),
 summary(fm3 <- lmer(value~ g+i+gxi+(1|subject)+(1|item),
                    data=data3))
 
-summary(fm3 <- lmer(Surprisal~ g+i+gxi+(1|Model)+(1|item),
-                   data=data3))
 
 ## comparison 4 post V1 region (this is the crucial critical region for the grammaticality difference):
 data4 <- subset(critdata,(region=="postV1"))
@@ -272,12 +269,4 @@ summary(fm4 <- lmer(value~ g+i+gxi+(1|subject)+(1|item),
 summary(fm4a <- lmer(log(value)~ g+i+gxi+(1+g|subject)+(1|item),
                    data=subset(data4)))
 
-summary(fm4a <- lmer(Surprisal~ g+i+gxi+(1+g|Model)+(1|item),
-                   data=subset(data4)))
-# What is i?
-#g           -0.193967   0.037362  -5.192    # the opposite of structural forgetting
-#i           -0.044981   0.009165  -4.908    # show interference facilitation
-#gxi          0.017126   0.009167   1.868
-
-#In Experiments 14 presented here, another factor was included, but this was orthogonal tothe present issue. This other factor was interference; we manipulated the similarity of the secondNP with respect to the first and third NPs. Since the results of that manipulation do not concernthis study,  we  omit  discussion  of this  factor in  the  paper.  The  items  presented in  Appendix 1show all four conditions, and the experimental data (which will be made available online), willcontain a full discussion of the interference results and their interpretation
 
