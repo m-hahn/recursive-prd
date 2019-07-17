@@ -13,13 +13,14 @@ def load(language,  partition="train", removeMarkup=True, tokenize=True):
   chunk_line_numbers = []
   for linenum, line in enumerate(text):
      words = line[header['response']]
-     if line[header["response"]] == "?": # Reove yes-no questions
+     if line[header["question"]] == "?": # Reove yes-no questions
          continue
+     assert words != "Y"
      words = words.split("_")
      for word in words:
 
         if tokenize:
-            if word[-1] in [".", ","]:
+            if word[-1] in [".", ",", "?"]:
                chunk.append(word[:-1].lower())
                chunk.append(word[-1].lower())
                chunk_line_numbers.append(linenum)

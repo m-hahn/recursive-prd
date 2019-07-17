@@ -1,0 +1,9 @@
+shuf extracted.txt > extracted-shuffled.txt
+ls
+
+sed -n '1,10000 p' extracted-shuffled.txt > farsi-valid.txt
+sed -n '10001,20000 p' extracted-shuffled.txt > farsi-test.txt
+wc -l extracted-shuffled.txt 
+
+sed -n '20001,2596058 p' extracted-shuffled.txt > farsi-train.txt
+

@@ -1,17 +1,19 @@
 from paths import WIKIPEDIA_HOME
 import random
  
-
+import codecs
 def load(language, partition="train", removeMarkup=True, tokenize=True):
   assert language == "german"
-  with open("/u/scr/mhahn/recursive-prd/VSLK_LCP/E3_DE_SPR/data/e3desprdata.txt", "r") as inFile:
-     text = [x.split(" ") for x in inFile.read().strip().split("\n")]
+  with codecs.open("/u/scr/mhahn/recursive-prd/VSLK_LCP/E3_DE_SPR/data/e3desprdata.txt", "r", "iso-8859-1") as inFile:
+     text = [x.strip().replace("   ", " ").replace("  ", " ").split(" ") for x in inFile.read().strip().split("\n")]
   header = ["subj","expt","item","condition","position","word","RT","similarity","grammaticality"] # according to VSLK_LCP/E3_DE_SPR/analysis/rcode/e3_de_spr.R
   header = dict(zip(header, range(len(header))))
   chunk = []
 
   chunk_line_numbers = []
   for linenum, line in enumerate(text):
+     print(line)
+     assert len(line) == len(header)
      words = line[header['word']]
      words = words.split("_")
      for word in words:
@@ -30,7 +32,6 @@ def load(language, partition="train", removeMarkup=True, tokenize=True):
                chunk.append(char.lower())
                chunk_line_numbers.append(linenum)
 
-  print(chunk)
   yield chunk, chunk_line_numbers
 
 def test(language, removeMarkup=True):
@@ -39,13 +40,6 @@ def test(language, removeMarkup=True):
 
 
 if __name__ == '__main__':
-    stream = test("english", 1)
-    char_vocab_path = {"german" : "vocabularies/german-wiki-word-vocab-50000.txt", "italian" : "vocabularies/italian-wiki-word-vocab-50000.txt", "english" : "vocabularies/english-wiki-word-vocab-50000.txt"}["english"]
-    
-    with open(char_vocab_path, "r") as inFile:
-         itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
-    stoi = dict([(itos[i],i) for i in range(len(itos))])
-    notIn = 0
-    total = 0
+    stream = test("german")
     next(stream)
 

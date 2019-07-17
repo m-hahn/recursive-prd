@@ -16,7 +16,7 @@ for language in ["english", "german"]:
           args = next(inFile)
           surprisal = float(next(inFile).strip())
    
-          for section in {"english" : ["E1", "E1a", "E5", "E6"], "german" : ["E3"]}[language]:
+          for section in {"english" : [], "german" : ["E3"]}[language]: # "E1", "E1a", "E5", "E6"
             command = ["/u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python", "RUN_V11_"+script, "--language="+language, "--load-from="+ID, "--section="+section]
             subprocess.call(command)
    
