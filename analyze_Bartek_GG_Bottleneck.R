@@ -26,12 +26,26 @@ summary(lmer(Surprisal ~ pp_rc * emb_c + (1 + pp_rc + emb_c|item), data=vb)) # f
 
 
 models = c(
-905843526,
-655887140,
-766978233,
-502504068,
-697117799,
-860606598)
+819988 , 
+#1844991 ,
+7032387 ,
+#4711997 ,
+#6753790 ,
+#8947967 ,
+#6804992 ,
+#223875  ,
+8066636 ,
+#5679638 ,
+#5639933 ,
+7378388 
+#1397814
+)
+
+
+
+
+
+
 
 data = data.frame()
 
@@ -64,7 +78,7 @@ vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Mode
 library(ggplot2)
 
 plot = ggplot(data=vb_ %>% group_by(intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~embedding)
-ggsave(plot, file="figures/bartek_gg_vanillaLSTM.pdf")
+ggsave(plot, file="figures/bartek_gg_bottleneck.pdf")
 
 summary(lmer(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + (1 + pp_rc + emb_c + someIntervention|Model), data=vb_)) # finds RC >> PP >> none
 #summary(lmer(Surprisal ~ pp_rc * emb_c + (1 + pp_rc + emb_c|item), data=vb)) # finds RC more difficult, but no diff between matrix and emb

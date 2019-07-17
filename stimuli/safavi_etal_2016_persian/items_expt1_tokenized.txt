@@ -1,0 +1,1 @@
+ItemCondition	OriginalTokenNumber	Region	TokenizedTokenNumber	TokenizedWord	Experiment	Item	Condition

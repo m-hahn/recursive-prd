@@ -2,17 +2,19 @@ from paths import WIKIPEDIA_HOME
 import random
  
 
-def load(language, section, partition="train", removeMarkup=True, tokenize=True):
+def load(language,  partition="train", removeMarkup=True, tokenize=True):
   assert language == "english"
-  with open("/u/scr/mhahn/recursive-prd/VSLK_LCP/E1a_EN_SPR/data/e1a_en_spr_data.txt", "r") as inFile:
+  with open("/u/scr/mhahn/recursive-prd/VSLK_LCP/E6_EN_ET/Data/expt6data.txt", "r") as inFile:
      text = [x.split(" ") for x in inFile.read().strip().split("\n")]
-  header = ["subject","expt","item","condition","position","word","rt"] # according to VSLK_LCP/E1a_EN_SPR/analysis/rcode/processdata.R
+  header = ["run","comma","subject","subj","expt","item","condition","question","response","correct","rt"] # according to VSLK_LCP/E6_EN_ET/analysisall.R
   header = dict(zip(header, range(len(header))))
   chunk = []
 
   chunk_line_numbers = []
   for linenum, line in enumerate(text):
-     words = line[header['word']]
+     words = line[header['response']]
+     if line[header["response"]] == "?": # Reove yes-no questions
+         continue
      words = words.split("_")
      for word in words:
 
@@ -33,8 +35,8 @@ def load(language, section, partition="train", removeMarkup=True, tokenize=True)
   print(chunk)
   yield chunk, chunk_line_numbers
 
-def test(language, section=1, removeMarkup=True):
-  return load(language, section, "test", removeMarkup=removeMarkup)
+def test(language, removeMarkup=True):
+  return load(language,  "test", removeMarkup=removeMarkup)
 
 
 
