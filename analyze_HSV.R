@@ -17,7 +17,7 @@ library(lme4)
 dataBase = read.csv("stimuli/husain_etal_2014_hindi/final_items_all_tokenized.txt", sep="\t")
 dataBase$LineNumber = (1:nrow(dataBase))-1
 # Important note for Hindi data:
-#NOTE originally had a bug by omitting the final 1. Oddly, that also gave similar results. TODO really have to understand what causes this!!!!!
+#NOTE originally had a bug by omitting the final `minus 1' in the LineNumber. Oddly, that also gave similar results, even though that meant the tokens were off. TODO really have to understand what causes this!!!!!
 
 data = data.frame()
 for(model in models) {
@@ -25,6 +25,9 @@ for(model in models) {
    data = rbind(data, data2)
 }
 dataBase = merge(data, dataBase)
+mean(as.character(u$RegionLSTM) == as.character(u$TokenizedWord))
+
+dataBase[dataBase$Model == "25588231" & dataBase$LineNumber == 2,]
 
 ###############################
 
@@ -48,7 +51,8 @@ ggsave(plot, file="figures/husain_exp1_critreg.pdf", height=2, width=5)
 
 #summary(lmer(Surprisal ~ SubjRC*Long + (1+SubjRC+Long+SubjRC*Long|Item) + (1+SubjRC+Long+SubjRC*Long|Model), exp1 %>% filter(Region == "RCVerb")))
 
-
+# NOTE Also there are very strong effects at the Main Verb:
+# summary(lmer(Surprisal ~ SubjRC*Long + (1+SubjRC+Long+SubjRC*Long|Item) + (1+SubjRC+Long+SubjRC*Long|Model), exp1 %>% filter(Region == "MainVerb")))
 
 
 
