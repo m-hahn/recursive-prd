@@ -593,7 +593,7 @@ def computeDevLoss():
      except StopIteration:
         break
 
-     devMemory += devMemoryHere.data.cpu().numpy()
+     devMemory += 0
      devLoss += newLoss
      devWords += newWords
      if printHere:
