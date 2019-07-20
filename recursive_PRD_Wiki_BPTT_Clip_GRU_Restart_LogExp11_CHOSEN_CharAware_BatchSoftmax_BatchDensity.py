@@ -1,4 +1,13 @@
-# TODO FINISH THIS. ALSO, THESE NEED TO BE CHARACTER AWARE.
+# recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11.py
+# Works without NA
+# ./python27 recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11.py --beta 4.539993e-05 --lr 0.0001
+
+# recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11_CHOSEN_CharAware_BatchSoftmax.py
+# Could improve efficiency by batching the Gaussian density computations
+
+
+import time
+
 
 import torchkit.optim
 import torchkit.nn, torchkit.flows, torchkit.utils
@@ -15,7 +24,7 @@ import math
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", type=str, default="english")
 parser.add_argument("--dropout_rate", type=float, default=random.choice([0.0]))
-parser.add_argument("--emb_dim", type=int, default=100)
+parser.add_argument("--emb_dim", type=int, default=200)
 parser.add_argument("--rnn_dim", type=int, default=512)
 parser.add_argument("--rnn_layers", type=int, default=1)
 parser.add_argument("--lr", type=float, default=random.choice([0.0001])) # 0.00001, 
@@ -30,10 +39,13 @@ parser.add_argument("--flow_num_layers", type=int, default=2)
 parser.add_argument("--myID", type=int, default=random.randint(0,10000000))
 parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--norm_clip", type=float, default=2.0)
+parser.add_argument("--char_emb_dim", type=int, default=128)
+parser.add_argument("--char_enc_hidden_dim", type=int, default=64)
 
 
 
 args=parser.parse_args()
+assert args.flow_length == 0
 print(str(args))
 
 BETA = math.exp(-args.log_beta)
@@ -72,9 +84,7 @@ import corpusIteratorWikiWords
 
 originalDistanceWeights = {}
 
-morphKeyValuePairs = set()
 
-vocab_lemmas = {}
 
 
 
@@ -87,17 +97,23 @@ from torch.autograd import Variable
 import numpy.random
 
 softmax_layer = torch.nn.Softmax()
-logsoftmax = torch.nn.LogSoftmax()
+logsoftmax = torch.nn.LogSoftmax(dim=2)
 
 from paths import CHAR_VOCAB_HOME
 
 
-char_vocab_path = {"german" : "vocabularies/german-wiki-word-vocab-50000.txt", "italian" : "vocabularies/italian-wiki-word-vocab-50000.txt", "english" : "vocabularies/english-wiki-word-vocab-50000.txt"}[args.language]
+char_vocab_path = "vocabularies/"+args.language.lower()+"-wiki-word-vocab-50000.txt"
 
 with open(char_vocab_path, "r") as inFile:
      itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
 stoi = dict([(itos[i],i) for i in range(len(itos))])
 
+with open("vocabularies/char-vocab-wiki-"+args.language, "r") as inFile:
+     itos_chars = [x for x in inFile.read().strip().split("\n")]
+stoi_chars = dict([(itos_chars[i],i) for i in range(len(itos_chars))])
+
+
+itos_chars_total = ["SOS", "EOS", "OOV"] + itos_chars
 
 import os
 
@@ -106,7 +122,7 @@ vocab_size = 50000
 
 
 word_pos_morph_embeddings = torch.nn.Embedding(num_embeddings = len(itos)+3, embedding_dim=args.emb_dim).cuda()
-outVocabSize = 3+len(itos) #+vocab_size+len(morphKeyValuePairs)+3
+outVocabSize = 3+len(itos) 
 
 
 itos_total = ["EOS", "OOV", "SOS"] + itos #+ itos_lemmas[:vocab_size] + itos_morph
@@ -118,7 +134,7 @@ assert len(itos_total) == outVocabSize
 
 dropout = nn.Dropout(args.dropout_rate).cuda()
 
-rnn_both = nn.GRU(args.emb_dim, args.rnn_dim, args.rnn_layers).cuda()
+rnn_both = nn.GRU(2*args.emb_dim, args.rnn_dim, args.rnn_layers).cuda()
 for name, param in rnn_both.named_parameters():
   if 'bias' in name:
      nn.init.constant(param, 0.0)
@@ -135,12 +151,6 @@ startHidden.bias.data.fill_(0)
 components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
 
 
-#           klLoss = [None for _ in inputEmbeddings]
-#           logStandardDeviationHidden = hiddenToLogSDHidden(hidden[1][0])
-#           sampled = torch.normal(hiddenMean, torch.exp(logStandardDeviationHidden))
-#           klLoss = 0.5 * (-1 - 2 * (logStandardDeviationHidden) + torch.pow(meanHidden, 2) + torch.exp(2*logStandardDeviationHidden))
-#           hiddenNew = sampleToHidden(sampled)
-#           cellNew = sampleToCell(sampled)
  
 
 
@@ -158,35 +168,6 @@ sampleToHidden.weight.data.fill_(0)
 
 
 
-#
-#weight_made = [torch.cuda.FloatTensor(args.rnn_dim, args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in weight_made:
-#  p.requires_grad=True
-#  nn.init.xavier_normal(p)
-#
-#bias_made = [torch.cuda.FloatTensor(args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in bias_made:
-#   p.requires_grad=True
-#
-#weight_made_mu = [torch.cuda.FloatTensor(args.rnn_dim, args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in weight_made_mu:
-#   p.requires_grad=True
-#
-#bias_made_mu = [torch.cuda.FloatTensor(args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in bias_made_mu:
-#   p.requires_grad=True
-#
-#weight_made_sigma = [torch.cuda.FloatTensor(args.rnn_dim, args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in weight_made_sigma:
-#   p.requires_grad=True
-#
-#bias_made_sigma = [torch.cuda.FloatTensor(args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in bias_made_sigma:
-#   p.requires_grad=True
-#
-#
-#
-#parameters_made = [weight_made, bias_made, weight_made_mu, bias_made_mu, weight_made_sigma, bias_made_sigma]
 
 
 
@@ -195,96 +176,11 @@ import torchkit.nn as nn_
 
 
 
-class BaseFlow(torch.nn.Module):
-    def cuda(self):
-        self.gpu = True
-        return super(BaseFlow, self).cuda()
 
 
 
 
 
-class IAF(BaseFlow):
-    
-    def __init__(self, dim, hid_dim, context_dim, num_layers,
-                 activation=nn.ELU(), realify=nn_.sigmoid, fixed_order=False):
-        super(IAF, self).__init__()
-        self.realify = realify
-        
-        self.dim = dim
-        self.context_dim = context_dim
-        
-        if type(dim) is int:
-            self.mdl = torchkit.iaf_modules.cMADE(
-                    dim, hid_dim, context_dim, num_layers, 2, 
-                    activation, fixed_order)
-            self.reset_parameters()
-        else:
-           assert False        
-        
-    def reset_parameters(self):
-        self.mdl.hidden_to_output.cscale.weight.data.uniform_(-0.001, 0.001)
-        self.mdl.hidden_to_output.cscale.bias.data.uniform_(0.0, 0.0)
-        self.mdl.hidden_to_output.cbias.weight.data.uniform_(-0.001, 0.001)
-        self.mdl.hidden_to_output.cbias.bias.data.uniform_(0.0, 0.0)
-        if self.realify == nn_.softplus:
-            inv = np.log(np.exp(1-nn_.delta)-1) 
-            self.mdl.hidden_to_output.cbias.bias.data[1::2].uniform_(inv,inv)
-        elif self.realify == nn_.sigmoid:
-            self.mdl.hidden_to_output.cbias.bias.data[1::2].uniform_(2.0,2.0)
-        
-        
-    def forward(self, inputs):
-        x, logdet, context = inputs
-        if torch.isnan(x).any():
-           assert False, x
-        if torch.isnan(context).any():
-           assert False, context
-
-        out, _ = self.mdl((x, context))
-        if torch.isnan(out).any():
-           assert False, out
-        if isinstance(self.mdl, torchkit.iaf_modules.cMADE):
-            mean = out[:,:,0]
-            lstd = out[:,:,1]
-        else:
-            assert False
-    
-        std = self.realify(lstd)
-        
-        if self.realify == nn_.softplus:
-            x_ = mean + std * x
-        elif self.realify == nn_.sigmoid:
-            x_ = (-std+1.0) * mean + std * x
-        elif self.realify == nn_.sigmoid2:
-            x_ = (-std+2.0) * mean + std * x
-        logdet_ = nn_.sum_from_one(torch.log(std)) + logdet
-        return x_, logdet_, context
-
- 
-
-
-
-num_ds_dim = 16 #64
-num_ds_layers = 1
-
-if args.flowtype == 'affine':
-    flow = IAF
-elif args.flowtype == 'dsf':
-    flow = lambda **kwargs:torchkit.flows.IAF_DSF(num_ds_dim=num_ds_dim,
-                                         num_ds_layers=num_ds_layers,
-                                         **kwargs)
-elif args.flowtype == 'ddsf':
-    flow = lambda **kwargs:torchkit.flows.IAF_DDSF(num_ds_dim=num_ds_dim,
-                                          num_ds_layers=num_ds_layers,
-                                          **kwargs)
-
-
-#           hiddenMade = torch.nn.ReLU(torch.nn.functional.linear(sampled, weight_made * mask, bias_made))
-#
-#           muMade = torch.ReLU(torch.nn.functional.linear(hiddenMade, weight_made_mu * mask, bias_made_mu))
-#           logSigmaMade = (torch.nn.functional.linear(hiddenMade, weight_made_sigma * mask, bias_made_sigma))
-#           sigmaMade = torch.exp(logSigmaMade)
 
 
 
@@ -292,11 +188,19 @@ elif args.flowtype == 'ddsf':
 
 components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden]
 
-context_dim = 1
-flows = [flow(dim=args.rnn_dim, hid_dim=args.flow_hid_dim, context_dim=context_dim, num_layers=args.flow_num_layers, activation=torch.nn.ELU()).cuda() for _ in range(args.flow_length)]
+
+character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
+
+char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
+char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.emb_dim).cuda()
 
 
-components = components + flows
+
+components += [character_embeddings, char_composition, char_composition_output]
+
+
+
+
 
 
 
@@ -305,30 +209,12 @@ def parameters():
  for c in components:
    for param in c.parameters():
       yield param
-# for q in parameters_made:
-#   for p in q:
-#    yield p
-
-
-# yield dhWeights
-# yield distanceWeights
-
-#for pa in parameters():
-#  print pa
 
 initrange = 0.1
-#word_embeddings.weight.data.uniform_(-initrange, initrange)
-#pos_u_embeddings.weight.data.uniform_(-initrange, initrange)
-#pos_p_embeddings.weight.data.uniform_(-initrange, initrange)
-#morph_embeddings.weight.data.uniform_(-initrange, initrange)
 word_pos_morph_embeddings.weight.data.uniform_(-initrange, initrange)
 
 decoder.bias.data.fill_(0)
 decoder.weight.data.uniform_(-initrange, initrange)
-#pos_ptb_decoder.bias.data.fill_(0)
-#pos_ptb_decoder.weight.data.uniform_(-initrange, initrange)
-#baseline.bias.data.fill_(0)
-#baseline.weight.data.uniform_(-initrange, initrange)
 
 
 
@@ -381,22 +267,34 @@ def prepareDatasetChunks(data, train=True):
       count = 0
       print("Prepare chunks")
       numerified = []
+      numerified_chars = []
       for chunk in data:
        for char in chunk:
          count += 1
          numerified.append((stoi[char]+3 if char in stoi else 1))
+         numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
 
        if len(numerified) > (args.batchSize*args.horizon):
          sequenceLengthHere = args.horizon
 
          cutoff = int(len(numerified)/(args.batchSize*sequenceLengthHere)) * (args.batchSize*sequenceLengthHere)
          numerifiedCurrent = numerified[:cutoff]
+         numerifiedCurrent_chars = numerified_chars[:cutoff]
+
+         for i in range(len(numerifiedCurrent_chars)):
+            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
+            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
+
+
          numerified = numerified[cutoff:]
-        
+         numerified_chars = numerified_chars[cutoff:]
+       
          numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
+         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
+
          numberOfSequences = numerifiedCurrent.size()[0]
          for i in range(numberOfSequences):
-             yield numerifiedCurrent[i]
+             yield numerifiedCurrent[i], numerifiedCurrent_chars[i]
          hidden = None
        else:
          print("Skipping")
@@ -408,11 +306,17 @@ hidden = None
 zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
 beginning = zeroBeginning
 
+zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
+
+
 zeroHidden = torch.FloatTensor([0 for _ in range(args.batchSize)]).cuda().view(args.batchSize, 1)
 
 bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
-def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
+
+
+
+def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
        global counter
        global crossEntropy
        global printHere
@@ -420,6 +324,8 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
  
        global hidden
        global beginning
+       global beginning
+       global beginning_chars
 
        if hidden is not None:
            hidden = Variable(hidden.data).detach()
@@ -430,20 +336,25 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
 #           hidden = forRestart.unsqueeze(0).unsqueeze(2) * hiddenNew + (1-forRestart).unsqueeze(0).unsqueeze(2) * hidden
  #          print(torch.where)
            hidden = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, hiddenNew, hidden)
-
            beginning = torch.where(forRestart.unsqueeze(0) == 1, zeroBeginning, beginning)
 #           beginning = forRestart.unsqueeze(0).unsqueeze(2) * zeroBeginning + (1-forRestart).unsqueeze(0).unsqueeze(2) * beginning
+           beginning_chars = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroBeginning_chars, beginning_chars)
        else:
            sampled = startHidden(zeroHidden)
            hiddenNew = sampleToHidden(sampled).unsqueeze(0)
            hidden = hiddenNew
            beginning = zeroBeginning
+           beginning_chars = zeroBeginning_chars
 
+       numeric, numeric_chars = numeric
        numeric = torch.cat([beginning, numeric], dim=0)
- 
+       numeric_chars = torch.cat([beginning_chars, numeric_chars], dim=0)
+
        beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize)
  
- 
+       beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, args.batchSize, 16)
+
+
 
        loss = 0
        wordNum = 0
@@ -463,20 +374,39 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
 
        if True:
            
-           inputTensor = numeric # so it will be sequence_length x args.batchSizeHere
+           inputTensor = numeric # so it will be horizon x args.batchSizeHere
 #           print inputTensor
 #           quit()
 
            inputTensorIn = inputTensor[:-1]
            inputTensorOut = inputTensor[1:]
 
+
+
+           input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
+     
+           embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
+           embedded_chars = embedded_chars.contiguous().view(16, -1)
+           _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
+           embedded_chars = embedded_chars[0].view(2, args.horizon, args.batchSize, args.char_enc_hidden_dim)
+     
+           embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
+     
+#           embedded = word_embeddings(input_tensor)
            inputEmbeddings = word_pos_morph_embeddings(inputTensorIn.view(args.horizon, batchSizeHere))
+
+           #print(embedded.size())
+     #      print("=========")
+     #      print(numeric[:,5])
+     #      print(embedded[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
+     #      print(embedded_chars[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
+           inputEmbeddings = torch.cat([inputEmbeddings, embedded_chars], dim=2)
+
            if doDropout:
-              inputEmbeddings = inputDropout(inputEmbeddings)
+              if args.input_dropoutRate > 0:
+                 inputEmbeddings = inputDropout(inputEmbeddings)
               if args.dropout_rate > 0:
                  inputEmbeddings = dropout(inputEmbeddings)
-
-
 
 
            lossesWordTotal = []
@@ -484,49 +414,124 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
            sampled_vectors = []
            logProbConditionals = []
 
+           output_vectors = []
+
+
+           scales = []
+           means = []                      
+
+
+           encodedEpsilonForAllSteps = standardNormal.sample().view(args.horizon, args.batchSize, -1)
+
+
            for i in range(inputEmbeddings.size()[0]):
               #print(i, hidden.abs().max())
 
-              output, hidden = rnn_both(inputEmbeddings[i].unsqueeze(0), hidden)
+              output1, hidden = rnn_both(inputEmbeddings[i].unsqueeze(0), hidden)
    
+              assert args.rnn_layers == 1
+              meanHidden = cellToMean(hidden[0])
+   
+              klLoss = [None for _ in inputEmbeddings]
+              logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0])
+   #           print(torch.exp(logStandardDeviationHidden))
+              scaleForDist = 1e-8 + torch.log(1+torch.exp(logStandardDeviationHidden))
+
+              scales.append(scaleForDist)
+              means.append(meanHidden)
+
+   #           sampled = memoryDistribution.rsample()
+   
+              encodedEpsilon = encodedEpsilonForAllSteps[i] #standardNormalPerStep.sample()
+
+
+#              encodedEpsilon = torch.clamp(encodedEpsilon, min=-10, max=10)
+
+              sampled = meanHidden + scaleForDist * encodedEpsilon
+   
+
+              sampled_vectors.append(sampled)
+
+#              print(encodedEpsilon.abs().max())
+
+
+
+              hiddenNew = sampleToHidden(sampled).unsqueeze(0)
+              # this also serves as the output for prediction
+
+            
+              hidden = hiddenNew
+
+              hidden = torch.clamp(hidden, min=-5, max=5)
+
+
+#              print(hidden.abs().max())
+
+#              output, _ = rnn_both(torch.cat([word_pos_morph_embeddings(torch.cuda.LongTensor([[2 for _ in range(args.batchSizeHere)]])), inputEmbeddings[halfSeqLen+1:]], dim=0), (hiddenNew, cellNew))
+ #             output = torch.cat([output1[:halfSeqLen], output], dim=0)
+              output = hiddenNew
               if doDropout:
-                 output = dropout(output)
-              word_logits = decoder(output)
+                 if args.dropout_rate > 0:
+                    output = dropout(output)
+              output_vectors.append(output)
 
 
-              word_logits = word_logits.view(batchSizeHere, outVocabSize)
-              word_softmax = logsoftmax(word_logits)
-#              print(word_logits.abs().max(), word_softmax.abs().max())
-             
-              lossesWord = lossModuleTest(word_softmax, inputTensorOut[i].view(batchSizeHere))
-              lossesWordTotal.append(lossesWord) 
-
-           lossesWord = torch.stack(lossesWordTotal, dim=0)
-           lossWords = lossesWord.sum(dim=0).sum(dim=0)
-           loss = lossesWord.sum()
+           meanHidden = torch.stack(means, dim=0)
+           scaleForDist = torch.stack(scales, dim=0)
+           memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
 
 
-           klLoss = 0
+           sampled = torch.stack(sampled_vectors, dim=0)
+
+           logProbConditional = memoryDistribution.log_prob(sampled).sum(dim=2)  #
+
+
            batchSizeInflatedHere = args.batchSize * len(sampled_vectors)
 
-           sampledTotal = torch.stack(sampled_vectors, dim=0).view(batchSizeInflatedHere, -1)
-           logProbConditionalsTotal = torch.stack(logProbConditionals, dim=0).view(batchSizeInflatedHere)
+
+           sampledTotal = sampled.view(batchSizeInflatedHere, -1)
+
+           #print(logProbConditional.size())
+
+
+#           print(output_vectors[0].size())
+           output = torch.cat(output_vectors, dim=0)
+    #       print(output.size())
+           word_logits = decoder(output)
+ #          print(word_logits.size())
+
+#           word_logits = word_logits.view(args.horizon, batchSizeHere, outVocabSize)
+           word_softmax = logsoftmax(word_logits)
+#           print(word_softmax)
+
+ #          print(word_softmax.size())
+  #         print(torch.exp(word_softmax).sum(dim=2))
+#           print(word_softmax.size())
+#           print(word_logits.abs().max(), word_softmax.abs().max())
+          
+#           print(word_softmax.size(), inputTensorOut.size())
+           lossesWord = lossModuleTest(word_softmax.view(-1, 50003), inputTensorOut.view(-1))
+#           print(inputTensorOut)
+ #          print(lossesWord.mean())
+ #          lossesWordTotal.append(lossesWord) 
+
+#           lossesWord = torch.stack(lossesWordTotal, dim=0)
+           lossWords = lossesWord.sum()
+           loss = lossWords
+
+           klLoss = 0
+
+           logProbConditionalsTotal = logProbConditional.view(batchSizeInflatedHere)
 #           print(sampledTotal.size(), logProbConditionalsTotal.size())
 
 
            #for sampled, logProbConditional in zip(sampled_vectors, logProbConditionals):
            adjustment = []
            epsilon = sampledTotal
-           logdet = torch.autograd.Variable(torch.from_numpy(np.zeros(batchSizeInflatedHere).astype('float32')).cuda())
    #        n=1
-           context = torch.autograd.Variable(torch.from_numpy(np.zeros((batchSizeInflatedHere,context_dim)).astype('float32')).cuda())
-           for flowStep in range( args.flow_length):
-             epsilon, logdet, context = flows[flowStep]((epsilon, logdet, context))
-             if flowStep +1 < args.flow_length:
-                epsilon, logdet, context = torchkit.flows.FlipFlow(1)((epsilon, logdet, context))
    
            plainPriorLogProb = standardNormal.log_prob(epsilon).sum(dim=1) #- (0.5 * torch.sum(sampled * sampled, dim=1))
-           logProbMarginal = plainPriorLogProb + logdet
+           logProbMarginal = plainPriorLogProb 
            #print(loss, logProbConditionalsTotal.mean(), logProbMarginal.mean())   
    
            klLoss = (logProbConditionalsTotal - logProbMarginal)
@@ -539,7 +544,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
            klLossSum = klLoss.sum()
            if counter % 10 == 0:
               klLossMean = klLoss.mean()
-              print(BETA, args.flow_length, klLossMean, lossesWord.mean(), BETA * klLoss.mean() + lossesWord.mean() )
+              print(BETA, args.flow_length, klLossMean, lossesWord.mean(), BETA * klLossMean + lossesWord.mean() )
               if float(klLossMean) != float(klLossMean):
                  print(hidden.abs().max())
                  assert False, "got NA, abort"
@@ -579,7 +584,7 @@ def doForwardPass(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1)
 
 #       policy_related_loss = lr_policy * (entropy_weight * neg_entropy + policyGradientLoss) # lives on CPU
        loss = loss / batchSizeHere
-       return loss, None, None, totalQuality, numberOfWords, klLoss.mean()
+       return loss, None, None, totalQuality, numberOfWords, klLoss.mean() if not doDropout else None
 
 
 parameterList = list(parameters())
@@ -603,7 +608,8 @@ def  doBackwardPass(loss, baselineLoss, policy_related_loss):
          print devLosses
          print lastDevLoss
 #       print("MAX NORM", max(p.grad.data.abs().max() for p in parameterList))
-       torch.nn.utils.clip_grad_norm(parameterList, args.norm_clip, norm_type='inf')
+       # REMOVED GRADIENT CLIPPING, HOPING FOR SPEED
+      # torch.nn.utils.clip_grad_norm(parameterList, args.norm_clip, norm_type='inf')
        optimizer.step()
        for param in parameters():
          if param.grad is None:
@@ -663,7 +669,7 @@ def computeDevLoss():
      printHere = (devCounter % 50 == 0)
      try:
        with torch.no_grad():
-          _, _, _, newLoss, newWords, devMemoryHere = doForwardPass(next(stream), surprisalTable = surprisalTable, doDropout=False, batchSizeHere=args.batchSize)
+          _, _, _, newLoss, newWords, devMemoryHere = forward(next(stream), surprisalTable = surprisalTable, doDropout=False, batchSizeHere=args.batchSize)
      except StopIteration:
         break
 
@@ -674,6 +680,11 @@ def computeDevLoss():
          print "Dev examples "+str(devCounter)
    devSurprisalTableHere = [surp/(devCounter*args.batchSize) for surp in surprisalTable]
    return devLoss/devWords, devSurprisalTableHere, devMemory/devCounter
+
+
+
+wordsProcessed = 0
+startTime = time.time()
 
 DEV_PERIOD = 10000
 epochCount = 0
@@ -739,9 +750,11 @@ while failedDevRuns < 10:
              #break
 
        try:
-         loss, baselineLoss, policy_related_loss, _, wordNumInPass, _ = doForwardPass(next(stream), batchSizeHere=args.batchSize)
+         loss, baselineLoss, policy_related_loss, _, wordNumInPass, _ = forward(next(stream), batchSizeHere=args.batchSize)
        except StopIteration:
           break
+
+       wordsProcessed += (args.batchSize * args.horizon)
 
        if wordNumInPass > 0:
          doBackwardPass(loss, baselineLoss, policy_related_loss)
@@ -753,6 +766,7 @@ while failedDevRuns < 10:
           if devSurprisalTable[0] is not None:
              print "MI(Bottleneck, Future) "+str(sum([x-y for x, y in zip(devSurprisalTable[0:args.horizon/2], devSurprisalTable[args.horizon/2:])]))
              print "Memories "+str(devMemories)
+          print str(wordsProcessed/(time.time() - startTime))+" words per second."
 
 
 

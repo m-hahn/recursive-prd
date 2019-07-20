@@ -1,10 +1,6 @@
-# recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11.py
-# Works without NA
-# ./python27 recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11.py --beta 4.539993e-05 --lr 0.0001
-
-# recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11_CHOSEN_CharAware_BatchSoftmax.py
-# Could improve efficiency by batching the Gaussian density computations
-
+# recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11_CHOSEN_CharAware_BatchSoftmax_BatchDensity_TMP.py
+# Minor optimization compared to recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11_CHOSEN_CharAware_BatchSoftmax_BatchDensity.py
+# Turns out to buy no benefit
 
 import time
 
@@ -403,11 +399,10 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
            inputEmbeddings = torch.cat([inputEmbeddings, embedded_chars], dim=2)
 
            if doDropout:
-              inputEmbeddings = inputDropout(inputEmbeddings)
+              if args.input_dropoutRate > 0:
+                 inputEmbeddings = inputDropout(inputEmbeddings)
               if args.dropout_rate > 0:
                  inputEmbeddings = dropout(inputEmbeddings)
-
-
 
 
            lossesWordTotal = []
@@ -416,6 +411,14 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
            logProbConditionals = []
 
            output_vectors = []
+
+
+           scales = []
+           means = []                      
+
+
+           encodedEpsilonForAllSteps = standardNormal.sample().view(args.horizon, args.batchSize, -1)
+
 
            for i in range(inputEmbeddings.size()[0]):
               #print(i, hidden.abs().max())
@@ -429,10 +432,13 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
               logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0])
    #           print(torch.exp(logStandardDeviationHidden))
               scaleForDist = 1e-8 + torch.log(1+torch.exp(logStandardDeviationHidden))
-              memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
+
+              scales.append(scaleForDist)
+              means.append(meanHidden)
+
    #           sampled = memoryDistribution.rsample()
    
-              encodedEpsilon = standardNormalPerStep.sample()
+              encodedEpsilon = encodedEpsilonForAllSteps[i] #standardNormalPerStep.sample()
 
 
 #              encodedEpsilon = torch.clamp(encodedEpsilon, min=-10, max=10)
@@ -444,8 +450,6 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
 
 #              print(encodedEpsilon.abs().max())
 
-              logProbConditional = memoryDistribution.log_prob(sampled).sum(dim=1)  # TODO not clear whether back-prob through sampled?
-              logProbConditionals.append(logProbConditional)
 
 
               hiddenNew = sampleToHidden(sampled).unsqueeze(0)
@@ -463,8 +467,33 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
  #             output = torch.cat([output1[:halfSeqLen], output], dim=0)
               output = hiddenNew
               if doDropout:
-                 output = dropout(output)
+                 if args.dropout_rate > 0:
+                    output = dropout(output)
               output_vectors.append(output)
+
+
+           meanHidden = torch.stack(means, dim=0)
+           scaleForDist = torch.stack(scales, dim=0)
+
+
+           sampled = torch.stack(sampled_vectors, dim=0)
+
+#           memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
+ #          logProbConditional = memoryDistribution.log_prob(sampled).sum(dim=2)  #
+ #          print("============")
+  #         print(logProbConditional)
+#           print(sampled.size(), meanHidden.size(), scaleForDist.size())
+           logProbConditional = - (((sampled-meanHidden) ** 2) / (2* (scaleForDist ** 2))) - math.log(math.sqrt(2*math.pi)) - torch.log(scaleForDist)
+           logProbConditional = logProbConditional.sum(dim=2)
+   #        print(logProbConditional)
+
+           batchSizeInflatedHere = args.batchSize * len(sampled_vectors)
+
+
+           sampledTotal = sampled.view(batchSizeInflatedHere, -1)
+
+           #print(logProbConditional.size())
+
 
 #           print(output_vectors[0].size())
            output = torch.cat(output_vectors, dim=0)
@@ -492,10 +521,8 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
            loss = lossWords
 
            klLoss = 0
-           batchSizeInflatedHere = args.batchSize * len(sampled_vectors)
 
-           sampledTotal = torch.stack(sampled_vectors, dim=0).view(batchSizeInflatedHere, -1)
-           logProbConditionalsTotal = torch.stack(logProbConditionals, dim=0).view(batchSizeInflatedHere)
+           logProbConditionalsTotal = logProbConditional.view(batchSizeInflatedHere)
 #           print(sampledTotal.size(), logProbConditionalsTotal.size())
 
 
@@ -518,7 +545,7 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
            klLossSum = klLoss.sum()
            if counter % 10 == 0:
               klLossMean = klLoss.mean()
-              print(BETA, args.flow_length, klLossMean, lossesWord.mean(), BETA * klLoss.mean() + lossesWord.mean() )
+              print(BETA, args.flow_length, klLossMean, lossesWord.mean(), BETA * klLossMean + lossesWord.mean() )
               if float(klLossMean) != float(klLossMean):
                  print(hidden.abs().max())
                  assert False, "got NA, abort"
@@ -558,7 +585,7 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
 
 #       policy_related_loss = lr_policy * (entropy_weight * neg_entropy + policyGradientLoss) # lives on CPU
        loss = loss / batchSizeHere
-       return loss, None, None, totalQuality, numberOfWords, klLoss.mean()
+       return loss, None, None, totalQuality, numberOfWords, klLoss.mean() if not doDropout else None
 
 
 parameterList = list(parameters())

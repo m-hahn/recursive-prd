@@ -144,27 +144,13 @@ for name, param in rnn_both.named_parameters():
 decoder = nn.Linear(args.rnn_dim,outVocabSize).cuda()
 #pos_ptb_decoder = nn.Linear(128,len(posFine)+3).cuda()
 
-startHidden = nn.Linear(1, args.rnn_dim).cuda()
-startHidden.bias.data.fill_(0)
 
 
-components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
+components = [rnn_both, decoder, word_pos_morph_embeddings]
 
 
  
 
-
-hiddenToLogSDHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
-cellToMean = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
-sampleToHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
-
-hiddenToLogSDHidden.bias.data.fill_(0)
-cellToMean.bias.data.fill_(0)
-sampleToHidden.bias.data.fill_(0)
-
-hiddenToLogSDHidden.weight.data.fill_(0)
-cellToMean.weight.data.fill_(0)
-sampleToHidden.weight.data.fill_(0)
 
 
 
@@ -181,12 +167,6 @@ import torchkit.nn as nn_
 
 
 
-
-
-
-
-
-components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden]
 
 
 character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
@@ -309,7 +289,8 @@ beginning = zeroBeginning
 zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
 
 
-zeroHidden = torch.FloatTensor([0 for _ in range(args.batchSize)]).cuda().view(args.batchSize, 1)
+
+zeroHidden = torch.zeros((args.rnn_layers, args.batchSize, args.rnn_dim)).cuda()
 
 bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
@@ -331,18 +312,12 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
            hidden = Variable(hidden.data).detach()
            forRestart = bernoulli.sample()
            #print(forRestart)
-           sampled = startHidden(zeroHidden)
-           hiddenNew = sampleToHidden(sampled).unsqueeze(0)
-#           hidden = forRestart.unsqueeze(0).unsqueeze(2) * hiddenNew + (1-forRestart).unsqueeze(0).unsqueeze(2) * hidden
- #          print(torch.where)
-           hidden = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, hiddenNew, hidden)
+           hidden = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, hidden, zeroHidden)
            beginning = torch.where(forRestart.unsqueeze(0) == 1, zeroBeginning, beginning)
 #           beginning = forRestart.unsqueeze(0).unsqueeze(2) * zeroBeginning + (1-forRestart).unsqueeze(0).unsqueeze(2) * beginning
            beginning_chars = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroBeginning_chars, beginning_chars)
        else:
-           sampled = startHidden(zeroHidden)
-           hiddenNew = sampleToHidden(sampled).unsqueeze(0)
-           hidden = hiddenNew
+           hidden = zeroHidden
            beginning = zeroBeginning
            beginning_chars = zeroBeginning_chars
 
@@ -403,11 +378,10 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
            inputEmbeddings = torch.cat([inputEmbeddings, embedded_chars], dim=2)
 
            if doDropout:
-              inputEmbeddings = inputDropout(inputEmbeddings)
+              if args.input_dropoutRate > 0:
+                 inputEmbeddings = inputDropout(inputEmbeddings)
               if args.dropout_rate > 0:
                  inputEmbeddings = dropout(inputEmbeddings)
-
-
 
 
            lossesWordTotal = []
@@ -417,56 +391,35 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
 
            output_vectors = []
 
+
+           scales = []
+           means = []                      
+
+
+           encodedEpsilonForAllSteps = standardNormal.sample().view(args.horizon, args.batchSize, -1)
+
+
            for i in range(inputEmbeddings.size()[0]):
               #print(i, hidden.abs().max())
 
               output1, hidden = rnn_both(inputEmbeddings[i].unsqueeze(0), hidden)
    
               assert args.rnn_layers == 1
-              meanHidden = cellToMean(hidden[0])
    
-              klLoss = [None for _ in inputEmbeddings]
-              logStandardDeviationHidden = hiddenToLogSDHidden(hidden[0])
-   #           print(torch.exp(logStandardDeviationHidden))
-              scaleForDist = 1e-8 + torch.log(1+torch.exp(logStandardDeviationHidden))
-              memoryDistribution = torch.distributions.Normal(loc=meanHidden, scale=scaleForDist)
-   #           sampled = memoryDistribution.rsample()
-   
-              encodedEpsilon = standardNormalPerStep.sample()
-
-
-#              encodedEpsilon = torch.clamp(encodedEpsilon, min=-10, max=10)
-
-              sampled = meanHidden + scaleForDist * encodedEpsilon
-   
-
-              sampled_vectors.append(sampled)
-
-#              print(encodedEpsilon.abs().max())
-
-              logProbConditional = memoryDistribution.log_prob(sampled).sum(dim=1)  # TODO not clear whether back-prob through sampled?
-              logProbConditionals.append(logProbConditional)
-
-
-              hiddenNew = sampleToHidden(sampled).unsqueeze(0)
-              # this also serves as the output for prediction
-
-            
-              hidden = hiddenNew
-
               hidden = torch.clamp(hidden, min=-5, max=5)
 
-
-#              print(hidden.abs().max())
-
-#              output, _ = rnn_both(torch.cat([word_pos_morph_embeddings(torch.cuda.LongTensor([[2 for _ in range(args.batchSizeHere)]])), inputEmbeddings[halfSeqLen+1:]], dim=0), (hiddenNew, cellNew))
- #             output = torch.cat([output1[:halfSeqLen], output], dim=0)
-              output = hiddenNew
+              output = hidden
               if doDropout:
-                 output = dropout(output)
+                 if args.dropout_rate > 0:
+                    output = dropout(output)
               output_vectors.append(output)
 
-#           print(output_vectors[0].size())
+
+
+
+
+
+
            output = torch.cat(output_vectors, dim=0)
     #       print(output.size())
            word_logits = decoder(output)
@@ -492,33 +445,26 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
            loss = lossWords
 
            klLoss = 0
-           batchSizeInflatedHere = args.batchSize * len(sampled_vectors)
 
-           sampledTotal = torch.stack(sampled_vectors, dim=0).view(batchSizeInflatedHere, -1)
-           logProbConditionalsTotal = torch.stack(logProbConditionals, dim=0).view(batchSizeInflatedHere)
 #           print(sampledTotal.size(), logProbConditionalsTotal.size())
 
 
            #for sampled, logProbConditional in zip(sampled_vectors, logProbConditionals):
-           adjustment = []
-           epsilon = sampledTotal
    #        n=1
    
-           plainPriorLogProb = standardNormal.log_prob(epsilon).sum(dim=1) #- (0.5 * torch.sum(sampled * sampled, dim=1))
-           logProbMarginal = plainPriorLogProb 
            #print(loss, logProbConditionalsTotal.mean(), logProbMarginal.mean())   
    
-           klLoss = (logProbConditionalsTotal - logProbMarginal)
+           klLoss =0 
    #           print(logProbConditional, logProbMarginal)
    #           print(logStandardDeviationHidden)
    #           klLoss = 0.5 * (-1 - 2 * (logStandardDeviationHidden) + torch.pow(meanHidden, 2) + torch.exp(2*logStandardDeviationHidden))
     #          klLoss = klLoss.sum(1)
 
 
-           klLossSum = klLoss.sum()
+           klLossSum = 0
            if counter % 10 == 0:
-              klLossMean = klLoss.mean()
-              print(BETA, args.flow_length, klLossMean, lossesWord.mean(), BETA * klLoss.mean() + lossesWord.mean() )
+              klLossMean = 0
+              print(BETA, args.flow_length, klLossMean, lossesWord.mean(), BETA * klLossMean + lossesWord.mean() )
               if float(klLossMean) != float(klLossMean):
                  print(hidden.abs().max())
                  assert False, "got NA, abort"
@@ -558,7 +504,7 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
 
 #       policy_related_loss = lr_policy * (entropy_weight * neg_entropy + policyGradientLoss) # lives on CPU
        loss = loss / batchSizeHere
-       return loss, None, None, totalQuality, numberOfWords, klLoss.mean()
+       return loss, None, None, totalQuality, numberOfWords, 0
 
 
 parameterList = list(parameters())
