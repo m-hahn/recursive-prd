@@ -64,8 +64,10 @@ vb = vb %>% mutate(someIntervention = case_when(intervention == "none" ~ -1, TRU
 
 summary(lmer(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + ( 1+ pp_rc + emb_c + someIntervention|Model), data=vb)) 
 # No locality effect, and facilitation in embedded sentences!
+summary(lmer(Surprisal ~ pp_rc + someIntervention + (1 + pp_rc + someIntervention|item) + ( 1+ pp_rc + someIntervention|Model), data=vb %>% filter(embedding == "matrix")))
+# Locality effect in embedded sentence!
+summary(lmer(Surprisal ~ pp_rc + someIntervention + (1 + pp_rc + someIntervention|item) + ( 1+ pp_rc + someIntervention|Model), data=vb %>% filter(embedding != "matrix")))
+# Interaction as would have been suggested by Grodner&Gibson
+summary(lmer(Surprisal ~ emb_c*someIntervention + (1 + someIntervention+emb_c+someIntervention*emb_c|item) + ( 1+ someIntervention+emb_c+someIntervention*emb_c|Model), data=vb))
 
-
-
-# TODO there is some problem, somehow thing ends up rank deficient and interaction disappears
 
