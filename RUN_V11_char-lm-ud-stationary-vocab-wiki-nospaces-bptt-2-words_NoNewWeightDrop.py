@@ -54,6 +54,8 @@ elif args.section == "E5":
    import corpusIterator_V11_E5_EN as corpusIterator_V11
 elif args.section == "E6":
    import corpusIterator_V11_E6_EN as corpusIterator_V11
+elif args.section == "E1_EitherVerb":
+   import corpusIterator_V11_E1_EN_EitherVerb as corpusIterator_V11
 else:
     assert False, args.section
 

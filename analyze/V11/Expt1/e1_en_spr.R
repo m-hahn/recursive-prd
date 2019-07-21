@@ -6,7 +6,6 @@
 #   Submitted to Language and Cognitive Processes, 2007.
 
 library(lme4)
-library(car)
 
 library(Hmisc)
 library(xtable)
@@ -239,7 +238,6 @@ data2$wl <- nchar(as.character(data2$word))
 
 ## compare word lengths
 with(data2,tapply(wl,gram,mean))
-with(data2,tapply(wl,gram,se))
 
 data2 = data2 %>% mutate(wl_c = wl - mean(wl))
 summary(fm2 <- lmer(log(value)~ g+i+gxi+wl_c+(1|subject)+(1|item),
