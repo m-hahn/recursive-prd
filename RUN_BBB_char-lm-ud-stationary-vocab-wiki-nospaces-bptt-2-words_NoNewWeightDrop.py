@@ -336,7 +336,10 @@ if True:
 with open("output/"+"Bartek_BB"+"_"+args.load_from, "w") as outFile:
    print("\t".join(["LineNumber", "RegionLSTM", "Surprisal"]), file=outFile)
    for num, entry in enumerate(completeData):
-     print("\t".join([str(x) for x in [num, "".join(entry[0]), entry[1]]]), file=outFile)
+     words = "".join(entry[0])
+     if len(words) == 0:
+        words= "NONE"
+     print("\t".join([str(x) for x in [num, words, entry[1]]]), file=outFile)
 
 
 
