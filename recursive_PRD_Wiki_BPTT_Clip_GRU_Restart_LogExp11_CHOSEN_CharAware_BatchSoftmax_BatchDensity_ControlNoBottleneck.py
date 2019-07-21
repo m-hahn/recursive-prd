@@ -144,9 +144,11 @@ for name, param in rnn_both.named_parameters():
 decoder = nn.Linear(args.rnn_dim,outVocabSize).cuda()
 #pos_ptb_decoder = nn.Linear(128,len(posFine)+3).cuda()
 
+startHidden = nn.Linear(1, args.rnn_dim).cuda()
+startHidden.bias.data.fill_(0)
 
 
-components = [rnn_both, decoder, word_pos_morph_embeddings]
+components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
 
 
  
@@ -289,8 +291,7 @@ beginning = zeroBeginning
 zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
 
 
-
-zeroHidden = torch.zeros((args.rnn_layers, args.batchSize, args.rnn_dim)).cuda()
+zeroHidden = torch.FloatTensor([0 for _ in range(args.batchSize)]).cuda().view(args.batchSize, 1)
 
 bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
@@ -312,12 +313,16 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
            hidden = Variable(hidden.data).detach()
            forRestart = bernoulli.sample()
            #print(forRestart)
-           hidden = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, hidden, zeroHidden)
+           hiddenNew = startHidden(zeroHidden).unsqueeze(0)
+ #          print(hiddenNew.size(), hidden.size())
+
+           hidden = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, hiddenNew, hidden)
            beginning = torch.where(forRestart.unsqueeze(0) == 1, zeroBeginning, beginning)
 #           beginning = forRestart.unsqueeze(0).unsqueeze(2) * zeroBeginning + (1-forRestart).unsqueeze(0).unsqueeze(2) * beginning
            beginning_chars = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroBeginning_chars, beginning_chars)
        else:
-           hidden = zeroHidden
+           hidden = startHidden(zeroHidden).unsqueeze(0)
+#           print(hidden.size())
            beginning = zeroBeginning
            beginning_chars = zeroBeginning_chars
 
