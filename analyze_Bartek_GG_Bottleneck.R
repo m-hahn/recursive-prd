@@ -7,64 +7,29 @@ library(lme4)
  raw.spr.data <- read.table("../../recursive-prd/BarteketalJEP2011data/gg-spr06-data.txt")
  colnames(raw.spr.data) <- c("subj", "expt", "item", "condition", "roi", "word", "RT", "embedding", 
      "intervention")
-
-
  raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
 
-data = read.csv("output/Bartek_GG_697117799", sep="\t")
-data = data %>% filter(RegionLSTM != "OOV")
- raw.spr.data = merge(raw.spr.data, data, by=c("LineNumber"))
-
-vb = raw.spr.data %>% filter(roi == case_when(embedding == "mat" ~ case_when(intervention == "none" ~ 2, intervention == "pp" ~ 5, intervention == "rc" ~ 7), embedding == "emb" ~ case_when(intervention == "none" ~ 5, intervention == "pp" ~ 8, intervention == "rc" ~ 10)))
-
-vb = vb %>% mutate(pp_rc = case_when(intervention == "rc" ~ 1, intervention == "pp" ~ -1, TRUE ~ 0))
-vb = vb %>% mutate(emb_c = case_when(embedding == "mat" ~ -1, embedding == "emb" ~ 1))
-vb = vb %>% mutate(someIntervention = case_when(intervention == "none" ~ -1, TRUE ~ 1))
-
-summary(lmer(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item), data=vb)) # finds RC >> PP >> none
-summary(lmer(Surprisal ~ pp_rc * emb_c + (1 + pp_rc + emb_c|item), data=vb)) # finds RC more difficult, but no diff between matrix and emb
-
-
-models = c(
-819988 , 
-#1844991 ,
-7032387 ,
-#4711997 ,
-#6753790 ,
-#8947967 ,
-#6804992 ,
-#223875  ,
-8066636 ,
-#5679638 ,
-#5639933 ,
-7378388 
-#1397814
-)
 
 
 
+modelsTable = read.csv("~/scr/CODE/recursive-prd/results/models_bottlenecked_english", sep="\t")
 
-
-
-
-data = data.frame()
-
+models = modelsTable$ID
+datModel = data.frame()
 for(model in models) {
-   data2 = read.csv(paste("output/Bartek_GG_", model, sep=""), sep="\t")
-   data2$Model = model
-   data = rbind(data, data2)
+   datModel2 = tryCatch(read.csv(paste("~/scr/CODE/recursive-prd/output/Bartek_GG_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
+   if(datModel2 != 1) {
+     cat(model,"\n")
+     datModel = rbind(datModel, datModel2)
+   }
 }
 
+modelsTable = modelsTable %>% mutate(Model=ID, ModelPerformance = Surprisal) %>% mutate(ID=NULL, Surprisal=NULL)
+datModel = merge(datModel, modelsTable, by=c("Model"))
+datModel = datModel %>% filter(RegionLSTM != "OOV")
 
-data = data %>% filter(RegionLSTM != "OOV")
+ raw.spr.data = merge(raw.spr.data, datModel, by=c("LineNumber"))
 
- raw.spr.data <- read.table("../../recursive-prd/BarteketalJEP2011data/gg-spr06-data.txt")
- colnames(raw.spr.data) <- c("subj", "expt", "item", "condition", "roi", "word", "RT", "embedding", 
-     "intervention")
- raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
-
-
- raw.spr.data = merge(raw.spr.data, data, by=c("LineNumber"))
 
 vb = raw.spr.data %>% filter(roi == case_when(embedding == "mat" ~ case_when(intervention == "none" ~ 2, intervention == "pp" ~ 5, intervention == "rc" ~ 7), embedding == "emb" ~ case_when(intervention == "none" ~ 5, intervention == "pp" ~ 8, intervention == "rc" ~ 10)))
 
@@ -72,8 +37,10 @@ vb = vb %>% mutate(pp_rc = case_when(intervention == "rc" ~ 1, intervention == "
 vb = vb %>% mutate(emb_c = case_when(embedding == "mat" ~ -1, embedding == "emb" ~ 1))
 vb = vb %>% mutate(someIntervention = case_when(intervention == "none" ~ -1, TRUE ~ 1))
 
+vb = vb %>% mutate(ModelPerformance.C=ModelPerformance-mean(ModelPerformance))
 # TODO why are there duplicates???
-vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Model, intervention, embedding))
+vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Model, intervention, embedding, ModelPerformance.C))
+
 
 library(ggplot2)
 
@@ -91,12 +58,6 @@ model = brm(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c + 
 summary(model)
 
 
-#                 Estimate Est.Error l-95% CI u-95% CI Eff.Sample Rhat
-#Intercept            9.33      0.40     8.54    10.13        569 1.01
-#pp_rc                0.01      0.09    -0.17     0.20       1294 1.00
-#emb_c               -0.04      0.07    -0.17     0.10       1826 1.00
-#someIntervention     0.75      0.17     0.41     1.10       1248 1.00
-#pp_rc:emb_c          0.06      0.01     0.03     0.09       4000 1.00
 
 
 
