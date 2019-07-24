@@ -7,7 +7,7 @@ for language in ["english", "german"]:
    
    import subprocess
    with open("results/models_bottlenecked_"+language, "w") as outFile:
-    print("\t".join(["Model", "Script", "Surprisal", "LogBeta"]), file=outFile)
+    print("\t".join(["ID", "Model", "Script", "Surprisal", "LogBeta"]), file=outFile)
     for model in models:
       model2 = model.split("_")
 #      print(model2)
@@ -28,9 +28,10 @@ for language in ["english", "german"]:
              beta = beta[beta.index("=")+1:beta.index(",")]
              beta = str(-log(float(beta)))
           surprisal = float(next(inFile).strip().split(" ")[-1])
-          print("\t".join([str(x) for x in [model, script, surprisal, log_beta]]), file=outFile)
+          print("\t".join([str(x) for x in [ID, model, script, surprisal, log_beta]]), file=outFile)
  #         continue 
-          for section in {"english" : ["E1", "E1a", "E5", "E6", "E1_EitherVerb"], "german" : ["E3"]}[language]: # English: , German : 
+          for section in {"english" : ["E1", "E1a", "E5", "E6", "E1_EitherVerb"], "german" : ["E3"]}[language]: # English: 
             command = ["/u/nlp/anaconda/ubuntu_16/envs/py27-mhahn/bin/python2.7", "RUN_V11_"+script, "--language="+language, "--load_from="+ID, "--section="+section]
+            print(" ".join(command))
             subprocess.call(command)
    

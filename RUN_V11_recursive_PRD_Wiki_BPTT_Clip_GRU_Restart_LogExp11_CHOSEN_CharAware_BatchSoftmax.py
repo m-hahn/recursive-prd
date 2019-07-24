@@ -24,7 +24,7 @@ parser.add_argument("--rnn_dim", type=int, default=512)
 parser.add_argument("--rnn_layers", type=int, default=1)
 parser.add_argument("--lr", type=float, default=random.choice([0.0001])) # 0.00001, 
 parser.add_argument("--input_dropoutRate", type=float, default=0.0)
-parser.add_argument("--batchSize", type=int, default=512)
+parser.add_argument("--batchSize", type=int, default=1)
 parser.add_argument("--horizon", type=int, default=20)
 parser.add_argument("--log_beta", type=float, default=random.choice([3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0]))
 parser.add_argument("--flow_length", type=int, default=0) #random.choice([0,1]))
@@ -75,7 +75,6 @@ from random import random, shuffle
 
 header = ["index", "word", "lemma", "posUni", "posFine", "morph", "head", "dep", "_", "_"]
 
-import corpusIterator_V11
 
 originalDistanceWeights = {}
 
@@ -766,7 +765,8 @@ if True:
 with open("output/V11_"+args.section+"_"+args.language+"_"+args.load_from, "w") as outFile:
    print >> outFile, "\t".join(["LineNumber", "RegionLSTM", "Surprisal"])
    for num, entry in enumerate(completeData):
+#     print (num, args.section)
      print >> outFile, ("\t".join([str(x) for x in [num, "_".join(entry[0]), entry[1]]]))
-
+   
 
 
