@@ -34,7 +34,7 @@ def load(language, partition="train", removeMarkup=True, tokenize=True):
                chunk.append(char.lower())
                chunk_line_numbers.append(linenum)
 
-  print(chunk)
+#  print(chunk)
   yield chunk, chunk_line_numbers
 
 def test(language, removeMarkup=True):
