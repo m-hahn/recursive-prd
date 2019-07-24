@@ -1,4 +1,3 @@
-
 library(tidyr)
 library(dplyr)
 library(lme4)
@@ -8,9 +7,6 @@ library(lme4)
  colnames(raw.spr.data) <- c("subj", "expt", "item", "condition", "roi", "word", "RT", "embedding", 
      "intervention")
  raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
-
-
-
 
 modelsTable = read.csv("~/scr/CODE/recursive-prd/results/models_bottlenecked_english", sep="\t")
 
@@ -37,9 +33,9 @@ vb = vb %>% mutate(pp_rc = case_when(intervention == "rc" ~ 1, intervention == "
 vb = vb %>% mutate(emb_c = case_when(embedding == "mat" ~ -1, embedding == "emb" ~ 1))
 vb = vb %>% mutate(someIntervention = case_when(intervention == "none" ~ -1, TRUE ~ 1))
 
-vb = vb %>% mutate(ModelPerformance.C=ModelPerformance-mean(ModelPerformance))
+vb = vb %>% mutate(ModelPerformance.C=ModelPerformance-mean(ModelPerformance), LogBeta.C=LogBeta-mean(LogBeta))
 # TODO why are there duplicates???
-vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Model, intervention, embedding, ModelPerformance.C))
+vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Model, intervention, embedding, ModelPerformance.C, Script, LogBeta.C))
 
 
 library(ggplot2)
@@ -50,6 +46,8 @@ ggsave(plot, file="figures/bartek_gg_bottleneck.pdf")
 summary(lmer(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + (1 + pp_rc + emb_c + someIntervention|Model), data=vb_)) # finds RC >> PP >> none
 #summary(lmer(Surprisal ~ pp_rc * emb_c + (1 + pp_rc + emb_c|item), data=vb)) # finds RC more difficult, but no diff between matrix and emb
 
+
+summary(lmer(Surprisal ~ pp_rc + emb_c + LogBeta.C*someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + (1|Model), data=vb_))
 
 library(brms)
 

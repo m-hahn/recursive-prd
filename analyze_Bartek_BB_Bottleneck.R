@@ -70,4 +70,11 @@ summary(lmer(Surprisal ~ pp_rc + someIntervention + (1 + pp_rc + someInterventio
 # Interaction as would have been suggested by Grodner&Gibson
 summary(lmer(Surprisal ~ emb_c*someIntervention + (1 + someIntervention+emb_c+someIntervention*emb_c|item) + ( 1+ someIntervention+emb_c+someIntervention*emb_c|Model), data=vb))
 
+summary(lmer(Surprisal ~ ModelPerformance + pp_rc + emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + ( 1|Model), data=vb %>% filter(!grepl("Control", Script))))
+
+vb = vb %>% mutate(LogBeta.C = LogBeta-mean(LogBeta))
+summary(lmer(Surprisal ~ ModelPerformance + pp_rc + emb_c*someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + ( 1|Model), data=vb %>% filter(!grepl("Control", Script))))
+
+#LogBeta interacts with someIntervention
+summary(lmer(Surprisal ~ ModelPerformance + pp_rc + LogBeta*someIntervention + emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + ( 1|Model), data=vb %>% filter(!grepl("Control", Script))))
 
