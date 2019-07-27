@@ -140,7 +140,6 @@ decoder = nn.Linear(args.rnn_dim,outVocabSize).cuda()
 #pos_ptb_decoder = nn.Linear(128,len(posFine)+3).cuda()
 
 startHidden = nn.Linear(1, args.rnn_dim).cuda()
-startHidden.bias.data.fill_(0)
 
 
 components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
@@ -153,13 +152,6 @@ hiddenToLogSDHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 cellToMean = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 sampleToHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 
-hiddenToLogSDHidden.bias.data.fill_(0)
-cellToMean.bias.data.fill_(0)
-sampleToHidden.bias.data.fill_(0)
-
-hiddenToLogSDHidden.weight.data.fill_(0)
-cellToMean.weight.data.fill_(0)
-sampleToHidden.weight.data.fill_(0)
 
 
 
@@ -208,11 +200,7 @@ def parameters():
    for param in c.parameters():
       yield param
 
-initrange = 0.1
-word_pos_morph_embeddings.weight.data.uniform_(-initrange, initrange)
 
-decoder.bias.data.fill_(0)
-decoder.weight.data.uniform_(-initrange, initrange)
 
 
 

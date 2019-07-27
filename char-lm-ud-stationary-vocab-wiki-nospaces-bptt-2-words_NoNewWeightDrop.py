@@ -1,7 +1,8 @@
 print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model
-
+# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py
+# Adopted for English and German
 import sys
 
 import argparse

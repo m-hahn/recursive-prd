@@ -150,7 +150,6 @@ decoder = nn.Linear(args.rnn_dim,outVocabSize).cuda()
 #pos_ptb_decoder = nn.Linear(128,len(posFine)+3).cuda()
 
 startHidden = nn.Linear(1, args.rnn_dim).cuda()
-startHidden.bias.data.fill_(0)
 
 
 components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
@@ -169,45 +168,9 @@ hiddenToLogSDHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 cellToMean = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 sampleToHidden = nn.Linear(args.rnn_dim, args.rnn_dim).cuda()
 
-hiddenToLogSDHidden.bias.data.fill_(0)
-cellToMean.bias.data.fill_(0)
-sampleToHidden.bias.data.fill_(0)
-
-hiddenToLogSDHidden.weight.data.fill_(0)
-cellToMean.weight.data.fill_(0)
-sampleToHidden.weight.data.fill_(0)
 
 
 
-#
-#weight_made = [torch.cuda.FloatTensor(args.rnn_dim, args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in weight_made:
-#  p.requires_grad=True
-#  nn.init.xavier_normal(p)
-#
-#bias_made = [torch.cuda.FloatTensor(args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in bias_made:
-#   p.requires_grad=True
-#
-#weight_made_mu = [torch.cuda.FloatTensor(args.rnn_dim, args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in weight_made_mu:
-#   p.requires_grad=True
-#
-#bias_made_mu = [torch.cuda.FloatTensor(args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in bias_made_mu:
-#   p.requires_grad=True
-#
-#weight_made_sigma = [torch.cuda.FloatTensor(args.rnn_dim, args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in weight_made_sigma:
-#   p.requires_grad=True
-#
-#bias_made_sigma = [torch.cuda.FloatTensor(args.rnn_dim).fill_(0) for _ in range(args.flow_length)]
-#for p in bias_made_sigma:
-#   p.requires_grad=True
-#
-#
-#
-#parameters_made = [weight_made, bias_made, weight_made_mu, bias_made_mu, weight_made_sigma, bias_made_sigma]
 
 
 
@@ -340,19 +303,7 @@ def parameters():
 #for pa in parameters():
 #  print pa
 
-initrange = 0.1
-#word_embeddings.weight.data.uniform_(-initrange, initrange)
-#pos_u_embeddings.weight.data.uniform_(-initrange, initrange)
-#pos_p_embeddings.weight.data.uniform_(-initrange, initrange)
-#morph_embeddings.weight.data.uniform_(-initrange, initrange)
-word_pos_morph_embeddings.weight.data.uniform_(-initrange, initrange)
 
-decoder.bias.data.fill_(0)
-decoder.weight.data.uniform_(-initrange, initrange)
-#pos_ptb_decoder.bias.data.fill_(0)
-#pos_ptb_decoder.weight.data.uniform_(-initrange, initrange)
-#baseline.bias.data.fill_(0)
-#baseline.weight.data.uniform_(-initrange, initrange)
 
 
 
