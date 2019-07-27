@@ -1,4 +1,4 @@
-path = "/u/scr/mhahn/FAIR18/WIKIPEDIA/hindi/"
+path = "/u/scr/mhahn/FAIR18/WIKIPEDIA/dutch/"
 
 import os
 
@@ -12,7 +12,7 @@ try:
   #   if not os.path.isdir(path+"/"+directory):
  #       continue
 #     files = os.listdir(path+"/"+directory)
-     for filename in ["/u/scr/mhahn/FAIR18/WIKIPEDIA/hindi/hindi-train.txt"]:
+     for filename in ["/u/scr/mhahn/FAIR18/WIKIPEDIA/dutch/dutch-train.txt"]:
        with open(filename, "r") as inFile:
           for line in inFile:
              counter += 1
@@ -24,7 +24,7 @@ try:
                 print("".join(sorted([x for x in vocab if vocab[x] > 10000])))
 except KeyboardInterrupt:
    print(0)
-with open("../vocabularies/char-vocab-wiki-"+"hindi"+".txt", "w") as outFile:
+with open("../vocabularies/char-vocab-wiki-"+"dutch"+".txt", "w") as outFile:
 #  itos = sorted([x for x, y in vocab.items() if y > 10000])
 #  itos = sorted([x[0] for x in sorted(list(vocab.items()), key=lambda x:x[1], reverse=True)]) # [:60]
   itos = "".join(sorted([x for x in vocab if vocab[x] > 10000], key=lambda x:-vocab[x]))

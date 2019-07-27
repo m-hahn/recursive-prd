@@ -254,7 +254,7 @@ summary(fm3 <- lmer(log(value)~ g+i+gxi+(1|subject)+(1|item),
 summary(fm3 <- lmer(value~ g+i+gxi+(1|subject)+(1|item),
                    data=data3))
 
-summary(fm3 <- lmer(Surprisal~ g+i+gxi+(1|Model)+(1|item),
+summary(fm3 <- lmer(Surprisal~ g+i+gxi+(1|Model)+(1|item), # no visible difference here
                    data=data3))
 
 ## comparison 4 post V1 region (this is the crucial critical region for the grammaticality difference):

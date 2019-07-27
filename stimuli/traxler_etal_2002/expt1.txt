@@ -2,8 +2,8 @@ The banker that irritated the lawyer/the lawyer irritated played tennis every Sa
 The lawyer that irritated the banker/the banker irritated filed a hefty lawsuit.
 The child that chased the babysitter/the babysitter chased squealed with delight at the game.
 The babysitter that chased the child/the child chased tripped over the toy dump truck.
-The pilot that complimented the flight attendant/the flight attendant complimented asked for a date.
-The flight attendant that complimented the pilot/the pilot complimented feared flying before this job.
+The pilot that complimented the flight_attendant/the flight_attendant complimented asked for a date.
+The flight_attendant that complimented the pilot/the pilot complimented feared flying before this job.
 The quarterback that hated the linebacker/the linebacker hated played a practical joke.
 The linebacker that hated the quarterback/the quarterback hated signed a new contract.
 The businessman that married the secretary/the secretary married invited the bookkeeper to the party.
@@ -38,8 +38,8 @@ The client that confronted the psychologist/the psychologist confronted attacked
 The psychologist that confronted the client/the client confronted felt bad and apologized.
 The golfer that liked the caddy/the caddy liked played on the professional tour.
 The caddy that liked the golfer/the golfer liked suggested that he use a nine iron.
-The hunter that saw the game warden/the game warden saw ran off into the forest.
-The game warden that saw the hunter/the hunter saw fired a warning shot.
+The hunter that saw the game_warden/the game_warden saw ran off into the forest.
+The game_warden that saw the hunter/the hunter saw fired a warning shot.
 The historian that criticized the freshman/the freshman criticized felt really bad afterward.
 The freshman that criticized the historian/that the historian criticized failed the course this spring.
 The actor that visited the director/the director visited demanded the starring role in the movie.

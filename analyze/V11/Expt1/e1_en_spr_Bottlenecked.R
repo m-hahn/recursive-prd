@@ -255,8 +255,11 @@ summary(fm3 <- lmer(log(value)~ g+i+gxi+(1|subject)+(1|item),
 summary(fm3 <- lmer(value~ g+i+gxi+(1|subject)+(1|item),
                    data=data3))
 
-summary(fm3 <- lmer(Surprisal~ g+i+gxi+(1|Model)+(1|item),
-                   data=data3))
+data3 = data3 %>% mutate(LogBeta.C = LogBeta-mean(LogBeta))
+data3 = data3 %>% mutate(ModelPerformance.C = ModelPerformance-mean(ModelPerformance))
+
+summary(fm3 <- lmer(Surprisal~ g+i+gxi+(1|Model)+(1|item), data=data3))
+summary(fm3 <- lmer(Surprisal~ ModelPerformance.C*g+i+gxi+(1|Model)+(1|item), data=data3))
 
 ## comparison 4 post V1 region (this is the crucial critical region for the grammaticality difference):
 data4 <- subset(critdata,(region=="postV1"))
@@ -271,10 +274,14 @@ summary(fm4 <- lmer(value~ g+i+gxi+(1|subject)+(1|item),
 summary(fm4a <- lmer(log(value)~ g+i+gxi+(1+g|subject)+(1|item),
                    data=subset(data4)))
 
+data4 = data4 %>% mutate(LogBeta.C = LogBeta-mean(LogBeta))
 summary(fm4a <- lmer(Surprisal~ g+i+gxi+(1+g|Model)+(1|item), data=data4))
 
 data4 = data4 %>% mutate(ModelPerformance.C = ModelPerformance-mean(ModelPerformance))
 summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4 %>% filter(!grepl("Control", Script))))
 summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4 %>% filter(grepl("Control", Script))))
 summary(fm4a <- lmer(Surprisal~ ModelPerformance.C+g+(1|Model)+(1|item), data=data4 %>% filter(grepl("Control", Script))))  
+
+
+summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4)) # Degree of grammaticality advantage is modulated by model surprisal
 

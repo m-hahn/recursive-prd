@@ -1,10 +1,12 @@
+from paths import WIKIPEDIA_HOME
 unigrams = {}
 
-
-WIKIPEDIA_HOME = "/u/scr/mhahn/FAIR18/WIKIPEDIA/dutch/"
 if True:
- pathIn  = WIKIPEDIA_HOME+"dutch-train-tagged.txt"
- pathOut = WIKIPEDIA_HOME+"dutch-wiki-word-vocab.txt"
+ pathIn = WIKIPEDIA_HOME+"german-train-tagged.txt"
+ pathOut = WIKIPEDIA_HOME+"german-wiki-word-vocab-POS.txt"
+else:
+ pathIn = WIKIPEDIA_HOME+"itwiki-train-tagged.txt"
+ pathOut = WIKIPEDIA_HOME+"italian-wiki-word-vocab-POS.txt"
 
 import random
 with open(pathIn, "r") as inFile:
@@ -14,7 +16,12 @@ with open(pathIn, "r") as inFile:
       if index == -1:
 #         print(line)
          continue
-      word = line[:index].lower()
+#      word = line[:index].lower()
+      index2 = line.find("\t", index+1)
+      if index2 == -1:
+          continue
+ #     pos = line[index+1:index2]
+      word = line[:index2].lower()
       unigrams[word] = unigrams.get(word, 0) + 1
  #     if random.random() > 0.99:
 #          break
