@@ -1,0 +1,7 @@
+*.pyc
+torchkit/
+*.pyc
+vocabularies/german-wiki-word-vocab-*txt
+vocabularies/italian-wiki-word-vocab-*txt
+vocabularies/english-wiki-word-vocab-*txt
+results/

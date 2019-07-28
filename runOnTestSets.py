@@ -1,7 +1,7 @@
 
 # NOTE this doesn't take care of hyperparameters. For regularization parameters this doesn't matter, as they are turned off during evaluation.
 
-LANGUAGE = "hindi"
+LANGUAGE = "dutch"
 
 scripts = []
 scripts.append("char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py")
