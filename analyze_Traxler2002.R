@@ -27,8 +27,24 @@ data = data %>% filter(!grepl("OOV", RegionLSTM))
 
 mean(as.character(raw.spr.data$Word) == as.character(raw.spr.data$RegionLSTM))
 
+raw.spr.data = raw.spr.data %>% mutate(ORC.C=(Condition == "ORC")-0.5)
 
-summary(lmer(Surprisal ~ Condition + (1+Condition|Item) + (1+Condition|Model), data=raw.spr.data %>% filter(Region == "v0")))
 
-summary(lmer(Surprisal ~ Condition + (1+Condition|Item) + (1+Condition|Model), data=raw.spr.data %>% filter(Region == "v1")))
+summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v0")))
+
+summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v1")))
+
+library(brms)
+
+
+summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v0")), chains=1)
+summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v1")), chains=1)
+
+
+relcl = raw.spr.data %>% filter(Region %in% c("d1", "n1", "v0")) %>% group_by(Model, Item, ORC.C) %>% summarise(Surprisal=mean(Surprisal))
+summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=relcl))
+
+
+
+
 

@@ -7,7 +7,7 @@
 
 library(lme4)
 
-library(Hmisc)
+#library(Hmisc)
 library(xtable)
 library(MASS)
 
@@ -23,16 +23,16 @@ library(MASS)
 library(tidyr)
 library(dplyr)
 ## preliminary data processing:
-data <- read.table("~/scr/recursive-prd/VSLK_LCP/E1_EN_SPR/data/e1_en_spr_data.txt")
+data <- read.table("../../../../../recursive-prd/VSLK_LCP/E1_EN_SPR/data/e1_en_spr_data.txt")
 colnames(data) <- c("subject","expt","item","condition","position","word","rt")
 data$LineNumber = (1:nrow(data))-1
 
-modelsTable = read.csv("~/scr/CODE/recursive-prd/results/models_bottlenecked_english", sep="\t")
+modelsTable = read.csv("../../../results/models_bottlenecked_english", sep="\t")
 
 models = modelsTable$ID
 datModel = data.frame()
 for(model in models) {
-   datModel2 = tryCatch(read.csv(paste("~/scr/CODE/recursive-prd/output/V11_E1_english_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
+   datModel2 = tryCatch(read.csv(paste("../../../output/V11_E1_english_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
    if(datModel2 != 1) {
      cat(model,"\n")
      datModel = rbind(datModel, datModel2)
@@ -245,7 +245,7 @@ summary(fm2 <- lmer(log(value)~ g+i+gxi+wl_c+(1|subject)+(1|item),
                    data=data2))
 
 
-
+###############################################################################
 ## comparison 3 V1:
 data3 <- subset(critdata,(region=="V1"))
 
@@ -259,7 +259,15 @@ data3 = data3 %>% mutate(LogBeta.C = LogBeta-mean(LogBeta))
 data3 = data3 %>% mutate(ModelPerformance.C = ModelPerformance-mean(ModelPerformance))
 
 summary(fm3 <- lmer(Surprisal~ g+i+gxi+(1|Model)+(1|item), data=data3))
-summary(fm3 <- lmer(Surprisal~ ModelPerformance.C*g+i+gxi+(1|Model)+(1|item), data=data3))
+summary(fm3 <- lmer(Surprisal~ ModelPerformance.C*g+i+gxi+(1+g+i+gxi|Model)+(1+ModelPerformance.C+g+i+gxi|item), data=data3)) # worse models generate a larger forgetting effect
+
+data3 = data3 %>% mutate(Bottleneck = (!grepl("Control", Script))) %>% mutate(LogBeta = ifelse(Bottleneck, LogBeta, NA)) %>% mutate(grammatical = ifelse(g==-1, "Ungrammatical", "Grammatical"))
+library(ggplot2)
+plot = ggplot(data3 %>% group_by(grammatical, ModelPerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9)) + facet_wrap(~ModelPerformance)
+plot = ggplot(data3 %>% group_by(grammatical) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9))
+
+
+
 
 ## comparison 4 post V1 region (this is the crucial critical region for the grammaticality difference):
 data4 <- subset(critdata,(region=="postV1"))
@@ -284,4 +292,12 @@ summary(fm4a <- lmer(Surprisal~ ModelPerformance.C+g+(1|Model)+(1|item), data=da
 
 
 summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4)) # Degree of grammaticality advantage is modulated by model surprisal
+
+
+data4 = data4 %>% mutate(Bottleneck = (!grepl("Control", Script))) %>% mutate(LogBeta = ifelse(Bottleneck, LogBeta, NA)) %>% mutate(grammatical = ifelse(g==-1, "Ungrammatical", "Grammatical"))
+library(ggplot2)
+plot = ggplot(data4 %>% group_by(grammatical, LogBeta), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9)) + facet_wrap(~LogBeta)
+plot = ggplot(data4 %>% group_by(grammatical), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9))
+
+
 

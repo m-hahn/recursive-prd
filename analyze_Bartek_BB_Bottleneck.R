@@ -4,12 +4,12 @@ library(dplyr)
 library(lme4)
 
 
-modelsTable = read.csv("~/scr/CODE/recursive-prd/results/models_bottlenecked_english", sep="\t")
+modelsTable = read.csv("results/models_bottlenecked_english", sep="\t")
 
 models = modelsTable$ID
 datModel = data.frame()
 for(model in models) {
-   datModel2 = tryCatch(read.csv(paste("~/scr/CODE/recursive-prd/output/Bartek_BB_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
+   datModel2 = tryCatch(read.csv(paste("output/Bartek_BB_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
    if(datModel2 != 1) {
      cat(model,"\n")
      datModel = rbind(datModel, datModel2)
@@ -20,7 +20,7 @@ modelsTable = modelsTable %>% mutate(Model=ID, ModelPerformance = Surprisal) %>%
 datModel = merge(datModel, modelsTable, by=c("Model"))
 datModel = datModel %>% filter(RegionLSTM != "OOV")
 # from ~/scr/recursive-prd/BarteketalJEP2011data/master.tex
- raw.spr.data <- read.table("~/scr/recursive-prd/BarteketalJEP2011data/bb-spr06-data.txt")
+ raw.spr.data <- read.table("../../recursive-prd/BarteketalJEP2011data/bb-spr06-data.txt")
  colnames(raw.spr.data) <- c("subj","expt","item","condition","roi","word","correct","RT")
  raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
 
@@ -77,4 +77,10 @@ summary(lmer(Surprisal ~ ModelPerformance + pp_rc + emb_c*someIntervention + (1 
 
 #LogBeta interacts with someIntervention
 summary(lmer(Surprisal ~ ModelPerformance + pp_rc + LogBeta*someIntervention + emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + ( 1|Model), data=vb %>% filter(!grepl("Control", Script))))
+
+vb = vb %>% mutate(Bottleneck = !grepl("Control", Script), LogBeta = ifelse(Bottleneck, LogBeta, 100))
+
+library(ggplot2)
+plot = ggplot(vb %>% group_by(LogBeta, someIntervention) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=someIntervention, fill=someIntervention)) + geom_bar(stat="identity", position=position_dodge(0.9)) + facet_grid(~LogBeta)
+
 

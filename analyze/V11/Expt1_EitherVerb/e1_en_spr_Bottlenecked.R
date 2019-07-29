@@ -26,19 +26,20 @@ library(dplyr)
 data <- read.csv("../../../stimuli/V11/English_EitherVerb.txt", sep="\t")
 data$LineNumber = (1:nrow(data))-1
 
-models = c(
-905843526 ,  
-655887140 , 
-766978233 ,
-502504068 ,
-697117799 ,
-860606598 )
+modelsTable = read.csv("~/scr/CODE/recursive-prd/results/models_bottlenecked_english", sep="\t")
 
+models = modelsTable$ID
 datModel = data.frame()
 for(model in models) {
-   datModel2 = read.csv(paste("~/scr/CODE/recursive-prd/output/V11_E1_EitherVerb_english_", model, sep=""), sep="\t") %>% mutate(Model = model)
-   datModel = rbind(datModel, datModel2)
+   datModel2 = tryCatch(read.csv(paste("~/scr/CODE/recursive-prd/output/V11_E1_EitherVerb_english_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
+   if(datModel2 != 1) {
+     cat(model,"\n")
+     datModel = rbind(datModel, datModel2)
+   }
 }
+
+modelsTable = modelsTable %>% mutate(Model=ID, ModelPerformance = Surprisal) %>% mutate(ID=NULL, Surprisal=NULL)
+datModel = merge(datModel, modelsTable, by=c("Model"))
 
 data = merge(data, datModel, by=c("LineNumber"))
 

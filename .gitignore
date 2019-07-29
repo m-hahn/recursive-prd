@@ -5,3 +5,10 @@ vocabularies/german-wiki-word-vocab-*txt
 vocabularies/italian-wiki-word-vocab-*txt
 vocabularies/english-wiki-word-vocab-*txt
 results/
+crypticity/
+python27
+small-john-job.sh
+*.pdf
+figures/
+outputs/
+output/
