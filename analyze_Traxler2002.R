@@ -20,7 +20,7 @@ for(model in models) {
 }
 data = data %>% filter(!grepl("OOV", RegionLSTM))
 # from ~/scr/recursive-prd/BarteketalJEP2011data/master.tex
- raw.spr.data <- read.csv("stimuli/traxler_etal_2002/expt1-tokenized.tsv", sep="\t")
+ raw.spr.data <- read.csv("../stimuli/traxler_etal_2002/expt1-tokenized.tsv", sep="\t")
  raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
 
  raw.spr.data = merge(raw.spr.data, data, by=c("LineNumber"))
@@ -37,8 +37,8 @@ summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.
 library(brms)
 
 
-summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v0")), chains=1)
-summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v1")), chains=1)
+summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v0"), chains=1))
+summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v1"), chains=1))
 
 
 relcl = raw.spr.data %>% filter(Region %in% c("d1", "n1", "v0")) %>% group_by(Model, Item, ORC.C) %>% summarise(Surprisal=mean(Surprisal))

@@ -8,7 +8,7 @@ stoi_labels = {}
 def load(language, section, partition="train", removeMarkup=True, tokenize=True):
   assert section in ["expt1", "expt2", "expt3"]
   assert language == "english"
-  with open("stimuli/traxler_etal_2002/expt1-tokenized.tsv", "r") as inFile:
+  with open("../stimuli/traxler_etal_2002/expt1-tokenized.tsv", "r") as inFile:
      text = [x.split("\t") for x in inFile.read().strip().split("\n")]
   header = text[0]
   header = dict(zip(header, range(len(header))))

@@ -12,3 +12,4 @@ small-john-job.sh
 figures/
 outputs/
 output/
+*.swp
