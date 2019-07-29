@@ -1,7 +1,9 @@
 s1, s2 = None, None
 with open("items_expt2_edited.txt", "r") as inFile:
-   with open("items_expt2_edited_reverse.txt", "w") as outFile:
+   with open("items_expt2_edited_reverse_onlyBD.txt", "w") as outFile:
      for linenum, line in enumerate(inFile):
+        if linenum % 5 in [1, 3]:
+           continue
         line = line.strip()
         if len(line) > 4:
            if s1 == None:
