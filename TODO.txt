@@ -1,5 +1,5 @@
 BUGS:
 - tokenize off the genitive 's in English
-
+- similarly, didn't and other ' occurrences
 
 
