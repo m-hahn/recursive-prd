@@ -72,17 +72,27 @@ summary(lmer(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c +
 
 library(brms)
 
-model = brm(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + (1 + pp_rc + emb_c + someIntervention|Model), data=vb_)
-
-summary(model)
+model = brm(Surprisal ~ pp_rc * emb_c + someIntervention * emb_c + (1 + pp_rc + emb_c + someIntervention + pp_rc * emb_c + someIntervention * emb_c|item) + (1 + pp_rc + emb_c + someIntervention + pp_rc * emb_c + someIntervention * emb_c|Model), data=vb_)
 
 
-#                 Estimate Est.Error l-95% CI u-95% CI Eff.Sample Rhat
-#Intercept            9.33      0.40     8.54    10.13        569 1.01
-#pp_rc                0.01      0.09    -0.17     0.20       1294 1.00
-#emb_c               -0.04      0.07    -0.17     0.10       1826 1.00
-#someIntervention     0.75      0.17     0.41     1.10       1248 1.00
-#pp_rc:emb_c          0.06      0.01     0.03     0.09       4000 1.00
 
-
+#Formula: Surprisal ~ pp_rc * emb_c + someIntervention * emb_c + (1 + pp_rc + emb_c + someIntervention + pp_rc * emb_c + someIntervention * emb_c | item) + (1 + pp_rc + emb_c + someIntervention + pp_rc * emb_c + someIntervention * emb_c | Model) 
+#
+#
+#Population-Level Effects: 
+#                       Estimate Est.Error l-95% CI u-95% CI Eff.Sample Rhat
+#Intercept                  9.30      0.42     8.47    10.11        461 1.01
+#pp_rc                      0.01      0.10    -0.18     0.19       1291 1.00
+#emb_c                     -0.06      0.08    -0.21     0.08       1244 1.00  # compatible with facilitation, but inconclusive
+#someIntervention           0.75      0.19     0.38     1.11       1136 1.00 # locality effect
+#pp_rc:emb_c                0.06      0.05    -0.03     0.15       1809 1.00
+#emb_c:someIntervention     0.06      0.04    -0.01     0.13       2182 1.00 # compatible with interaction, but inconclusive
+#
+#Family Specific Parameters: 
+#      Estimate Est.Error l-95% CI u-95% CI Eff.Sample Rhat
+#sigma     0.69      0.01     0.68     0.71       5794 1.00
+#
+#
+#summary(model)
+#
 

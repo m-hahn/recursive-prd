@@ -20,7 +20,7 @@ for(model in models) {
 }
 data = data %>% filter(!grepl("OOV", RegionLSTM))
 # from ~/scr/recursive-prd/BarteketalJEP2011data/master.tex
- raw.spr.data <- read.table("~/scr/recursive-prd/BarteketalJEP2011data/bb-spr06-data.txt")
+ raw.spr.data <- read.table("../../recursive-prd/BarteketalJEP2011data/bb-spr06-data.txt")
  colnames(raw.spr.data) <- c("subj","expt","item","condition","roi","word","correct","RT")
  raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
 
@@ -61,6 +61,15 @@ vb = raw.spr.data %>% filter(roi == case_when(embedding == "matrix" ~ case_when(
 vb = vb %>% mutate(pp_rc = case_when(intervention == "rc" ~ 1, intervention == "pp" ~ -1, TRUE ~ 0))
 vb = vb %>% mutate(emb_c = case_when(embedding == "matrix" ~ -1, embedding == "emb" ~ 1))
 vb = vb %>% mutate(someIntervention = case_when(intervention == "none" ~ -1, TRUE ~ 1))
+
+
+library(ggplot2)
+
+plot = ggplot(data=vb %>% group_by(intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~embedding)
+ggsave(plot, file="figures/bartek_bb_vanillaLSTM.pdf")
+
+
+
 
 summary(lmer(Surprisal ~ pp_rc * emb_c + someIntervention + (1 + pp_rc + emb_c + someIntervention|item) + ( 1+ pp_rc + emb_c + someIntervention|Model), data=vb)) 
 # No locality effect, and facilitation in embedded sentences!

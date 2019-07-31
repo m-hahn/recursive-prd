@@ -84,3 +84,13 @@ library(ggplot2)
 plot = ggplot(vb %>% group_by(LogBeta, someIntervention) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=someIntervention, fill=someIntervention)) + geom_bar(stat="identity", position=position_dodge(0.9)) + facet_grid(~LogBeta)
 
 
+plot = ggplot(data=vb %>% filter(embedding == "matrix") %>% group_by(LogBeta, intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~LogBeta)
+ggsave(plot, file="figures/bartek_bb_bottleneck_matrix.pdf")
+
+plot = ggplot(data=vb %>% filter(embedding == "emb") %>% group_by(LogBeta, intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~LogBeta)
+ggsave(plot, file="figures/bartek_bb_bottleneck_emb.pdf")
+
+
+
+
+

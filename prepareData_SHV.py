@@ -1,14 +1,3 @@
-# PROBLEM for Farsi: the zero-width no-joiner isn't reflected in the data. 
-# Also, there are some erroneous word boundaries in the PDF encoding, which reflect as erroneous tokenization here, and partly as OOVs (e.g., Item 7c, Naghdi has nagh and di separated).
-# Could try this (this one has a paper, so should be mature): https://github.com/ICTRC/Parsivar
-
-# An example is: ﻦﻣی<200c>ﺕﻭﺎﻨﺴﺘﻣ, which is in vocabulary, but is erroneously separated
-
-
-# Also another problem: The initil character (sometimes?) disappears. E.g. لهام is the name Elham, with the first character (Alif) chopped off. Occurs in Items 11 a/b.
-
-# Segments the data using the same tokenizer as used when training the language model
-# Checks for OOVs
 
 import stanfordnlp
 #stanfordnlp.download('hi')
@@ -35,80 +24,78 @@ with open("vocabularies/char-vocab-wiki-"+language, "r") as inFile:
 stoi_chars = dict([(itos_chars[i],i) for i in range(len(itos_chars))])
 
 
-
-with open("stimuli/safavi_etal_2016_persian/items_expt1.txt", "r") as inFile:
- with open("stimuli/safavi_etal_2016_persian/items_expt1_tokenized.txt", "w") as outFile:
-   print("\t".join([str(z) for z in ["ItemCondition", "OriginalTokenNumber", "Region", "TokenizedTokenNumber", "TokenizedWord", "Experiment", "Item", "Condition"]]), file=outFile)
-
+items = []
+with open("stimuli/safavi_etal_2016_persian/items_merged_beforeEdit_REGIONS.txt", "r") as inFile:
    typ = "1 1 1"
-   for line in inFile:
-      if len(line) > 3:
-         text = line.strip()
-#         print(text)
-         text = [x for x in text.replace("\u202b", "").replace("\u202c", "").split(" ")][::-1]
-         words = [x.split("_") for x in text]
-         text = []
-         for w in words:
-           for v in w:
-            text.append(v)
- #        print(text)
+   for lineNumber, line in enumerate(inFile):
+      if lineNumber == 0 or lineNumber == 36*5+1:
+          print(line)
+      part = (1 if  lineNumber < 36*5+1 else 2)
+      item = int((lineNumber-1)/5)+1 if part == 1 else int((lineNumber-1-36*5-1)/5)+1
 
-         i=0
-         while i+1 < len(text):
-             if text[i]+'\u200c'+text[i+1] in stoi:
-#                  print("@@@@@@@@@@@@@@@@@@@@@@@")
-                  rank1=stoi.get(text[i], -1)
-                  rank2=stoi.get(text[i+1], -1)
-                  rank3=stoi.get(text[i]+'\u200c'+text[i+1])
-#                  print(stoi.get(text[i], -1), stoi.get(text[i+1], -1), stoi.get(text[i]+'\u200c'+text[i+1]), text[i]+'\u200c'+text[i+1])
-                  if (rank1 == -1 or rank2 == -1) or rank3 < rank1 or rank3 < rank2:
-                      print("REPLACING")
-                      text[i] = text[i]+'\u200c'+text[i+1]
-                      del text[i+1]
-                      i-=1
-             i+=1
+      condition =  int((lineNumber-1) % 5) if part == 1 else int((lineNumber-1-36*5-1) % 5)
+      if condition == 1:
+         items.append([])
+      if condition >= 1 and lineNumber != 0 and lineNumber != 36*5+1:
+         items[-1].append((part, item, condition, line.strip()))
 
-         textstr = " ".join(text)
-         # RUN a tetx normalizer for correcting half-space
-         normalized = textstr #my_normalizer.normalize(textstr)
-  #       print(textstr)
-   #      print(normalized)
-         textstr = normalized #assert textstr == normalized
-         doc = nlp(textstr[1:])
 
+
+tokenizedTrials = []
+
+for item in items:
+   print(item[0][:3])
+
+   sent2TargetStart = item[1][3].index("@")+1
+   sent2TargetEnd = item[1][3].index(" ", sent2TargetStart)
+   target2 = item[1][3][sent2TargetStart:sent2TargetEnd]
+
+   sent4TargetStart = item[3][3].index("@")+1
+   sent4TargetEnd = item[3][3].index(" ", sent4TargetStart)
+   target4 = item[3][3][sent4TargetStart:sent4TargetEnd]
+
+   part = item[1][0]
+   itemID = item[1][1]
+
+
+   for version in item:
+         condition = version[2]
+         line = version[3].strip()+"."
+         line = line.replace("@", "")
+         doc = nlp(line)
          text_tokenized = []
+         position = 0
+         hasFoundTarget = False
+         tokenizedTrials.append([])
          for sent in doc.sentences:
            for wrd in sent.words:
-              text_tokenized.append(wrd.text)
-              if wrd.text not in stoi:
-                  print("\t\t".join([str(x) for x in [wrd.text, wrd.lemma, wrd.pos, "OOV========================"]]))
+              position += 1
+              if not hasFoundTarget and (((wrd.text == target2) and condition in [1,2]) or ((wrd.text == target4) and condition in [3,4])):
+                  hasFoundTarget = True
+                  region = "verb"
+              else:
+                  region = "other"
+              tokenizedTrials[-1].append(("\t".join([str(x) for x in [position, wrd.text, wrd.lemma, wrd.pos, part, itemID, condition, region]])))
+         assert hasFoundTarget, (target2 , target4)
+
+import random
+with open("stimuli/safavi_etal_2016_persian/items_merged_tokenized.txt", "w") as outFile:
+   print("\t".join([str(z) for z in ["Position", "Word", "Lemma", "POS", "Part", "Item", "Condition", "Region", "Round"]]), file=outFile)
+   for ROUND in range(5):
+     print(ROUND)
+     random.shuffle(tokenizedTrials)
+     for trial in tokenizedTrials:
+        for line in trial:
+          print(line+"\t"+str(ROUND), file=outFile)
 
 
+#      print(part, item, condition)
+#      print(line)
+#      continue
+#      if len(line) > 3:
+#         
+         
+#         i=0
 
-#         print(text_tokenized)
- #        print(len(text), len(text_tokenized))
-#         assert len(text) <= len(text_tokenized)
-         posTxt = 0
-         posWrd = 1
-         i = 0
-
-
-#         for y in words:
-##             print(y, posWrd, posTxt)
-#             
-#             for _ in y:
-#                if posWrd == len(text_tokenized[posTxt]):
-#                    #print("\t".join([str(z) for z in [typ, i, posTxt, y, text_tokenized[posTxt]]])) #, file=outFile)
-#                    if text_tokenized[posTxt] not in stoi:
-#                        print("OOV", typ, text_tokenized[posTxt])
-#                        print("==========================")
-#                        print("==========================")
 #
-#                    posTxt += 1
-#                    posWrd = 1
-#                else:
-#                    posWrd += 1
 #
-#             i += 1
-
-

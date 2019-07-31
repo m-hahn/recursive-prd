@@ -64,6 +64,10 @@ summary(fm4a <- lmer(Surprisal~ grammatical+interference+(1+grammatical|Model)+(
 summary(fm4a <- lmer(Surprisal~ grammatical+interference+(1+grammatical|Model)+(1+grammatical|item), data=data %>% filter(region == "V3", grammatical!="full"))) # no difference between either ungrammatical version
 summary(fm4a <- lmer(Surprisal~ grammatical+interference+(1+grammatical|Model)+(1+grammatical|item), data=data %>% filter(region == "V2", grammatical!="RemovedV2"))) # removed V1 *better* than grammatical
 
+# not really comparable
+summary(fm4a <- lmer(Surprisal~ grammatical+interference+(1+grammatical|Model)+(1+grammatical|item), data=data %>% filter(grammatical!="full") %>% filter(region == ifelse(grammatical == "RemovedV2", "V1", "V2"))))
+
+
 # Both ungrammaticality manipulations show similar penalty in this surprisal.
 summary(fm4a <- lmer(Surprisal~ grammatical+interference+(1+grammatical|Model)+(1+grammatical|item), data=data %>% filter(region == "D4", grammatical!="RemovedV1"))) # removedV2 *worse* than grammatical
 summary(fm4a <- lmer(Surprisal~ grammatical+interference+(1+grammatical|Model)+(1+grammatical|item), data=data %>% filter(region == "D4", grammatical!="RemovedV2"))) # removedV1 *worse* than grammatical

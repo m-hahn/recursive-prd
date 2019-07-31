@@ -296,8 +296,8 @@ summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=da
 
 data4 = data4 %>% mutate(Bottleneck = (!grepl("Control", Script))) %>% mutate(LogBeta = ifelse(Bottleneck, LogBeta, NA)) %>% mutate(grammatical = ifelse(g==-1, "Ungrammatical", "Grammatical"))
 library(ggplot2)
-plot = ggplot(data4 %>% group_by(grammatical, LogBeta), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9)) + facet_wrap(~LogBeta)
-plot = ggplot(data4 %>% group_by(grammatical), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9))
+plot = ggplot(data4 %>% group_by(grammatical, LogBeta) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9)) + facet_wrap(~LogBeta)
+plot = ggplot(data4 %>% group_by(grammatical) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9))
 
 
 
