@@ -161,6 +161,8 @@ def prepareDatasetChunks(data, train=True):
       numerified = []
       numerified_chars = []
       word_lengths = []
+      bpe_lengths = []
+
       for chunk in data:
        #print(len(chunk))
        for char in chunk:
@@ -170,8 +172,10 @@ def prepareDatasetChunks(data, train=True):
 #         if count % 100000 == 0:
 #             print(count/len(data))
          numerified.append((stoi[char]+3 if char in stoi else 2))
-         numerified_chars.append([0] + ([stoi_chars[x]+3 if x in stoi_chars else 2 for x in i2BPE[stoi[char]]] if char in stoi else [2,1]))
-         word_lengths.append(min(CHAR_WORD_LENGTH-1, len(char))+1)
+         bpeRep = ([stoi_chars[x]+3 if x in stoi_chars else 2 for x in i2BPE[stoi[char]]] if char in stoi else [2,1])
+         numerified_chars.append([0] + bpeRep)
+         bpe_lengths.append(min(CHAR_WORD_LENGTH-1, len(bpeRep)))
+         word_lengths.append(len(char))
 
        if len(numerified) > (args.batchSize*args.sequence_length):
          sequenceLengthHere = args.sequence_length
@@ -180,6 +184,7 @@ def prepareDatasetChunks(data, train=True):
          numerifiedCurrent = numerified[:cutoff]
          numerifiedCurrent_chars = numerified_chars[:cutoff]
          word_lengthsCurrent = word_lengths[:cutoff]
+         bpe_lengthsCurrent = bpe_lengths[:cutoff]
 
          for i in range(len(numerifiedCurrent_chars)):
             numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:CHAR_WORD_LENGTH+1]
@@ -189,16 +194,18 @@ def prepareDatasetChunks(data, train=True):
          numerified = numerified[cutoff:]
          numerified_chars = numerified_chars[cutoff:]
          word_lengths = word_lengths[cutoff:]
- 
+         bpe_lengths = bpe_lengths[cutoff:]
+
          numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
          numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, CHAR_WORD_LENGTH+1).transpose(0,1).transpose(1,2).cuda()
          word_lengthsCurrent = torch.LongTensor(word_lengthsCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
+         bpe_lengthsCurrent = torch.LongTensor(bpe_lengthsCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
 
 #         print(numerifiedCurrent_chars.size())
  #        quit()
          numberOfSequences = numerifiedCurrent.size()[0]
          for i in range(numberOfSequences):
-             yield numerifiedCurrent[i], numerifiedCurrent_chars[i], word_lengthsCurrent[i]
+             yield numerifiedCurrent[i], numerifiedCurrent_chars[i], word_lengthsCurrent[i], bpe_lengthsCurrent[i]
          hidden = None
        else:
          print("Skipping")
@@ -246,7 +253,8 @@ def forward(numeric, train=True, printHere=False):
 
 
 
-      numeric, numeric_chars, wordLengths = numeric
+      numeric, numeric_chars, wordLengths, bpeLengths = numeric
+      #print(bpeLengths.max(), bpeLengths.float().mean())
 #      print(numeric_chars.size())
       numeric = torch.cat([beginning, numeric], dim=0)
 
