@@ -101,7 +101,7 @@ print(rnn_parameter_names)
 rnn_drop = rnn #WeightDrop(rnn, layer_names=[(name, args.weight_dropout_in) for name, _ in rnn.named_parameters() if name.startswith("weight_ih_")] + [ (name, args.weight_dropout_hidden) for name, _ in rnn.named_parameters() if name.startswith("weight_hh_")])
 
 output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
-
+out_rnn2out_chars = torch.nn.Linear(args.hidden_dim, args.char_dec_hidden_dim).cuda()
 #word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=args.word_embedding_size).cuda()
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
@@ -113,7 +113,7 @@ char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
 
 train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='none')
 
-modules = [rnn, output] #, word_embeddings]
+modules = [rnn, output, out_rnn2out_chars] #, word_embeddings]
 
 
 character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=2*args.word_embedding_size, padding_idx=0).cuda()
@@ -324,10 +324,14 @@ def forward(numeric, train=True, printHere=False):
 
       inp_to_char_decoder = torch.cat([character_embeddings(target_tensor_chars_relevant[:1]), out_relevant.unsqueeze(0)], dim=2)
       out_chars, hidden_char_decoder = char_decoder_rnn(inp_to_char_decoder)
-      out_chars = logsoftmax(char_decoder_output(out_chars))
+      
+#      print(out_relevant.size(), out_chars.size())
+ #     print(out_rnn2out_chars(out_relevant).size())
+  #    quit()
+      out_chars = logsoftmax(char_decoder_output(out_rnn2out_chars(out_relevant).unsqueeze(0)))
       loss_chars_FIRST = train_loss_chars(out_chars.view(-1, len(itos_chars_total)), target_tensor_chars_relevant[1].contiguous().view(-1)).view(1, -1, args.batchSize)
 #      print(bpeLengths)
-      loss_chars_SECOND = 0
+#      loss_chars_SECOND = 0
       if bpeLengths.max() > 1:
          bpeLengthsFlattened = bpeLengths.view(-1)
 
