@@ -35,7 +35,7 @@ vb = vb %>% mutate(someIntervention = case_when(intervention == "none" ~ -1, TRU
 
 vb = vb %>% mutate(ModelPerformance.C=ModelPerformance-mean(ModelPerformance), LogBeta.C=LogBeta-mean(LogBeta))
 # TODO why are there duplicates???
-vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Model, intervention, embedding, ModelPerformance.C, Script, LogBeta.C, LogBeta))
+vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Model, intervention, embedding, ModelPerformance.C, Script, LogBeta.C, LogBeta, Memory))
 
 
 library(ggplot2)

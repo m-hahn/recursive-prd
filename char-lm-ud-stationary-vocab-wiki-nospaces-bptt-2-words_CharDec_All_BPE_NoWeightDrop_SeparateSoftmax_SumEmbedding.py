@@ -42,7 +42,7 @@ args=parser.parse_args()
 
 print(args)
 
-
+CHAR_WORD_LENGTH = 3
 
 import corpusIteratorWikiWords
 
@@ -54,16 +54,29 @@ def plus(it1, it2):
    for x in it2:
       yield x
 
-char_vocab_path = "vocabularies/"+args.language.lower()+"-wiki-word-vocab-50000.txt"
 
+char_vocab_path = f"/u/scr/mhahn/FAIR18/{args.language.lower()}-wiki-word-vocab.txt"
+bpe_char_vocab_path = f"/u/scr/mhahn/FAIR18/{args.language.lower()}-wiki-word-vocab_BPE_50000_Parsed.txt"
+
+itos = [None for _ in range(1000000)]
+i2BPE = [None for _ in range(1000000)]
 with open(char_vocab_path, "r") as inFile:
-     itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
+  with open(bpe_char_vocab_path, "r") as inFileBPE:
+     for i in range(1000000):
+        if i % 50000 == 0:
+           print(i)
+        word = next(inFile).strip().split("\t")
+        bpe = next(inFileBPE).strip().split("\t")
+        itos[i] = word[0]
+        i2BPE[i] = bpe[0].split("@@ ")
 stoi = dict([(itos[i],i) for i in range(len(itos))])
 
 with open("vocabularies/char-vocab-wiki-"+args.language, "r") as inFile:
      itos_chars = [x for x in inFile.read().strip().split("\n")]
+with open("/u/scr/mhahn/FAIR18/german-wiki-word-vocab_BPE_50000.txt", "r") as inFile:
+     itos_chars += [x.replace(" ",  "") for x in inFile.read().strip().split("\n")]
+assert len(itos_chars) > 50000
 stoi_chars = dict([(itos_chars[i],i) for i in range(len(itos_chars))])
-
 
 itos_chars_total = ["SOS", "EOS", "OOV"] + itos_chars
 
@@ -89,7 +102,7 @@ rnn_drop = rnn #WeightDrop(rnn, layer_names=[(name, args.weight_dropout_in) for 
 
 output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 
-word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=args.word_embedding_size).cuda()
+#word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=args.word_embedding_size).cuda()
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
 
@@ -100,19 +113,19 @@ char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
 
 train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='none')
 
-modules = [rnn, output, word_embeddings]
+modules = [rnn, output] #, word_embeddings]
 
 
-character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
+character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=2*args.word_embedding_size, padding_idx=0).cuda()
 
-char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
-char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
+#char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
+#char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, 2*args.word_embedding_size).cuda()
 
-char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
+char_decoder_rnn = torch.nn.LSTM(2*args.word_embedding_size + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
 char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total)).cuda()
 
 
-modules += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
+modules += [character_embeddings,  char_decoder_rnn, char_decoder_output] # char_composition, char_composition_output,
 def parameters():
    for module in modules:
        for param in module.parameters():
@@ -148,6 +161,8 @@ def prepareDatasetChunks(data, train=True):
       numerified = []
       numerified_chars = []
       word_lengths = []
+      bpe_lengths = []
+
       for chunk in data:
        #print(len(chunk))
        for char in chunk:
@@ -157,8 +172,10 @@ def prepareDatasetChunks(data, train=True):
 #         if count % 100000 == 0:
 #             print(count/len(data))
          numerified.append((stoi[char]+3 if char in stoi else 2))
-         numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
-         word_lengths.append(min(14, len(char))+1)
+         bpeRep = ([stoi_chars[x]+3 if x in stoi_chars else 2 for x in i2BPE[stoi[char]]] if char in stoi else [2,1])
+         numerified_chars.append([0] + bpeRep)
+         bpe_lengths.append(min(CHAR_WORD_LENGTH-1, len(bpeRep)))
+         word_lengths.append(len(char))
 
        if len(numerified) > (args.batchSize*args.sequence_length):
          sequenceLengthHere = args.sequence_length
@@ -167,25 +184,28 @@ def prepareDatasetChunks(data, train=True):
          numerifiedCurrent = numerified[:cutoff]
          numerifiedCurrent_chars = numerified_chars[:cutoff]
          word_lengthsCurrent = word_lengths[:cutoff]
+         bpe_lengthsCurrent = bpe_lengths[:cutoff]
 
          for i in range(len(numerifiedCurrent_chars)):
-            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
-            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
+            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:CHAR_WORD_LENGTH+1]
+            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(CHAR_WORD_LENGTH+1-len(numerifiedCurrent_chars[i])))
 
 
          numerified = numerified[cutoff:]
          numerified_chars = numerified_chars[cutoff:]
          word_lengths = word_lengths[cutoff:]
- 
+         bpe_lengths = bpe_lengths[cutoff:]
+
          numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
-         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
+         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, CHAR_WORD_LENGTH+1).transpose(0,1).transpose(1,2).cuda()
          word_lengthsCurrent = torch.LongTensor(word_lengthsCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
+         bpe_lengthsCurrent = torch.LongTensor(bpe_lengthsCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
 
 #         print(numerifiedCurrent_chars.size())
  #        quit()
          numberOfSequences = numerifiedCurrent.size()[0]
          for i in range(numberOfSequences):
-             yield numerifiedCurrent[i], numerifiedCurrent_chars[i], word_lengthsCurrent[i]
+             yield numerifiedCurrent[i], numerifiedCurrent_chars[i], word_lengthsCurrent[i], bpe_lengthsCurrent[i]
          hidden = None
        else:
          print("Skipping")
@@ -199,7 +219,7 @@ hidden = None
 zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
 beginning = None
 
-zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
+zeroBeginning_chars = torch.zeros(1, args.batchSize, CHAR_WORD_LENGTH+1).long().cuda()
 
 
 zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda()
@@ -233,14 +253,15 @@ def forward(numeric, train=True, printHere=False):
 
 
 
-      numeric, numeric_chars, wordLengths = numeric
+      numeric, numeric_chars, wordLengths, bpeLengths = numeric
+      #print(bpeLengths.max(), bpeLengths.float().mean())
 #      print(numeric_chars.size())
       numeric = torch.cat([beginning, numeric], dim=0)
 
       numeric_chars = torch.cat([beginning_chars, numeric_chars], dim=0)
 
       beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize)
-      beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, args.batchSize, 16)
+      beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, args.batchSize, CHAR_WORD_LENGTH+1)
 
 
       input_tensor = Variable(numeric[:-1], requires_grad=False)
@@ -250,25 +271,28 @@ def forward(numeric, train=True, printHere=False):
       target_tensor_chars = Variable(numeric_chars[1:], requires_grad=False)
 
       embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
-      embedded_chars = embedded_chars.contiguous().view(16, -1)
-      _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
-      embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
+      #print(embedded_chars.size())
+      embedded_chars = embedded_chars.contiguous().view(CHAR_WORD_LENGTH+1, -1)
+      #print(embedded_chars.size())
+      embedded_chars = character_embeddings(embedded_chars).sum(dim=0)
+      #print(embedded_chars.size())
+      embedded_chars = embedded_chars.view(args.sequence_length, args.batchSize, 2*args.word_embedding_size)
       #print(embedded_chars.size())
 
-      embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
+#      embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
       #print(embedded_chars.size())
 
     #  print(word_embeddings)
       #if train and (embedding_full_dropout_prob is not None):
       #   embedded = embedded_dropout(word_embeddings, input_tensor, dropout=embedding_full_dropout_prob, scale=None) #word_embeddings(input_tensor)
       #else:
-      embedded = word_embeddings(input_tensor)
+#      embedded = word_embeddings(input_tensor)
       #print(embedded.size())
 #      print("=========")
 #      print(numeric[:,5])
 #      print(embedded[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
 #      print(embedded_chars[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
-      embedded = torch.cat([embedded, embedded_chars], dim=2)
+      embedded = embedded_chars #torch.cat([embedded, embedded_chars], dim=2)
       #print(embedded.size())
       if train:
          embedded = char_dropout(embedded)
@@ -288,18 +312,54 @@ def forward(numeric, train=True, printHere=False):
     #  print(out.size())
      # print(target_tensor_chars.size())
       out_flattened = out.view(-1, args.hidden_dim)
-      target_tensor_chars_flattened = target_tensor_chars.view(args.sequence_length * args.batchSize, 16)
+      target_tensor_chars_flattened = target_tensor_chars.view(args.sequence_length * args.batchSize, CHAR_WORD_LENGTH+1)
       #
       out_relevant = out_flattened#[oovs]
       target_tensor_chars_relevant = target_tensor_chars_flattened.t() #[oovs].t()
    #   print(out_relevant.size())
   #    print(character_embeddings(target_tensor_chars_relevant[:-1]).size())
-      out_chars, _ = char_decoder_rnn(torch.cat([character_embeddings(target_tensor_chars_relevant[:-1]), out_relevant.unsqueeze(0).expand(15, -1, -1)], dim=2))
-      out_chars = logsoftmax(char_decoder_output(out_chars))
- #     print(out_chars.size())
-      loss_chars = train_loss_chars(out_chars.view(-1, len(itos_chars_total)), target_tensor_chars_relevant[1:].contiguous().view(-1)).view(15, -1, args.batchSize)
 
+
+#      print(target_tensor_chars_relevant.size(), out_relevant.size(), character_embeddings(target_tensor_chars_relevant[0])
+
+      inp_to_char_decoder = torch.cat([character_embeddings(target_tensor_chars_relevant[:1]), out_relevant.unsqueeze(0)], dim=2)
+      out_chars, hidden_char_decoder = char_decoder_rnn(inp_to_char_decoder)
+      out_chars = logsoftmax(char_decoder_output(out_chars))
+      loss_chars_FIRST = train_loss_chars(out_chars.view(-1, len(itos_chars_total)), target_tensor_chars_relevant[1].contiguous().view(-1)).view(1, -1, args.batchSize)
+#      print(bpeLengths)
+      loss_chars_SECOND = 0
+      if bpeLengths.max() > 1:
+         bpeLengthsFlattened = bpeLengths.view(-1)
+
+         target_tensor_chars_relevant_long = target_tensor_chars_relevant[1:, bpeLengthsFlattened > 1]
+       #  print(target_tensor_chars_relevant_long.size())
+
+      #   print(target_tensor_chars_relevant, CHAR_WORD_LENGTH)
+         out_relevant_long = out_relevant[bpeLengthsFlattened > 1]
+     #    print("OUT_RELEVANT", out_relevant.size(), out_relevant_long.size())
+    #     print(target_tensor_chars_relevant_long.size(), out_relevant_long.size())
+         inp_to_char_decoder = torch.cat([character_embeddings(target_tensor_chars_relevant_long[:-1]), out_relevant_long.unsqueeze(0).expand(CHAR_WORD_LENGTH-1, -1, -1)], dim=2)
+
+   #      print(hidden_char_decoder[0].size())
+#         quit()
+         hidden_char_decoder = tuple((x[:, bpeLengthsFlattened > 1] for x in hidden_char_decoder))
+         out_chars, hidden_char_decoder = char_decoder_rnn(inp_to_char_decoder, hidden_char_decoder)
+  #       print(out_chars.size())
+         out_chars = logsoftmax(char_decoder_output(out_chars))
+ #        print(target_tensor_chars_relevant_long.size(), out_chars.size())
+         loss_chars_SECOND = train_loss_chars(out_chars.view(-1, len(itos_chars_total)), target_tensor_chars_relevant_long[1:].contiguous().view(-1)).view(CHAR_WORD_LENGTH-1, -1)
+#         print("loss_chars_SECOND",loss_chars_SECOND.size())
+        
+
+      # FIRST run on those 
+
+      
+         loss_chars = loss_chars_FIRST.sum() + loss_chars_SECOND.sum()
+      else:
+          loss_chars = loss_chars_FIRST.sum() 
+      
       loss_chars_total = loss_chars.sum() / (args.sequence_length * args.batchSize)
+     # quit()
 #      print(loss_chars)
 #      quit()
 
@@ -318,8 +378,17 @@ def forward(numeric, train=True, printHere=False):
 
       if printHere:
 #         oovs = (target_tensor.view(-1) == 2)
-         lossTensor = loss_chars.sum(0) #print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
+         full_loss_chars = torch.zeros(CHAR_WORD_LENGTH, args.sequence_length * args.batchSize).cuda()
+ #        print(full_loss_chars.size(), loss_chars_FIRST.size(), loss_chars_SECOND.size())
+         full_loss_chars[:1] = loss_chars_FIRST.view(1, args.sequence_length * args.batchSize)
+         full_loss_chars[1:, bpeLengthsFlattened > 1] = loss_chars_SECOND
+#         print(full_loss_chars.size())
+         full_loss_chars_3D = full_loss_chars.view(CHAR_WORD_LENGTH, args.sequence_length, args.batchSize)
+
+         lossTensor = full_loss_chars_3D.sum(0) #print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
 #         lossTensor.masked_scatter_(mask=oovs, source=loss_chars.sum(dim=0)[oovs])
+
+
 
          lossTensor = lossTensor.view(-1, args.batchSize)
          
@@ -334,7 +403,7 @@ def forward(numeric, train=True, printHere=False):
     #        else:
      #          boundary = False
             word =          itos[numericCPU[i+1][0]-3]
-            print((losses[i][0], word, wordLengths[i][0], loss_chars[:, i, 0].tolist()))
+            print((losses[i][0], word, wordLengths[i][0], full_loss_chars_3D[:, i, 0].tolist()))
       return loss, target_tensor.view(-1).size()[0], wordLengths
 
 def backward(loss, printHere):

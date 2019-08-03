@@ -34,15 +34,17 @@ summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.
 
 summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v1")))
 
-library(brms)
+#library(brms)
+#summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v0"), chains=1))
+#summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v1"), chains=1))
 
 
-summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v0"), chains=1))
-summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "v1"), chains=1))
-
-
-relcl = raw.spr.data %>% filter(Region %in% c("d1", "n1", "v0")) %>% group_by(Model, Item, ORC.C) %>% summarise(Surprisal=mean(Surprisal))
+relcl = raw.spr.data %>% filter(Region %in% c("d1", "n1", "v0")) %>% group_by(Model, Item, ORC.C, Round) %>% summarise(Surprisal=sum(Surprisal))
 summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=relcl))
+
+np = raw.spr.data %>% filter(Region %in% c("d1", "n1")) %>% group_by(Model, Item, ORC.C, Round) %>% summarise(Surprisal=sum(Surprisal))
+summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=np))
+
 
 
 

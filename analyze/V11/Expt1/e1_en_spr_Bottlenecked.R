@@ -46,6 +46,8 @@ data = merge(data, datModel, by=c("LineNumber"))
 
 data = data %>% filter(!grepl("OOV", RegionLSTM))
 
+mean(as.character(data$RegionLSTM) == as.character(data$word))
+
 data <- subset(data,expt=="gug")
 data$expt <- factor(data$expt)
 
@@ -80,7 +82,7 @@ d.rs$roi <- ifelse(d.rs$position==2,1, # NP1
 ## NP3:
 pos05data <- subset(d.rs,roi==5)
 
-d.rs.NP3 <- melt(pos05data, id=c("subject" ,  "expt"  ,    "item"   ,   "condition" ,"position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance"),
+d.rs.NP3 <- melt(pos05data, id=c("subject" ,  "expt"  ,    "item"   ,   "condition" ,"position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance", "Memory"),
                 measure=c("rt"), variable_name="times",
                 na.rm=FALSE)
 
@@ -105,7 +107,7 @@ d.rs.NP3$int <- ifelse(d.rs.NP3$condition%in%c("a","c"),"hi","lo")
 ## V3:
 pos09data <- subset(d.rs,position==9)
 
-d.rs.V3 <- melt(pos09data, id=c("subject" ,  "expt"  ,    "item" ,     "condition" ,"position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance"),
+d.rs.V3 <- melt(pos09data, id=c("subject" ,  "expt"  ,    "item" ,     "condition" ,"position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance", "Memory"),
                 measure=c("rt"), variable_name="times",
                 na.rm=FALSE)
 
@@ -124,7 +126,7 @@ data.cd <- subset(data,condition%in%c("c","d"))
 
 pos10data <- subset(data.ab,position==10) ## V2 in a,b
 
-d.rs.V2ab <- melt(pos10data, id=c("subject" ,  "expt"   ,   "item"   ,   "condition", "position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance"),
+d.rs.V2ab <- melt(pos10data, id=c("subject" ,  "expt"   ,   "item"   ,   "condition", "position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance", "Memory"),
                 measure=c("rt"), variable_name="times",
                 na.rm=TRUE)
 
@@ -140,7 +142,7 @@ pos11data <- subset(data.ab,position==11)
 pos10data <- subset(data.cd,position==10)
 pos1011data <- rbind(pos10data,pos11data)
 
-d.rs.V1 <- melt(pos1011data, id=c("subject" ,  "expt"  ,    "item"   ,   "condition", "position",  "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance"),
+d.rs.V1 <- melt(pos1011data, id=c("subject" ,  "expt"  ,    "item"   ,   "condition", "position",  "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance", "Memory"),
                 measure="rt", variable_name="times",
                 na.rm=TRUE)
 
@@ -154,7 +156,7 @@ pos12data <- subset(data.ab,position==12)
 pos11data <- subset(data.cd,position==11)
 pos1112data <- rbind(pos12data,pos11data)
 
-d.rs.postV1 <- melt(pos1112data, id=c("subject"  , "expt"    ,  "item"  ,    "condition", "position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance"),
+d.rs.postV1 <- melt(pos1112data, id=c("subject"  , "expt"    ,  "item"  ,    "condition", "position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance", "Memory"),
                 measure="rt", variable_name="times",
                 na.rm=TRUE)
 
@@ -258,13 +260,16 @@ summary(fm3 <- lmer(value~ g+i+gxi+(1|subject)+(1|item),
 data3 = data3 %>% mutate(LogBeta.C = LogBeta-mean(LogBeta))
 data3 = data3 %>% mutate(ModelPerformance.C = ModelPerformance-mean(ModelPerformance))
 
-summary(fm3 <- lmer(Surprisal~ g+i+gxi+(1|Model)+(1|item), data=data3))
-summary(fm3 <- lmer(Surprisal~ ModelPerformance.C*g+i+gxi+(1+g+i+gxi|Model)+(1+ModelPerformance.C+g+i+gxi|item), data=data3)) # worse models generate a larger forgetting effect
+#summary(fm3 <- lmer(Surprisal~ g+i+gxi+(1|Model)+(1|item), data=data3))
+#summary(fm3 <- lmer(Surprisal~ ModelPerformance.C*g+i+gxi+(1+g+i+gxi|Model)+(1+ModelPerformance.C+g+i+gxi|item), data=data3)) # worse models generate a larger forgetting effect
 
 data3 = data3 %>% mutate(Bottleneck = (!grepl("Control", Script))) %>% mutate(LogBeta = ifelse(Bottleneck, LogBeta, NA)) %>% mutate(grammatical = ifelse(g==-1, "Ungrammatical", "Grammatical"))
 library(ggplot2)
-plot = ggplot(data3 %>% group_by(grammatical, ModelPerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9)) + facet_wrap(~ModelPerformance)
-plot = ggplot(data3 %>% group_by(grammatical) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9))
+plot = ggplot(data3 %>% group_by(grammatical, Model, LogBeta) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~LogBeta)
+plot = ggplot(data3 %>% group_by(grammatical, Model, Memory) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~Memory)
+plot = ggplot(data3 %>% group_by(grammatical, Model, ModelPerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~ModelPerformance)
+
+#plot = ggplot(data3 %>% group_by(grammatical) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9))
 
 
 
@@ -283,21 +288,23 @@ summary(fm4a <- lmer(log(value)~ g+i+gxi+(1+g|subject)+(1|item),
                    data=subset(data4)))
 
 data4 = data4 %>% mutate(LogBeta.C = LogBeta-mean(LogBeta))
-summary(fm4a <- lmer(Surprisal~ g+i+gxi+(1+g|Model)+(1|item), data=data4))
+#summary(fm4a <- lmer(Surprisal~ g+i+gxi+(1+g|Model)+(1|item), data=data4))
 
 data4 = data4 %>% mutate(ModelPerformance.C = ModelPerformance-mean(ModelPerformance))
-summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4 %>% filter(!grepl("Control", Script))))
-summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4 %>% filter(grepl("Control", Script))))
-summary(fm4a <- lmer(Surprisal~ ModelPerformance.C+g+(1|Model)+(1|item), data=data4 %>% filter(grepl("Control", Script))))  
+#summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4 %>% filter(!grepl("Control", Script))))
+#summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4 %>% filter(grepl("Control", Script))))
+#summary(fm4a <- lmer(Surprisal~ ModelPerformance.C+g+(1|Model)+(1|item), data=data4 %>% filter(grepl("Control", Script))))  
 
 
-summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4)) # Degree of grammaticality advantage is modulated by model surprisal
+#summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data4)) # Degree of grammaticality advantage is modulated by model surprisal
 
 
 data4 = data4 %>% mutate(Bottleneck = (!grepl("Control", Script))) %>% mutate(LogBeta = ifelse(Bottleneck, LogBeta, NA)) %>% mutate(grammatical = ifelse(g==-1, "Ungrammatical", "Grammatical"))
 library(ggplot2)
-plot = ggplot(data4 %>% group_by(grammatical, LogBeta) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9)) + facet_wrap(~LogBeta)
-plot = ggplot(data4 %>% group_by(grammatical) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=grammatical, fill=grammatical)) + geom_bar(stat="identity", position=position_dodge(0.9))
+plot = ggplot(data4 %>% group_by(grammatical, LogBeta, Model) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~LogBeta)
+plot = ggplot(data4 %>% group_by(grammatical, Memory, Model) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~Memory)
+
+#plot = ggplot(data4 %>% group_by(grammatical) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal)) + geom_line() #(stat="identity", position=position_dodge(0.9))
 
 
 

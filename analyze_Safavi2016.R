@@ -34,6 +34,7 @@ surpdata = surpdata %>% mutate(Item = Item + 40*(Part-1))
 
 summary(lmer(Surprisal ~  long*light_verb + (1+long+light_verb+long*light_verb|Item) + (1+long+light_verb+long*light_verb|Model), data=surpdata %>% filter(Region == "verb", Part==1)))
 # - locality effect
+# - no main effect of verb type
 # - locality - predictability interaction, but in the unexpected direction
 
 summary(lmer(Surprisal ~  long*light_verb + (1+long+light_verb+long*light_verb|Item) + (1+long+light_verb+long*light_verb|Model), data=surpdata %>% filter(Region == "verb", Part==2)))

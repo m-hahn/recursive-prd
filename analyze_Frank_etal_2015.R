@@ -27,5 +27,6 @@ raw.spr.data = raw.spr.data %>% mutate(Grammatical.C = (Condition == "g")-0.5)
 
 summary(lmer(Surprisal ~ Grammatical.C + (1+Grammatical.C|Item) + (1+Grammatical.C|Model), data=raw.spr.data %>% filter(Region == "v2")))
 # This model shows a forgetting effect (unexpectedly!)
+summary(lmer(Surprisal ~ Grammatical.C + (1+Grammatical.C|Item) + (1+Grammatical.C|Model), data=raw.spr.data %>% filter(Region == "d3")))
 
 

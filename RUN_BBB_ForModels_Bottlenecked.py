@@ -27,7 +27,10 @@ for language in ["english"]:
              beta = args[args.index("log_beta"):]
              beta = beta[beta.index("=")+1:beta.index(",")]
              beta = str(-log(float(beta)))
-          surprisal = float(next(inFile).strip().split(" ")[-1])
+          surprisals = next(inFile).strip().split(" ")
+          surprisal = float(surprisals[-1])
+          if len(surprisals) < 30:
+             continue
           print("\t".join([str(x) for x in [ID, model, script, surprisal, log_beta]]), file=outFile)
  #         continue 
           command = ["/u/nlp/anaconda/ubuntu_16/envs/py27-mhahn/bin/python2.7", "RUN_BBB_"+script, "--language="+language, "--load_from="+ID]

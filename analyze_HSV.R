@@ -25,7 +25,9 @@ for(model in models) {
    data = rbind(data, data2)
 }
 dataBase = merge(data, dataBase)
-mean(as.character(u$RegionLSTM) == as.character(u$TokenizedWord))
+mean(as.character(dataBase$RegionLSTM) == as.character(dataBase$TokenizedWord))
+
+dataBase = dataBase %>% filter(RegionLSTM != ",")
 
 dataBase[dataBase$Model == "25588231" & dataBase$LineNumber == 2,]
 
@@ -46,10 +48,7 @@ library(ggplot2)
 plot = ggplot(data=exp1 %>% filter(Region == "RCVerb") %>% group_by(SubjRC, Long, Model) %>% summarise(Surprisal=mean(Surprisal)) %>% mutate(FLong = ifelse(Long < 0, "_Short", "Long"), FSubjRC = ifelse(SubjRC < 0, "ObjRC", "SubjRC")), aes(x=FLong, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~FSubjRC)
 ggsave(plot, file="figures/husain_exp1_critreg.pdf", height=2, width=5)
 
-
-
-
-#summary(lmer(Surprisal ~ SubjRC*Long + (1+SubjRC+Long+SubjRC*Long|Item) + (1+SubjRC+Long+SubjRC*Long|Model), exp1 %>% filter(Region == "RCVerb")))
+summary(lmer(Surprisal ~ SubjRC*Long + (1+SubjRC+Long+SubjRC*Long|Item) + (1+SubjRC+Long+SubjRC*Long|Model), exp1 %>% filter(Region == "RCVerb")))
 
 # NOTE Also there are very strong effects at the Main Verb:
 # summary(lmer(Surprisal ~ SubjRC*Long + (1+SubjRC+Long+SubjRC*Long|Item) + (1+SubjRC+Long+SubjRC*Long|Model), exp1 %>% filter(Region == "MainVerb")))
@@ -75,7 +74,8 @@ exp3 = dataBase %>% filter(Experiment == "PP1") %>% mutate(Expectation = (Condit
 
 exp4 = dataBase %>% filter(Experiment == "CP1") %>% mutate(Expectation = (Condition %in% c("a", "b")) - 0.5, Long = (Condition %in% c("a", "c")) - 0.5)
 exp4 = exp4 %>% mutate(Critical = ((Expectation > 0 && Region == "CPLightVerb") || (Expectation < 0 &&Region == "MainVerb")))
-#summary(lmer(Surprisal ~ Expectation*Long + (1+Expectation+Long+Expectation*Long|Item) + (1+Expectation+Long+Expectation*Long|Model), exp4 %>% filter(Critical)))
+
+summary(lmer(Surprisal ~ Expectation*Long + (1+Expectation+Long+Expectation*Long|Item) + (1+Expectation+Long+Expectation*Long|Model), exp4 %>% filter(Critical)))
 
 plot = ggplot(data=exp4 %>% filter(Critical) %>% group_by(Expectation, Long, Model) %>% summarise(Surprisal=mean(Surprisal)) %>% mutate(FLong = ifelse(Long < 0, "_short", "Long"), FExpectation = ifelse(Expectation < 0, "no-exp", "exp")), aes(x=FLong, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~FExpectation)
 ggsave(plot, file="figures/husain_exp2_critreg.pdf", height=2, width=5)
