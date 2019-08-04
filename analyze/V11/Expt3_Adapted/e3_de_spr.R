@@ -66,7 +66,7 @@ summary(fm2 <- lmer(Surprisal~ g+i+gxi+
 ## comparison 3:
 data3 <- subset(data,(Region=="V1"))
 
-summary(fm3 <- lmer(Surprisal~ g+i+gxi +(1+g|Model)+(1+g|Item), data=data3)) # this is the effect on the verb
+summary(fm3 <- lmer(Surprisal~ g+i+gxi +(1+g|Model)+(1+g|Item), data=data3)) # this is the effect on the verb (nothing found here)
 
 
 library(ggplot2)
@@ -76,11 +76,23 @@ plot = ggplot(data3 %>% group_by(g, Model, Item) %>% summarise(Surprisal=mean(Su
 ## comparison 4:
 data4 <- subset(data,(Region=="D4"))
 
-summary(fm4 <- lmer(Surprisal~ g+i+gxi+(1+g|Model)+(1+g|Item), data=data4))
-
+summary(fm4 <- lmer(Surprisal~ g+i+gxi+(1+g|Model)+(1+g|Item), data=data4)) # the opposite of structural forgetting (expected)
 
 library(ggplot2)
 plot = ggplot(data4 %>% group_by(g, Model, Item) %>% summarise(Surprisal=mean(Surprisal)), aes(x=g, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~Item)
+
+
+
+
+## comparison 4:
+data5 <- subset(data,(Region=="N4"))
+
+summary(fm4 <- lmer(Surprisal~ g+i+gxi+(1+g|Model)+(1+g|Item), data=data5))
+
+
+
+
+plot = ggplot(data %>% group_by(Model, Region, g) %>% summarise(Surprisal = mean(Surprisal)), aes(x=Region, y=Surprisal, group=paste(Model, g))) + geom_line(aes(linetype=as.factor(g)))
 
 
 

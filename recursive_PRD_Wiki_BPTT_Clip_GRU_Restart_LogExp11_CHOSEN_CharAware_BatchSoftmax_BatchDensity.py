@@ -607,6 +607,7 @@ def  doBackwardPass(loss, baselineLoss, policy_related_loss):
          print "BACKWARD 3 "+__file__+" "+args.language+" "+str(args.myID)+" "+str(counter)+" "+str(lastDevLoss)+" "+str(failedDevRuns)+"  "+str(args)
          print devLosses
          print lastDevLoss
+         print failedDevRuns
 #       print("MAX NORM", max(p.grad.data.abs().max() for p in parameterList))
        # REMOVED GRADIENT CLIPPING, HOPING FOR SPEED
       # torch.nn.utils.clip_grad_norm(parameterList, args.norm_clip, norm_type='inf')
@@ -738,7 +739,7 @@ while failedDevRuns < 10:
 
           if lastDevLoss is None or newDevLoss < lastDevLoss:
              lastDevLoss = newDevLoss
-             failedDevRuns = 0
+             #failedDevRuns = 0
           else:
              failedDevRuns += 1
              print "Skip saving, hoping for better model"

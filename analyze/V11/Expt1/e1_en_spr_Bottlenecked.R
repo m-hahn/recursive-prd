@@ -55,6 +55,10 @@ data$expt <- factor(data$expt)
 data$position <- as.numeric(data$position)+1
 
 
+data$gram <- ifelse(data$condition%in%c("a","b"),"gram","ungram")
+data$int <- ifelse(data$condition%in%c("a","c"),"hi","lo")
+
+
 library(reshape)
 
 ## computations cached:
@@ -164,6 +168,21 @@ d.rs.postV1$gram <- factor(ifelse(d.rs.postV1$condition%in%c("a","b"),"gram","un
 d.rs.postV1$int <- factor(ifelse(d.rs.postV1$condition%in%c("a","c"),"hi","lo"))
 
 
+## Post V1 Noun:
+
+pos13data <- subset(data.ab,position==13)
+pos12data <- subset(data.cd,position==12)
+pos1213data <- rbind(pos13data,pos12data)
+
+d.rs.postV1Noun <- melt(pos1213data, id=c("subject"  , "expt"    ,  "item"  ,    "condition", "position" , "word", "Surprisal", "Model", "Script", "LogBeta", "ModelPerformance", "Memory"),
+                measure="rt", variable_name="times",
+                na.rm=TRUE)
+
+d.rs.postV1Noun$gram <- factor(ifelse(d.rs.postV1Noun$condition%in%c("a","b"),"gram","ungram"))
+d.rs.postV1Noun$int <- factor(ifelse(d.rs.postV1Noun$condition%in%c("a","c"),"hi","lo"))
+
+
+
 
 
 d.rs.V3$gram <- factor(d.rs.V3$gram) 
@@ -174,8 +193,9 @@ d.rs.V3 <- data.frame(region="V3",d.rs.V3)
 d.rs.V2ab <- data.frame(region="V2",d.rs.V2ab)
 d.rs.V1 <- data.frame(region="V1",d.rs.V1)
 d.rs.postV1 <- data.frame(region="postV1",d.rs.postV1)
+d.rs.postV1Noun <- data.frame(region="postV1Noun",d.rs.postV1Noun)
 
-critdata <- rbind(d.rs.NP3,d.rs.V3,d.rs.V2ab,d.rs.V1,d.rs.postV1)
+critdata <- rbind(d.rs.NP3,d.rs.V3,d.rs.V2ab,d.rs.V1,d.rs.postV1,d.rs.postV1Noun)
 
 critdata$times <- factor("rt")
 
@@ -306,5 +326,48 @@ plot = ggplot(data4 %>% group_by(grammatical, Memory, Model) %>% summarise(Surpr
 
 #plot = ggplot(data4 %>% group_by(grammatical) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal)) + geom_line() #(stat="identity", position=position_dodge(0.9))
 
+
+## comparison 4 post V1 Noun
+data5 <- subset(critdata,(region=="postV1Noun"))
+
+summary(fm4a <- lmer(log(value)~ g+i+gxi+(1+g|subject)+(1|item),
+                   data=subset(data5)))
+
+data5 = data5 %>% mutate(LogBeta.C = LogBeta-mean(LogBeta))
+#summary(fm4a <- lmer(Surprisal~ g+i+gxi+(1+g|Model)+(1|item), data=data5))
+
+data5 = data5 %>% mutate(ModelPerformance.C = ModelPerformance-mean(ModelPerformance))
+#summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data5 %>% filter(!grepl("Control", Script))))
+#summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data5 %>% filter(grepl("Control", Script))))
+#summary(fm4a <- lmer(Surprisal~ ModelPerformance.C+g+(1|Model)+(1|item), data=data5 %>% filter(grepl("Control", Script))))  
+
+
+#summary(fm4a <- lmer(Surprisal~ ModelPerformance.C*g+(1|Model)+(1|item), data=data5)) # Degree of grammaticality advantage is modulated by model surprisal
+
+
+data5 = data5 %>% mutate(Bottleneck = (!grepl("Control", Script))) %>% mutate(LogBeta = ifelse(Bottleneck, LogBeta, NA)) %>% mutate(grammatical = ifelse(g==-1, "Ungrammatical", "Grammatical"))
+library(ggplot2)
+plot = ggplot(data5 %>% group_by(grammatical, LogBeta, Model) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~LogBeta)
+plot = ggplot(data5 %>% group_by(grammatical, Memory, Model) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~Memory)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+data = data %>% mutate(positionR = ifelse(gram == "gram" | position < 10, position, position+1))
+plot = ggplot(data %>% mutate(LogMemory = log(Memory+1)) %>% group_by(Model, positionR, gram, LogMemory) %>% summarise(Surprisal = mean(Surprisal)), aes(x=positionR, y=Surprisal, group=paste(Model, gram, LogMemory), color=LogMemory)) + geom_line(aes(linetype=gram))
+plot = ggplot(data %>% group_by(Model, positionR, gram, Memory) %>% summarise(Surprisal = mean(Surprisal)), aes(x=positionR, y=Surprisal, group=paste(Model, gram))) + geom_line(aes(linetype=gram)) + facet_wrap(~Memory) +    scale_x_continuous(breaks=(1:13))
+
+
+plot = ggplot(data %>% group_by(positionR, gram) %>% summarise(Surprisal = mean(Surprisal)), aes(x=positionR, y=Surprisal, group=gram, color=gram)) + geom_line()
 
 
