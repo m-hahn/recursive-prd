@@ -29,11 +29,11 @@ for language in ["english", "german"]:
              beta = str(-log(float(beta)))
           surprisals = next(inFile).strip().split(" ")
           surprisal = float(surprisals[-1])
-          if len(surprisals) < 30:
+          if False and len(surprisals) < 30:
              continue
           print("\t".join([str(x) for x in [ID, model, script, surprisal, log_beta]]), file=outFile)
  #         continue 
-          for section in {"english" : [], "german" : ["E3_Adapted"]}[language]: # English: "E1", "E1a", "E5", "E6", "E1_EitherVerb", German "E3"
+          for section in {"english" : ["E1"], "german" : ["E3_Adapted"]}[language]: # English: "E1", "E1a", "E5", "E6", "E1_EitherVerb", German "E3"
             command = ["/u/nlp/anaconda/ubuntu_16/envs/py27-mhahn/bin/python2.7", "RUN_V11_"+script, "--language="+language, "--load_from="+ID, "--section="+section]
             print(" ".join(command))
             subprocess.call(command)

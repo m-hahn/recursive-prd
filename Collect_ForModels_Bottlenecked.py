@@ -29,7 +29,7 @@ for language in ["english", "german"]:
              beta = str(-log(float(beta)))
           surprisals = next(inFile).strip().split(" ")
           surprisal = float(surprisals[-1])
-          if len(surprisals) < 30:
+          if False and len(surprisals) < 30:
              continue
           print(len(surprisals), log_beta, script)
           next(inFile)

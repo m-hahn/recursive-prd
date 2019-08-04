@@ -418,16 +418,17 @@ for epoch in range(10000):
    dev_char_count = 0
    counter = 0
    hidden, beginning = None, None
-   while True:
-       counter += 1
-       try:
-          numeric = next(dev_chars)
-       except StopIteration:
-          break
-       printHere = (counter % 50 == 0)
-       loss, numberOfCharacters, _ = forward(numeric, printHere=printHere, train=False)
-       dev_loss += numberOfCharacters * loss.cpu().data.numpy()
-       dev_char_count += numberOfCharacters
+   with torch.no_grad():
+      while True:
+          counter += 1
+          try:
+             numeric = next(dev_chars)
+          except StopIteration:
+             break
+          printHere = (counter % 50 == 0)
+          loss, numberOfCharacters, _ = forward(numeric, printHere=printHere, train=False)
+          dev_loss += numberOfCharacters * loss.cpu().data.numpy()
+          dev_char_count += numberOfCharacters
    devLosses.append(dev_loss/dev_char_count)
    print(devLosses)
 #   quit()
