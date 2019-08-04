@@ -23,7 +23,7 @@ def load(language, partition="train", removeMarkup=True, tokenize=True):
      if True:
 #        if word in ["N", "Y"]:
  #          continue
-
+        assert "'" not in word, "TODO have to deal with this"
         if tokenize:
             if word[-1] in [".", ","]:
                chunk.append(word[:-1].lower())

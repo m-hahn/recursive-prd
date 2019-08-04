@@ -109,6 +109,8 @@ elif args.section == "E1_EitherVerb":
    import corpusIterator_V11_E1_EN_EitherVerb as corpusIterator_V11
 elif args.section == "E3_Adapted":
    import corpusIterator_V11_E3_DE_Adapted as corpusIterator_V11
+elif args.section == "E3_ColorlessGreen":
+   import corpusIterator_V11_E3_DE_ColorlessGreen as corpusIterator_V11
 else:
     assert False, args.section
 

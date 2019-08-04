@@ -27,7 +27,7 @@ parser.add_argument("--verbose", type=bool, default=False)
 parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 parser.add_argument("--char_emb_dim", type=int, default=128)
 parser.add_argument("--char_enc_hidden_dim", type=int, default=64)
-parser.add_argument("--char_dec_hidden_dim", type=int, default=256)
+parser.add_argument("--char_dec_hidden_dim", type=int, default=512) # char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_CharDec_All_BPE_NoWeightDrop_SeparateSoftmax_SumEmbedding.py 512 works better than 256
 
 model = "REAL_REAL"
 

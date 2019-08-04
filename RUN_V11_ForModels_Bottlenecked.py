@@ -33,7 +33,7 @@ for language in ["english", "german"]:
              continue
           print("\t".join([str(x) for x in [ID, model, script, surprisal, log_beta]]), file=outFile)
  #         continue 
-          for section in {"english" : ["E1"], "german" : ["E3_Adapted"]}[language]: # English: "E1", "E1a", "E5", "E6", "E1_EitherVerb", German "E3"
+          for section in {"english" : [], "german" : ["E3_ColorlessGreen"]}[language]: # English: "E1", "E1a", "E5", "E6", "E1_EitherVerb", German "E3", "E3_Adapted"
             command = ["/u/nlp/anaconda/ubuntu_16/envs/py27-mhahn/bin/python2.7", "RUN_V11_"+script, "--language="+language, "--load_from="+ID, "--section="+section]
             print(" ".join(command))
             subprocess.call(command)

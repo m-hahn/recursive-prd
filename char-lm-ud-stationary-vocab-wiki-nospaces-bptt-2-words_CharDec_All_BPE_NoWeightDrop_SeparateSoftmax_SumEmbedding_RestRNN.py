@@ -399,7 +399,8 @@ def forward(numeric, train=True, printHere=False):
          losses = lossTensor.data.cpu().numpy()
          numericCPU = numeric.cpu().data.numpy()
 #         boundaries_index = [0 for _ in numeric]
-         print(("NONE", itos[numericCPU[0][0]-3]))
+         #print(full_loss_chars_3D.size(), numeric.size())
+         full_loss_chars_3D_CPU = full_loss_chars_3D[:,:,:1].cpu()
          for i in range((args.sequence_length)):
  #           if boundaries_index[0] < len(boundaries[0]) and i+1 == boundaries[0][boundaries_index[0]]:
   #             boundary = True
@@ -407,7 +408,11 @@ def forward(numeric, train=True, printHere=False):
     #        else:
      #          boundary = False
             word =          itos[numericCPU[i+1][0]-3]
-            print((losses[i][0], word, wordLengths[i][0], full_loss_chars_3D[:, i, 0].tolist()))
+            print((losses[i][0], word, wordLengths[i][0], full_loss_chars_3D_CPU[:, i, 0].tolist()))
+#         print(("NONE", itos[numericCPU[0][0]-3]))
+
+         print("Loss on Non-OOVS ", (lossTensor[(numeric[1:] > 2)].mean()))
+
       return loss, target_tensor.view(-1).size()[0], wordLengths
 
 def backward(loss, printHere):
