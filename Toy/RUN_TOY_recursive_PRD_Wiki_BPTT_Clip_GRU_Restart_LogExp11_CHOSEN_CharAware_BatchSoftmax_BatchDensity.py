@@ -35,6 +35,7 @@ parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--norm_clip", type=float, default=2.0)
 parser.add_argument("--char_emb_dim", type=int, default=128)
 parser.add_argument("--char_enc_hidden_dim", type=int, default=32)
+parser.add_argument("--model", type=str, default="FL2017")
 
 
 
@@ -74,7 +75,10 @@ from random import random, shuffle
 
 header = ["index", "word", "lemma", "posUni", "posFine", "morph", "head", "dep", "_", "_"]
 
-import corpusIterator_Toy_FL2017
+if args.model == "FL2017":
+  import corpusIterator_Toy_FL2017 as corpusIterator_Toy_FL2017
+elif args.model == "FL2017_Corr":
+  import corpusIterator_Toy_FL2017_Corr as corpusIterator_Toy_FL2017
 
 originalDistanceWeights = {}
 

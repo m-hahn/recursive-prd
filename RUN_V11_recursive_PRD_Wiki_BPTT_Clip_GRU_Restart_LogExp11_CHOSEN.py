@@ -99,6 +99,8 @@ if args.section == "E1":
    import corpusIterator_V11_E1_EN as corpusIterator_V11
 elif args.section == "E1a":
    import corpusIterator_V11_E1a_EN as corpusIterator_V11
+elif args.section == "E1_ColorlessGreen":
+   import corpusIterator_V11_E1_EN_ColorlessGreen as corpusIterator_V11
 elif args.section == "E3":
    import corpusIterator_V11_E3_DE as corpusIterator_V11
 elif args.section == "E5":

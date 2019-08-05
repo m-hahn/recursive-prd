@@ -411,7 +411,7 @@ def forward(numeric, train=True, printHere=False):
             print((losses[i][0], word, wordLengths[i][0], full_loss_chars_3D_CPU[:, i, 0].tolist()))
 #         print(("NONE", itos[numericCPU[0][0]-3]))
 
-         print("Loss on Non-OOVS ", (lossTensor[(numeric[1:] > 2)].mean()))
+         print("Loss on Non-OOVS ", (lossTensor[(numeric[1:] > 2) * (numeric[1:] < 50003)].mean()))
 
       return loss, target_tensor.view(-1).size()[0], wordLengths
 
