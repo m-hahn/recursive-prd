@@ -84,11 +84,28 @@ def test(language, removeMarkup=True, tokenize=True):
      index3 = str(random.randint(0,4))
 
      chunk += ["n"+index1, "c", "n"+index2, "c", "n"+index3, "v"+index3, "v"+index1, "."]
-     regions += ["n0", "c0", "n1", "c1", "n2", "v3", "v1u", ".u"]
+     regions += ["n0", "c0", "n1", "c1", "n2", "v3", "v1u", ".u1"]
      for _ in range(10): # ADD FILLERS
         l = sample("s")
         chunk += l
         regions += addRegions(l)
+
+     index1 = str(random.randint(0,4))
+     index2 = str(random.randint(0,4))
+     index3 = str(random.randint(0,4))
+
+     chunk += ["n"+index1, "c", "n"+index2, "c", "n"+index3, "v"+index3, "v"+index2, "."]
+     regions += ["n0", "c0", "n1", "c1", "n2", "v3", "v2u", ".u2"]
+
+     for _ in range(10): # ADD FILLERS
+        l = sample("s")
+        chunk += l
+        regions += addRegions(l)
+
+
+
+
+
   yield chunk, regions
 
 

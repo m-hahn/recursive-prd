@@ -1,3 +1,9 @@
+# recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11.py
+# Works without NA
+# ./python27 recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11.py --beta 4.539993e-05 --lr 0.0001
+
+# recursive_PRD_Wiki_BPTT_Clip_GRU_Restart_LogExp11_CHOSEN_CharAware_BatchSoftmax.py
+# Could improve efficiency by batching the Gaussian density computations
 
 
 import time
@@ -16,14 +22,18 @@ import argparse
 import math
 
 parser = argparse.ArgumentParser()
-parser.add_argument("--language", type=str, default="english")
+parser.add_argument("--language1", type=str, default="english")
+parser.add_argument("--language2", type=str, default="german")
+
+parser.add_argument("--load_from", type=str, default=None) # 8066636
+
 parser.add_argument("--dropout_rate", type=float, default=random.choice([0.0]))
 parser.add_argument("--emb_dim", type=int, default=200)
-parser.add_argument("--rnn_dim", type=int, default=128)
+parser.add_argument("--rnn_dim", type=int, default=1024)
 parser.add_argument("--rnn_layers", type=int, default=1)
-parser.add_argument("--lr", type=float, default=random.choice([0.0001])) # 0.0005 seems to speed up toy setting computations
+parser.add_argument("--lr", type=float, default=random.choice([0.0001])) # 0.00001, 
 parser.add_argument("--input_dropoutRate", type=float, default=0.0)
-parser.add_argument("--batchSize", type=int, default=512)
+parser.add_argument("--batchSize", type=int, default=256)
 parser.add_argument("--horizon", type=int, default=20)
 parser.add_argument("--log_beta", type=float, default=random.choice([3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0, 8.5, 9.0, 9.5, 10.0, 10.5, 11.0]))
 parser.add_argument("--flow_length", type=int, default=0) #random.choice([0,1]))
@@ -34,8 +44,7 @@ parser.add_argument("--myID", type=int, default=random.randint(0,10000000))
 parser.add_argument("--weight_decay", type=float, default=1e-5)
 parser.add_argument("--norm_clip", type=float, default=2.0)
 parser.add_argument("--char_emb_dim", type=int, default=128)
-parser.add_argument("--char_enc_hidden_dim", type=int, default=32)
-parser.add_argument("--model", type=str, default="FL2017")
+parser.add_argument("--char_enc_hidden_dim", type=int, default=128)
 
 
 
@@ -75,10 +84,7 @@ from random import random, shuffle
 
 header = ["index", "word", "lemma", "posUni", "posFine", "morph", "head", "dep", "_", "_"]
 
-if args.model == "FL2017":
-  import corpusIterator_Toy_FL2017 as corpusIterator_Toy_FL2017
-elif args.model == "FL2017_Corr":
-  import corpusIterator_Toy_FL2017_Corr as corpusIterator_Toy_FL2017
+import corpusIteratorWikiWords
 
 originalDistanceWeights = {}
 
@@ -99,32 +105,54 @@ logsoftmax = torch.nn.LogSoftmax(dim=2)
 
 from paths import CHAR_VOCAB_HOME
 
-itos = corpusIterator_Toy_FL2017.itos
-itos_chars = corpusIterator_Toy_FL2017.itos
+################################
 
-stoi = dict([(itos[i],i) for i in range(len(itos))])
+char_vocab_path_1 = "vocabularies/"+args.language1.lower()+"-wiki-word-vocab-50000.txt"
 
-stoi_chars = dict([(itos_chars[i],i) for i in range(len(itos_chars))])
+with open(char_vocab_path_1, "r") as inFile:
+     itos_1 = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
+stoi_1 = dict([(itos_1[i],i) for i in range(len(itos_1))])
+
+with open("vocabularies/char-vocab-wiki-"+args.language1, "r") as inFile:
+     itos_chars_1 = [x for x in inFile.read().strip().split("\n")]
+stoi_chars_1 = dict([(itos_chars_1[i],i) for i in range(len(itos_chars_1))])
 
 
-itos_chars_total = ["SOS", "EOS", "OOV"] + itos_chars
+itos_chars_total_1 = ["SOS", "EOS", "OOV"] + itos_chars_1
+
+################################
+
+char_vocab_path_2 = "vocabularies/"+args.language2.lower()+"-wiki-word-vocab-50000.txt"
+
+with open(char_vocab_path_2, "r") as inFile:
+     itos_2 = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
+stoi_2 = dict([(itos_2[i],i) for i in range(len(itos_2))])
+
+with open("vocabularies/char-vocab-wiki-"+args.language1, "r") as inFile:
+     itos_chars_2 = [x for x in inFile.read().strip().split("\n")]
+stoi_chars_2 = dict([(itos_chars_2[i],i) for i in range(len(itos_chars_2))])
+
+
+itos_chars_total_2 = ["SOS", "EOS", "OOV"] + itos_chars_2
+
+################################
+
+
 
 import os
 
 
-vocab_size = len(itos)
+vocab_size = 50000
 
 
-word_pos_morph_embeddings = torch.nn.Embedding(num_embeddings = len(itos)+3, embedding_dim=2*args.emb_dim).cuda()
-outVocabSize = 3+len(itos) 
+word_pos_morph_embeddings = torch.nn.Embedding(num_embeddings = 3+len(itos_1)+3+len(itos_2), embedding_dim=args.emb_dim).cuda()
+outVocabSize = 2*(3+vocab_size)
 
 
-itos_total = ["EOS", "OOV", "SOS"] + itos #+ itos_lemmas[:vocab_size] + itos_morph
+itos_total = ["EOS", "OOV", "SOS"] + itos_1 + ["EOS", "OOV", "SOS"] + itos_2 
 assert len(itos_total) == outVocabSize
-# could also provide per-word subcategorization frames from the treebank as input???
 
 
-#baseline = nn.Linear(args.emb_dim, 1).cuda()
 
 dropout = nn.Dropout(args.dropout_rate).cuda()
 
@@ -135,14 +163,16 @@ for name, param in rnn_both.named_parameters():
   elif 'weight' in name:
      nn.init.xavier_normal(param)
 
-decoder = nn.Linear(args.rnn_dim,outVocabSize).cuda()
+decoder_1 = nn.Linear(args.rnn_dim,50003).cuda()
+decoder_2 = nn.Linear(args.rnn_dim,50003).cuda()
+
 #pos_ptb_decoder = nn.Linear(128,len(posFine)+3).cuda()
 
 startHidden = nn.Linear(1, args.rnn_dim).cuda()
 startHidden.bias.data.fill_(0)
 
 
-components = [rnn_both, decoder, word_pos_morph_embeddings, startHidden]
+components = [rnn_both, decoder_1, decoder_2, word_pos_morph_embeddings, startHidden]
 
 
  
@@ -183,32 +213,39 @@ import torchkit.nn as nn_
 components = components + [hiddenToLogSDHidden, cellToMean, sampleToHidden]
 
 
-#character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
+character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total_1)+ len(itos_chars_total_2), embedding_dim=args.char_emb_dim).cuda()
 
-#char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
-#char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.emb_dim).cuda()
-
-
-
-#components += [character_embeddings, char_composition, char_composition_output]
+char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
+char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.emb_dim).cuda()
 
 
+
+components += [character_embeddings, char_composition, char_composition_output]
 
 
 
 
 
+if args.load_from is not None:
+   checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language1+"AND"+args.language2+"_"+__file__+"_code_"+args.load_from+".txt")
+   for i in range(len(components)):
+       components[i].load_state_dict(checkpoint["components"][i])
+   print("LOADED")
 
 def parameters():
  for c in components:
    for param in c.parameters():
       yield param
 
-initrange = 0.1
-word_pos_morph_embeddings.weight.data.uniform_(-initrange, initrange)
+if args.load_from is None:
+    initrange = 0.1
+    word_pos_morph_embeddings.weight.data.uniform_(-initrange, initrange)
+    
+    decoder_1.bias.data.fill_(0)
+    decoder_1.weight.data.uniform_(-initrange, initrange)
+    decoder_2.bias.data.fill_(0)
+    decoder_2.weight.data.uniform_(-initrange, initrange)
 
-decoder.bias.data.fill_(0)
-decoder.weight.data.uniform_(-initrange, initrange)
 
 
 
@@ -252,40 +289,40 @@ standardNormal = torch.distributions.Normal(loc=torch.FloatTensor([[0.0 for _ in
 standardNormalPerStep = torch.distributions.Normal(loc=torch.FloatTensor([[0.0 for _ in range(args.rnn_dim)] for _ in range(args.batchSize)]).cuda(), scale=torch.FloatTensor([[1.0 for _ in range(args.rnn_dim)] for _ in range(args.batchSize)]).cuda())
 
 
-itos_regions = []
-stoi_regions = {}
 
-def encodeRegions(regionsList):
-     for i in range(len(regionsList)):
-          if regionsList[i] not in stoi_regions:
-               stoi_regions[regionsList[i]] = len(itos_regions)
-               itos_regions.append(regionsList[i])
-          regionsList[i] = stoi_regions[regionsList[i]]
 
-def prepareDatasetChunks(data, train=True):
+def prepareDatasetChunksTwo(data1, data2, train=True):
+    c1 = prepareDatasetChunks(data1, train=train, batchSizeHere=int(args.batchSize/2), stoi=stoi_1, stoi_chars=stoi_chars_1)
+    c2 = prepareDatasetChunks(data2, train=train, batchSizeHere=int(args.batchSize/2), stoi=stoi_2, stoi_chars=stoi_chars_2)
+
+
+    while True:
+       numerified1, numerified_chars1 = next(c1)
+       numerified2, numerified_chars2 = next(c2)
+       numerified = torch.cat([numerified1, numerified2], dim=1)
+       numerified_chars = torch.cat([numerified_chars1, numerified_chars2], dim=1)
+       yield numerified, numerified_chars
+
+
+def prepareDatasetChunks(data, batchSizeHere=args.batchSize, train=True, stoi=None, stoi_chars=None):
       numeric = [0]
       count = 0
       print("Prepare chunks")
       numerified = []
       numerified_chars = []
-      regions = []
-      for chunk, regionList in data:
-       if regionList == None:
-          regionList = [None for _ in chunk]
-       else:
-          assert len(chunk) == len(regionList)
-       for char, region in zip(chunk, regionList): #`char' actually would better be called 'word' here
+      for chunk in data:
+       for char in chunk:
          count += 1
          numerified.append((stoi[char]+3 if char in stoi else 1))
          numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
-         regions.append(region)
-       if len(numerified) > (args.batchSize*args.horizon):
+
+       if len(numerified) > (batchSizeHere*args.horizon):
          sequenceLengthHere = args.horizon
 
-         cutoff = int(len(numerified)/(args.batchSize*sequenceLengthHere)) * (args.batchSize*sequenceLengthHere)
+         cutoff = int(len(numerified)/(batchSizeHere*sequenceLengthHere)) * (batchSizeHere*sequenceLengthHere)
          numerifiedCurrent = numerified[:cutoff]
          numerifiedCurrent_chars = numerified_chars[:cutoff]
-         regionsCurrent = regions[:cutoff]
+
          for i in range(len(numerifiedCurrent_chars)):
             numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
             numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
@@ -293,16 +330,13 @@ def prepareDatasetChunks(data, train=True):
 
          numerified = numerified[cutoff:]
          numerified_chars = numerified_chars[cutoff:]
-         regions = regions[cutoff:]
-        
-         numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
-         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
-         encodeRegions(regionsCurrent)
-         regionsCurrent = torch.LongTensor(regionsCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
+       
+         numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(batchSizeHere, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
+         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(batchSizeHere, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
 
          numberOfSequences = numerifiedCurrent.size()[0]
          for i in range(numberOfSequences):
-             yield numerifiedCurrent[i], numerifiedCurrent_chars[i], regionsCurrent[i]
+             yield numerifiedCurrent[i], numerifiedCurrent_chars[i]
          hidden = None
        else:
          print("Skipping")
@@ -324,7 +358,7 @@ bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in r
 
 
 
-def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=args.batchSize, printAnyways = False):
+def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
        global counter
        global crossEntropy
        global printHere
@@ -354,13 +388,13 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=args.bat
            beginning = zeroBeginning
            beginning_chars = zeroBeginning_chars
 
-       numeric, numeric_chars, regions = numeric
+       numeric, numeric_chars = numeric
        numeric = torch.cat([beginning, numeric], dim=0)
        numeric_chars = torch.cat([beginning_chars, numeric_chars], dim=0)
 
-       beginning = numeric[numeric.size()[0]-1].view(1, batchSizeHere)
+       beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize)
  
-       beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, batchSizeHere, 16)
+       beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, args.batchSize, 16)
 
 
 
@@ -390,25 +424,33 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=args.bat
            inputTensorOut = inputTensor[1:]
 
 
-
-           input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
+           input_tensor_chars = Variable(numeric_chars[:-1].clone(), requires_grad=False)
+           input_tensor_chars[:, int(args.batchSize/2):] = input_tensor_chars[:, int(args.batchSize/2):] + len(itos_chars_total_1)
+           embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
+           embedded_chars = embedded_chars.contiguous().view(16, -1)
+           
+           _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
+           embedded_chars = embedded_chars[0].view(2, args.horizon, args.batchSize, args.char_enc_hidden_dim)
      
-#           embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
- #          embedded_chars = embedded_chars.contiguous().view(16, -1)
-  #         _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
-   #        embedded_chars = embedded_chars[0].view(2, args.horizon, args.batchSize, args.char_enc_hidden_dim)
-     
-    #       embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
+           embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
      
 #           embedded = word_embeddings(input_tensor)
-           inputEmbeddings = word_pos_morph_embeddings(inputTensorIn.view(args.horizon, batchSizeHere))
+           
+           inputTensorInWithDoubleIndices = inputTensorIn.view(args.horizon, batchSizeHere).clone()
+           inputTensorInWithDoubleIndices[:, batchSizeHere/2:] = inputTensorInWithDoubleIndices[:, batchSizeHere/2:] + 50003
+
+#           print(inputTensorOut.max())
+#           print("TODO this is not intended, this is an unintended but important consequence of elementwise manipulation")
+#           quit()
+
+           inputEmbeddings = word_pos_morph_embeddings(inputTensorInWithDoubleIndices)
 
            #print(embedded.size())
      #      print("=========")
      #      print(numeric[:,5])
      #      print(embedded[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
      #      print(embedded_chars[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
-           #inputEmbeddings = torch.cat([inputEmbeddings, embedded_chars], dim=2)
+           inputEmbeddings = torch.cat([inputEmbeddings, embedded_chars], dim=2)
 
            if doDropout:
               if args.input_dropoutRate > 0:
@@ -429,7 +471,7 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=args.bat
            means = []                      
 
 
-           encodedEpsilonForAllSteps = standardNormal.sample().view(args.horizon, batchSizeHere, -1)
+           encodedEpsilonForAllSteps = standardNormal.sample().view(args.horizon, args.batchSize, -1)
 
 
            for i in range(inputEmbeddings.size()[0]):
@@ -494,7 +536,7 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=args.bat
            logProbConditional = memoryDistribution.log_prob(sampled).sum(dim=2)  #
 
 
-           batchSizeInflatedHere = batchSizeHere * len(sampled_vectors)
+           batchSizeInflatedHere = args.batchSize * len(sampled_vectors)
 
 
            sampledTotal = sampled.view(batchSizeInflatedHere, -1)
@@ -505,11 +547,21 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=args.bat
 #           print(output_vectors[0].size())
            output = torch.cat(output_vectors, dim=0)
     #       print(output.size())
-           word_logits = decoder(output)
- #          print(word_logits.size())
+#           print(output[:, :int(args.batchSize/2)].size())
+
+
+#           output2 = output.view(args.horizon, 2, int(args.batchSize/2), args.rnn_dim)
+#           print(output2.size())
+           word_logits1 = decoder_1(output[:, :int(args.batchSize/2)])
+           word_logits2 = decoder_2(output[:, int(args.batchSize/2):])
+           word_logits = torch.cat([word_logits1, word_logits2], dim=1)
+
+           #print(word_logits.size())
 
 #           word_logits = word_logits.view(args.horizon, batchSizeHere, outVocabSize)
+           
            word_softmax = logsoftmax(word_logits)
+#           print(word_logits1.size(), word_logits.size(), word_softmax.size())
 #           print(word_softmax)
 
  #          print(word_softmax.size())
@@ -518,7 +570,10 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=args.bat
 #           print(word_logits.abs().max(), word_softmax.abs().max())
           
 #           print(word_softmax.size(), inputTensorOut.size())
-           lossesWord = lossModuleTest(word_softmax.view(-1, vocab_size+3), inputTensorOut.view(-1))
+           lossesWord = lossModuleTest(word_softmax.view(-1, 50003), inputTensorOut.view(-1))
+#           print(inputTensorOut.max())
+ #          quit()
+  #         print(lossesWord.mean())
 #           print(inputTensorOut)
  #          print(lossesWord.mean())
  #          lossesWordTotal.append(lossesWord) 
@@ -561,22 +616,11 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=args.bat
 
            if surprisalTable is not None or printHere:           
              lossesCPU = lossesWord.data.cpu().view((args.horizon), batchSizeHere).numpy()
-             if printHere or printAnyways:
+             if printHere:
                 for i in range(0,args.horizon): #range(1,maxLength+1): # don't include i==0
-                         j = 0
-                         print (i, itos_total[numeric[i+1][j]], lossesCPU[i][j], itos_regions[int(regions[i][j])])
-             if printAnyways:
-                     global surprisalForRegion
-                     global countsForRegion
-                     global squareSurprisalForRegion
-                     for i in range(0,args.horizon): #range(1,maxLength+1): # don't include i==0
-                       for j in range(batchSizeHere):
-                         region = itos_regions[int(regions[i][j])]
-                         surprisalForRegion[region] = surprisalForRegion.get(region,0) + float(lossesCPU[i][j])
-                         countsForRegion[region] = countsForRegion.get(region,0) + 1
-                         squareSurprisalForRegion[region] = squareSurprisalForRegion.get(region,0) + float(lossesCPU[i][j]) ** 2
-
-                    
+                         j1 = 0
+                         j2 = int(batchSizeHere/2)
+                         print (i, itos_total[numeric[i+1][j1]], lossesCPU[i][j1], "\t\t\t", itos_total[50003 + numeric[i+1][j2]], lossesCPU[i][j2])
 
              if surprisalTable is not None: 
                 if printHere:
@@ -624,9 +668,10 @@ def  doBackwardPass(loss, baselineLoss, policy_related_loss):
 
        loss.backward()
        if printHere:
-         print "BACKWARD 3 "+__file__+" "+args.language+" "+str(args.myID)+" "+str(counter)+" "+str(lastDevLoss)+" "+str(failedDevRuns)+"  "+str(args)
+         print "BACKWARD 3 "+__file__+" "+args.language1+"AND"+args.language2+" "+str(args.myID)+" "+str(counter)+" "+str(lastDevLoss)+" "+str(failedDevRuns)+"  "+str(args)
          print devLosses
          print lastDevLoss
+         print failedDevRuns
 #       print("MAX NORM", max(p.grad.data.abs().max() for p in parameterList))
        # REMOVED GRADIENT CLIPPING, HOPING FOR SPEED
       # torch.nn.utils.clip_grad_norm(parameterList, args.norm_clip, norm_type='inf')
@@ -678,13 +723,14 @@ def computeDevLoss():
    devLoss = 0.0
    devWords = 0
 #   corpusDev = getNextSentence("valid")
-   corpusDev = corpusIterator_Toy_FL2017.dev(args.language)
-   stream = prepareDatasetChunks(corpusDev, train=False)
+   corpusDev_1 = corpusIteratorWikiWords.dev(args.language1)
+   corpusDev_2 = corpusIteratorWikiWords.dev(args.language2)
+
+   stream = prepareDatasetChunksTwo(corpusDev_1, corpusDev_2, train=False)
 
    surprisalTable = [0 for _ in range(args.horizon)]
    devCounter = 0
    devMemory = 0
-   surprisalPerRegion = {}
    while True:
      devCounter += 1
      printHere = (devCounter % 50 == 0)
@@ -702,67 +748,13 @@ def computeDevLoss():
    devSurprisalTableHere = [surp/(devCounter*args.batchSize) for surp in surprisalTable]
    return devLoss/devWords, devSurprisalTableHere, devMemory/devCounter
 
-global surprisalForRegion
-global countsForRegion
-global squareSurprisalForRegion
-surprisalForRegion = {}
-countsForRegion = {}
-squareSurprisalForRegion = {}
+if args.load_from is not None:
+   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language1+"AND"+args.language2+"_"+__file__+"_model_"+args.load_from+"_"+model+".txt", "r") as inFile:
+       next(inFile)     #       print >> outFile, str(args)
+       devLosses = [float(x) for x in next(inFile).strip().split(" ")] #print >> outFile, " ".join(map(str,devLosses))
+       devSurprisalTable = [float(x) for x in next(inFile).strip().split(" ")] # print >> outFile, " ".join(map(str,devSurprisalTable))
+       devMemories = [float(x) for x in next(inFile).strip().split(" ")] # print >> outFile, " ".join(map(str, devMemories))
 
-
-
-def computeTestLoss():
-   global printHere
-#   global counter
-#   global devSurprisalTable
-   devLoss = 0.0
-   devWords = 0
-#   corpusDev = getNextSentence("valid")
-   corpusDev = corpusIterator_Toy_FL2017.test(args.language)
-   stream = prepareDatasetChunks(corpusDev, train=False)
-
-   surprisalTable = [0 for _ in range(args.horizon)]
-   devCounter = 0
-   devMemory = 0
-
-   global surprisalForRegion
-   global countsForRegion
-   global squareSurprisalForRegion
-   surprisalForRegion = {}
-   countsForRegion = {}
-   squareSurprisalForRegion = {}
-
-   while True:
-     devCounter += 1
-     printHere = (devCounter % 50 == 0)
-     try:
-       with torch.no_grad():
-          _, _, _, newLoss, newWords, devMemoryHere = forward(next(stream), surprisalTable = surprisalTable, doDropout=False, batchSizeHere=args.batchSize, printAnyways=True)
-     except StopIteration:
-        break
-
-     devMemory += devMemoryHere.data.cpu().numpy()
-     devLoss += newLoss
-     devWords += newWords
-     if printHere:
-         print "Dev examples "+str(devCounter)
-   print(surprisalForRegion)
-   print(countsForRegion)
-   print(squareSurprisalForRegion)
-   global meansPerRegion
-   global SEsPerRegion
-   print(surprisalForRegion)
-   print(countsForRegion)
-   meansPerRegion = {x : round(surprisalForRegion[x] / countsForRegion[x], 3) for x in surprisalForRegion}
-   print(meansPerRegion)
-#   quit()
-   SEsPerRegion = {x : round(math.sqrt((squareSurprisalForRegion[x] / countsForRegion[x]) - (surprisalForRegion[x] / countsForRegion[x])**2) / math.sqrt(countsForRegion[x]), 3) for x in surprisalForRegion}
-   
-   devSurprisalTableHere = [surp/(devCounter*args.batchSize) for surp in surprisalTable]
-   return devLoss/devWords, devSurprisalTableHere, devMemory/devCounter
-
-meansPerRegion = {}
-SEsPerRegion = {}
 
 
 
@@ -770,14 +762,16 @@ SEsPerRegion = {}
 wordsProcessed = 0
 startTime = time.time()
 
-DEV_PERIOD = 500
+DEV_PERIOD = 10000
 epochCount = 0
 while failedDevRuns < 10:
   epochCount += 1
   print "Starting new epoch, permuting corpus"
-  corpus = corpusIterator_Toy_FL2017.training(args.language)
+  corpus_1 = corpusIteratorWikiWords.training(args.language1)
+  corpus_2 = corpusIteratorWikiWords.training(args.language2)
+
 #  stream = createStream(corpus)
-  stream = prepareDatasetChunks(corpus, train=True)
+  stream = prepareDatasetChunksTwo(corpus_1, corpus_2, train=True)
 
   while True:
        counter += 1
@@ -785,15 +779,6 @@ while failedDevRuns < 10:
 
 
        if counter % DEV_PERIOD == 0:
-
-
-          hidden = None
-          beginning = zeroBeginning
-
-          computeTestLoss()
-
-
-
           hidden = None
           beginning = zeroBeginning
 
@@ -818,14 +803,14 @@ while failedDevRuns < 10:
 
           print(devSurprisalTable[args.horizon/2])
           print(devMemories)
-#          with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
- #             print >> outFile, str(args)
-  #            print >> outFile, " ".join(map(str,devLosses))
-   #           print >> outFile, " ".join(map(str,devSurprisalTable))
-    #          print >> outFile, " ".join(map(str, devMemories))
-     #         print >> outFile, str(sum([x-y for x, y in zip(devSurprisalTable[:args.horizon/2], devSurprisalTable[args.horizon/2:])]))
- #         state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in components]}
-#          torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+          with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language1+"AND"+args.language2+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
+              print >> outFile, str(args)
+              print >> outFile, " ".join(map(str,devLosses))
+              print >> outFile, " ".join(map(str,devSurprisalTable))
+              print >> outFile, " ".join(map(str, devMemories))
+              print >> outFile, str(sum([x-y for x, y in zip(devSurprisalTable[:args.horizon/2], devSurprisalTable[args.horizon/2:])]))
+          state = {"arguments" : str(args), "words_1" : itos_1, "words_2" : itos_2, "components" : [c.state_dict() for c in components]}
+          torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language1+"AND"+args.language2+"_"+__file__+"_code_"+str(args.myID)+".txt")
 
 
 
@@ -860,13 +845,7 @@ while failedDevRuns < 10:
              print "MI(Bottleneck, Future) "+str(sum([x-y for x, y in zip(devSurprisalTable[0:args.horizon/2], devSurprisalTable[args.horizon/2:])]))
              print "Memories "+str(devMemories)
           print str(wordsProcessed/(time.time() - startTime))+" words per second."
-          for region in sorted(list(meansPerRegion)):
-              print("\t".join([str(x) for x in region, meansPerRegion[region], SEsPerRegion[region]]))
-#          if "v1g" in meansPerRegion:
- #             print("Conditionuations ", "grammatical", meansPerRegion["v2"] + meansPerRegion["v1g"] + meansPerRegion[".g"], "ungramatical", meansPerRegion["v1u"] + meansPerRegion[".u"])
-          print(args.log_beta)
-          print("m", corpusIterator_Toy_FL2017.m, "r", corpusIterator_Toy_FL2017.r, "s", corpusIterator_Toy_FL2017.s)
-          
+
 
 
 print(devSurprisalTable[int(args.horizon/2)])
