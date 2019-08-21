@@ -406,12 +406,12 @@ def forward(numeric, surprisalTable=None, doDropout=True, batchSizeHere=1):
 
        optimizer.zero_grad()
 
+       # NOTE (Aug 21, 2019) The next two lines seem unnecessary.
        for c in components:
           c.zero_grad()
-#       for q in parameters_made:
-#        for p in q:
-#         if p.grad is not None:
-#          p.grad.fill_(0)
+       ##########################################################
+
+
        totalQuality = 0.0
 
        if True:
