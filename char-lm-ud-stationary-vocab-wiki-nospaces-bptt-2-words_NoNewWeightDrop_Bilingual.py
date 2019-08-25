@@ -87,6 +87,7 @@ stoi_chars_2 = dict([(itos_chars_2[i],i) for i in range(len(itos_chars_2))])
 
 itos_chars_total_2 = ["SOS", "EOS", "OOV"] + itos_chars_2
 
+
 ################################
 
 vocab_size = 50000
@@ -182,8 +183,11 @@ def prepareDatasetChunksTwo(data1, data2, train=True):
 
 
     while True:
-       numerified1, numerified_chars1 = next(c1)
-       numerified2, numerified_chars2 = next(c2)
+       try:
+         numerified1, numerified_chars1 = next(c1)
+         numerified2, numerified_chars2 = next(c2)
+       except StopIteration:
+         return
        numerified = torch.cat([numerified1, numerified2], dim=1)
        numerified_chars = torch.cat([numerified_chars1, numerified_chars2], dim=1)
        yield numerified, numerified_chars
@@ -323,21 +327,21 @@ def forward(numeric, train=True, printHere=False):
       loss = train_loss(log_probs.view(-1, 50003), target_tensor.view(-1))
 
       if printHere:
-         lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
+         lossTensor = print_loss(log_probs.view(-1, 50003), target_tensor.view(-1)).view(-1, args.batchSize)
          losses = lossTensor.data.cpu().numpy()
          numericCPU = numeric.cpu().data.numpy()
-         print(("NONE", itos[numericCPU[0][0]-3]))
+#         print(("NONE", itos[numericCPU[0][0]-3]))
          for i in range((args.sequence_length)):
 #            print((losses[i][0], itos[numericCPU[i+1][0]-3]))
             j2 = int(args.batchSize/2)
-            print (i, itos[numericCPU[i+1][0]-3], losses[i][0], "\t\t\t", itos[50003 + numericCPU[i+1][j2] - 3], losses[i][j2])
+            print (i, itos_1[numericCPU[i+1][0]-3], losses[i][0], "\t\t\t", itos_2[numericCPU[i+1][j2] - 3], losses[i][j2])
 
       return loss, target_tensor.view(-1).size()[0]
 
 def backward(loss, printHere):
       optim.zero_grad()
-      if True or printHere:
-         print(printHere, loss)
+      if printHere:
+         print(counter, printHere, loss)
       loss.backward()
       torch.nn.utils.clip_grad_value_(parameters_cached, 5.0) #, norm_type="inf")
       optim.step()

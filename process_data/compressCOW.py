@@ -1,15 +1,25 @@
+import sys
+
+path = sys.argv[1].replace(".xml.gz", "")
+
 import html
 import gzip
 counter = 0
 buff = []
-with gzip.open('/u/scr/mhahn/CORPORA/COW/decow16bx/decow16bx01.xml.gz','r') as f:
- with open('/u/scr/mhahn/CORPORA/COW/decow16bx/decow16bx01.txt','w') as outFile:
+with gzip.open(path+'.xml.gz','r') as f:
+ with open(path+'.txt','w') as outFile:
   for line in f:
     counter += 1
-    if counter % 10000 == 0:
+    if counter % 500000 == 0:
        print(counter)
-    
-    line = line.decode().strip()
+
+    try:    
+        line = line.decode().strip()
+    except UnicodeDecodeError:
+        print("Unicode Error")
+        print(line)
+        line = line.decode("iso-8859-1").strip()
+        print(line)
     if line == "</s>":
        print((" ".join(buff)).lower(), file=outFile)
        buff = []
