@@ -24,9 +24,13 @@ with gzip.open(path+'.xml.gz','r') as f:
        print((" ".join(buff)).lower(), file=outFile)
        buff = []
     if not line.startswith("<"):
-       buff.append(line[:line.index("\t")])
-       if buff[-1].startswith("&"):
-           buff[-1] = html.unescape(buff[-1])
+       try:
+         buff.append(line[:line.index("\t")])
+         if buff[-1].startswith("&"):
+             buff[-1] = html.unescape(buff[-1])
+       except ValueError:
+          print("No Tab Found")
+          print(line)
 #    else:
  #      print('got line', line, line == "</s>")
 
