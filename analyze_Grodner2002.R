@@ -29,10 +29,9 @@ raw.spr.data = raw.spr.data %>% mutate(Ambiguous = ifelse(Condition2 == "ambiguo
 
 ############################3
 
-dataNextThree = raw.spr.data %>% filter(grepl("ThreeWords", Region)) %>% group_by(Condition1, Condition2, Item, Model, Round, RC, Ambiguous) %>% summarise(Surprisal = sum(Surprisal))
+dataNextThree1 = raw.spr.data %>% filter(grepl("ThreeWords", Region)) %>% group_by(Condition1, Condition2, Item, Model, Round, RC, Ambiguous) %>% summarise(Surprisal = sum(Surprisal))
 
-
-summary(lmer(Surprisal ~ RC * Ambiguous + (1 + RC + Ambiguous + RC * Ambiguous|Item) + (1 + RC + Ambiguous + RC * Ambiguous|Model), data=dataNextThree))
+summary(lmer(Surprisal ~ RC * Ambiguous + (1 + RC + Ambiguous + RC * Ambiguous|Item) + (1 + RC + Ambiguous + RC * Ambiguous|Model), data=dataNextThree1))
 
 ###############################3
 
@@ -48,10 +47,11 @@ summary(lmer(Surprisal ~ RC * Ambiguous + (1 + RC + Ambiguous + RC * Ambiguous|I
 dataBy = raw.spr.data %>% filter(Region %in% c("P1", "D3", "N3")) %>% group_by(Condition1, Condition2, Item, Model, Round, RC, Ambiguous) %>% summarise(Surprisal = sum(Surprisal))
 
 summary(lmer(Surprisal ~ RC * Ambiguous + (1 + RC + Ambiguous + RC * Ambiguous|Item) + (1 + RC + Ambiguous + RC * Ambiguous|Model), data=dataBy))
-
-
+# Clear effects of RC (could this be predicted by exact surprisal?) and ambiguity (clear why it's predicted by surprisal).
+# No evidence for an interaction.
 
 library(ggplot2)
+
 
 
 #######################################
