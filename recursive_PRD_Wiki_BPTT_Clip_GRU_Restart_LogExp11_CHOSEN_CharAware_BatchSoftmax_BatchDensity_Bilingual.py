@@ -29,7 +29,7 @@ parser.add_argument("--load_from", type=str, default=None) # 8066636
 
 parser.add_argument("--dropout_rate", type=float, default=random.choice([0.0]))
 parser.add_argument("--emb_dim", type=int, default=200)
-parser.add_argument("--rnn_dim", type=int, default=1024)
+parser.add_argument("--rnn_dim", type=int, default=2048)
 parser.add_argument("--rnn_layers", type=int, default=1)
 parser.add_argument("--lr", type=float, default=random.choice([0.0001])) # 0.00001, 
 parser.add_argument("--input_dropoutRate", type=float, default=0.0)
