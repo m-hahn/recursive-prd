@@ -1,14 +1,19 @@
 unigrams = {}
 
+language = "spanish"
 
-WIKIPEDIA_HOME = "/u/scr/mhahn/FAIR18/WIKIPEDIA/dutch/"
+WIKIPEDIA_HOME = "/u/scr/mhahn/FAIR18/WIKIPEDIA/"+language+"/"
 if True:
- pathIn  = WIKIPEDIA_HOME+"dutch-train-tagged.txt"
- pathOut = WIKIPEDIA_HOME+"dutch-wiki-word-vocab.txt"
+ pathIn  = WIKIPEDIA_HOME+""+language+"-train-tagged.txt"
+ pathOut = WIKIPEDIA_HOME+""+language+"-wiki-word-vocab.txt"
 
 import random
 with open(pathIn, "r") as inFile:
+   counter = 0
    for line in inFile:
+      counter += 1
+      if counter % 1e5 == 0:
+         print(counter)
       line = line[:-1]
       index = line.find("\t")
       if index == -1:
