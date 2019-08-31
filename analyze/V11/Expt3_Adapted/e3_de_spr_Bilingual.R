@@ -31,7 +31,7 @@ dataE$Language = "english"
 
 data = rbind(dataD, dataE)
 
-modelsTable = read.csv("../../../results/models_bottlenecked_bilingual", sep="\t")
+modelsTable = read.csv("../../../results/models_vanilla_bilingual", sep="\t")
 
 models = modelsTable$ID
 datModel = data.frame()
@@ -139,17 +139,15 @@ d.rs.V1$gxi <- ifelse(d.rs.V1$Condition%in%c("a","d"),1,-1)
 ## comparison 3:
 data3D <- subset(dataD,(Region=="V1"))
 data3D$Item = data3D$Item + max(d.rs.V1$Item)+10
-data3 = rbind(data3D %>% select(ModelPerformance, LogBeta, Surprisal, g, i, gxi, Model, Item, Language), d.rs.V1 %>% select(ModelPerformance, LogBeta, Surprisal, g, i, gxi, Model, Item, Language))
+data3 = rbind(data3D %>% select(ModelPerformance, Surprisal, g, i, gxi, Model, Item, Language), d.rs.V1 %>% select(ModelPerformance, Surprisal, g, i, gxi, Model, Item, Language))
 data3$german = ifelse(data3$Language == "german", 1, -1)
-data3$LogBeta_ = data3$LogBeta
-data3$LogBeta = data3$LogBeta - mean(data3$LogBeta)
 data3$ModelPerformance = data3$ModelPerformance - mean(data3$ModelPerformance)
 
 summary(fm3 <- lmer(Surprisal~ ModelPerformance*german*g+i+gxi +(1+g+german|Model)+(1+g|Item), data=data3)) # this is the effect on the verb
 summary(fm3 <- lmer(Surprisal~ LogBeta*german*g+i+gxi +(1|Model)+(1+g|Item), data=data3))
 
 library(ggplot2)
-plot = ggplot(data3 %>% group_by(g, Model, Language, LogBeta_) %>% summarise(Surprisal=mean(Surprisal)), aes(x=g, y=Surprisal, group=paste(Language,Model), color=Language)) + geom_line() + facet_wrap(~LogBeta_)
+plot = ggplot(data3 %>% group_by(g, Model, Language, ModelPerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=g, y=Surprisal, group=paste(Language,Model), color=Language)) + geom_line() + facet_wrap(~LogBeta_)
 
 crash()
 

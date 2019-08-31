@@ -91,6 +91,7 @@ data3D <- subset(dataD,(Region=="V1"))
 data3D$Item = data3D$Item + max(d.rs.V1$Item)+10
 data3 = rbind(data3D %>% select(ModelPerformance, LogBeta, Surprisal, g, Model, Item, Language), d.rs.V1 %>% select(ModelPerformance, LogBeta, Surprisal, g, Model, Item, Language))
 data3$german = ifelse(data3$Language == "german", 1, -1)
+data3$LogBeta_ = data3$LogBeta
 data3$LogBeta = data3$LogBeta - mean(data3$LogBeta)
 data3$ModelPerformance = data3$ModelPerformance - mean(data3$ModelPerformance)
 

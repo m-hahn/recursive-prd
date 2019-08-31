@@ -2,13 +2,15 @@ import random
 counter = 0
 # the first 1000 sentences per file serve as dev
 import tarfile
-BASE_PATH = "/john2/scr1/mhahn/ENCOW_EXCEPT2/"
+corpus = "ESCOW" #"ENCOW_EXCEPT2"
+
+BASE_PATH = "/john2/scr1/mhahn/"+corpus+"/"
 import os
 files = [x for x in os.listdir(BASE_PATH) if x.endswith(".shuf.txt")]
 filehandles = []
 import lzma
 import html
-BASE_PATH_OUT = "/john2/scr1/mhahn/ENCOW_EXCEPT2/"
+BASE_PATH_OUT = "/john2/scr1/mhahn/"+corpus+"/"
 with lzma.open(BASE_PATH_OUT+"dev.txt.xz", "wb") as dev:
   with lzma.open(BASE_PATH_OUT+"test.txt.xz", "wb") as test:
     with lzma.open(BASE_PATH_OUT+"train.txt.xz", "wb") as train:

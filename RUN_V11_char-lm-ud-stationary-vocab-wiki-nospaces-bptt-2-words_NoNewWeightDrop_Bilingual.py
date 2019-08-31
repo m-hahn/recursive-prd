@@ -9,9 +9,10 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language1", type=str, default="english")
 parser.add_argument("--language2", type=str, default="german")
+parser.add_argument("--chosen_language", type=str, default="english")
 
 parser.add_argument("--load_from", type=str, default=None) # 8066636
-
+parser.add_argument("--section", type=str)
 
 import random
 
@@ -47,8 +48,26 @@ print(args)
 
 
 
-import corpusIteratorWikiWords
-
+if args.section == "E1":
+   import corpusIterator_V11_E1_EN as corpusIterator_V11
+elif args.section == "E1a":
+   import corpusIterator_V11_E1a_EN as corpusIterator_V11
+elif args.section == "E1_ColorlessGreen":
+   import corpusIterator_V11_E1_EN_ColorlessGreen as corpusIterator_V11
+elif args.section == "E3":
+   import corpusIterator_V11_E3_DE as corpusIterator_V11
+elif args.section == "E5":
+   import corpusIterator_V11_E5_EN as corpusIterator_V11
+elif args.section == "E6":
+   import corpusIterator_V11_E6_EN as corpusIterator_V11
+elif args.section == "E1_EitherVerb":
+   import corpusIterator_V11_E1_EN_EitherVerb as corpusIterator_V11
+elif args.section == "E3_Adapted":
+   import corpusIterator_V11_E3_DE_Adapted as corpusIterator_V11
+elif args.section == "E3_ColorlessGreen":
+   import corpusIterator_V11_E3_DE_ColorlessGreen as corpusIterator_V11
+else:
+    assert False, args.section
 
 
 def plus(it1, it2):
@@ -64,6 +83,7 @@ char_vocab_path_1 = "vocabularies/"+args.language1.lower()+"-wiki-word-vocab-500
 with open(char_vocab_path_1, "r") as inFile:
      itos_1 = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
 stoi_1 = dict([(itos_1[i],i) for i in range(len(itos_1))])
+itos_total_1 = ["SOS","EOS", "OOV"] + itos_1
 
 with open("vocabularies/char-vocab-wiki-"+args.language1, "r") as inFile:
      itos_chars_1 = [x for x in inFile.read().strip().split("\n")]
@@ -79,6 +99,7 @@ char_vocab_path_2 = "vocabularies/"+args.language2.lower()+"-wiki-word-vocab-500
 with open(char_vocab_path_2, "r") as inFile:
      itos_2 = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
 stoi_2 = dict([(itos_2[i],i) for i in range(len(itos_2))])
+itos_total_2 = ["SOS","EOS", "OOV"] + itos_2
 
 with open("vocabularies/char-vocab-wiki-"+args.language1, "r") as inFile:
      itos_chars_2 = [x for x in inFile.read().strip().split("\n")]
@@ -166,49 +187,41 @@ optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.
 #  for name, module in named_modules.items():
  #     module.load_state_dict(checkpoint[name])
 
+
+
+
+if args.load_from is not None:
+  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language1+"AND"+args.language2+"_"+__file__.replace("RUN_V11_","")+"_code_"+args.load_from+".txt")
+  for i in range(len(checkpoint["components"])):
+      modules[i].load_state_dict(checkpoint["components"][i])
+else:
+  assert False
+
 from torch.autograd import Variable
 
 
-# ([0] + [stoi[training_data[x]]+1 for x in range(b, b+sequence_length) if x < len(training_data)]) 
-
-#from embed_regularize import embedded_dropout
 
 
 
 
-
-def prepareDatasetChunksTwo(data1, data2, train=True):
-    c1 = prepareDatasetChunks(data1, train=train, batchSizeHere=int(args.batchSize/2), stoi=stoi_1, stoi_chars=stoi_chars_1)
-    c2 = prepareDatasetChunks(data2, train=train, batchSizeHere=int(args.batchSize/2), stoi=stoi_2, stoi_chars=stoi_chars_2)
-
-
-    while True:
-       try:
-         numerified1, numerified_chars1 = next(c1)
-         numerified2, numerified_chars2 = next(c2)
-       except StopIteration:
-         return
-       numerified = torch.cat([numerified1, numerified2], dim=1)
-       numerified_chars = torch.cat([numerified_chars1, numerified_chars2], dim=1)
-       yield numerified, numerified_chars
-
-
-def prepareDatasetChunks(data, batchSizeHere=args.batchSize, train=True, stoi=None, stoi_chars=None):
+def prepareDatasetChunks(data, batchSizeHere=args.batchSize, train=True, stoi=stoi_1 if args.chosen_language == args.language1 else stoi_2, stoi_chars=stoi_chars_1 if args.chosen_language == args.language1 else stoi_chars_2):
       numeric = [0]
       count = 0
       print("Prepare chunks")
       numerified = []
       numerified_chars = []
-      for chunk in data:
-       for char in chunk:
+      line_numbers = []
+      for chunk, chunk_line_numbers in data:
+       for char, linenum in zip(chunk, chunk_line_numbers):
          count += 1
          numerified.append((stoi[char]+3 if char in stoi else 2))
          numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
+         line_numbers.append(linenum)
 
-       if len(numerified) > (batchSizeHere*args.sequence_length):
+       if len(numerified) > (args.batchSize*args.sequence_length):
          sequenceLengthHere = args.sequence_length
 
-         cutoff = int(len(numerified)/(batchSizeHere*sequenceLengthHere)) * (batchSizeHere*sequenceLengthHere)
+         cutoff = int(len(numerified)/(args.batchSize*sequenceLengthHere)) * (args.batchSize*sequenceLengthHere)
          numerifiedCurrent = numerified[:cutoff]
          numerifiedCurrent_chars = numerified_chars[:cutoff]
 
@@ -220,15 +233,22 @@ def prepareDatasetChunks(data, batchSizeHere=args.batchSize, train=True, stoi=No
          numerified = numerified[cutoff:]
          numerified_chars = numerified_chars[cutoff:]
        
-         numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(batchSizeHere, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
-         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(batchSizeHere, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
+         line_numbersCurrent = line_numbers[:cutoff]
+         line_numbers = line_numbers[cutoff:]
+        
+         numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
+         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
 
+         line_numbersCurrent = torch.LongTensor(line_numbersCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
          numberOfSequences = numerifiedCurrent.size()[0]
          for i in range(numberOfSequences):
-             yield numerifiedCurrent[i], numerifiedCurrent_chars[i]
+             yield numerifiedCurrent[i], numerifiedCurrent_chars[i], line_numbersCurrent[i]
          hidden = None
        else:
          print("Skipping")
+
+
+completeData = []
 
 
 
@@ -250,7 +270,7 @@ bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.
 
 
 
-def forward(numeric, train=True, printHere=False):
+def forward(numericAndLineNumbers, train=True, printHere=False):
       global hidden
       global beginning
       global beginning_chars
@@ -268,11 +288,9 @@ def forward(numeric, train=True, printHere=False):
           beginning = zeroBeginning
           beginning_chars = zeroBeginning_chars
 
+      numeric, numeric_chars, lineNumbers = numericAndLineNumbers
 
 
-
-      numeric, numeric_chars = numeric
-#      print(numeric_chars.size())
       numeric = torch.cat([beginning, numeric], dim=0)
 
       numeric_chars = torch.cat([beginning_chars, numeric_chars], dim=0)
@@ -285,7 +303,8 @@ def forward(numeric, train=True, printHere=False):
       target_tensor = Variable(numeric[1:], requires_grad=False)
 
       input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
-      input_tensor_chars[:, int(args.batchSize/2):] = input_tensor_chars[:, int(args.batchSize/2):] + len(itos_chars_total_1)
+      if args.chosen_language == args.language2:
+         input_tensor_chars = input_tensor_chars + len(itos_chars_total_1)
 
       # TODO it is weird (BUG) that this is only done for characters, not for words
 
@@ -299,162 +318,79 @@ def forward(numeric, train=True, printHere=False):
 
       embedded = word_embeddings(input_tensor)
       embedded = torch.cat([embedded, embedded_chars], dim=2)
-      if train:
-         embedded = char_dropout(embedded)
-         mask = bernoulli_input.sample()
-         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
-         embedded = embedded * mask
 
       out, hidden = rnn_drop(embedded, hidden)
 #      if train:
 #          out = dropout(out)
 
 
-      if train:
-        mask = bernoulli_output.sample()
-        mask = mask.view(1, args.batchSize, args.hidden_dim)
-        out = out * mask
+      logits = (output_1 if args.chosen_language == args.language1 else output_2)(out)
 
-      word_logits1 = output_1(out[:, :int(args.batchSize/2)])
-      word_logits2 = output_2(out[:, int(args.batchSize/2):])
-      logits = torch.cat([word_logits1, word_logits2], dim=1)
 
 
 
       log_probs = logsoftmax(logits)
 
       
-      loss = train_loss(log_probs.view(-1, 50003), target_tensor.view(-1))
+      lossTensor = print_loss(log_probs.view(-1, 50003), target_tensor.view(-1)).view(-1, args.batchSize)
+      losses = lossTensor.data.cpu().numpy()
 
-      if printHere:
-         lossTensor = print_loss(log_probs.view(-1, 50003), target_tensor.view(-1)).view(-1, args.batchSize)
-         losses = lossTensor.data.cpu().numpy()
+
+
+
+      for i in range(0,args.sequence_length): #range(1,maxLength+1): # don't include i==0
+         j = 0
          numericCPU = numeric.cpu().data.numpy()
-#         print(("NONE", itos[numericCPU[0][0]-3]))
-         for i in range((args.sequence_length)):
-#            print((losses[i][0], itos[numericCPU[i+1][0]-3]))
-            j2 = int(args.batchSize/2)
-            print (i, itos_1[numericCPU[i+1][0]-3], losses[i][0], "\t\t\t", itos_2[numericCPU[i+1][j2] - 3], losses[i][j2])
+         lineNum = int(lineNumbers[i][j])
 
-      return loss, target_tensor.view(-1).size()[0]
+         print (i, (itos_total_1 if args.chosen_language == args.language1 else itos_total_2)[numericCPU[i+1][j]], losses[i][j], lineNum)
 
-def backward(loss, printHere):
-      optim.zero_grad()
-      if printHere:
-         print(counter, printHere, loss)
-      loss.backward()
-      torch.nn.utils.clip_grad_value_(parameters_cached, 5.0) #, norm_type="inf")
-      optim.step()
+         while lineNum >= len(completeData):
+             completeData.append([[], 0])
+         completeData[lineNum][0].append((itos_total_1 if args.chosen_language == args.language1 else itos_total_2)[numericCPU[i+1][j]])
+         completeData[lineNum][1] += losses[i][j]
 
 
-lossHasBeenBad = 0
+      return None, target_tensor.view(-1).size()[0]
+
+
+
 
 import time
 
-totalStartTime = time.time()
+testLosses = []
 
-
-devLosses = []
-for epoch in range(10000):
-   print(epoch)
-   training_data_1 = corpusIteratorWikiWords.training(args.language1)
-   training_data_2 = corpusIteratorWikiWords.training(args.language2)
-   print("Got data")
-
-
-   training_chars = prepareDatasetChunksTwo(training_data_1, training_data_2, train=True)
-
-
-
-
-   rnn_drop.train(True)
-   startTime = time.time()
-   trainChars = 0
-   counter = 0
-   hidden, beginning = None, None
-   while True:
-      counter += 1
-      try:
-         numeric = next(training_chars)
-      except StopIteration:
-         break
-      printHere = (counter % 50 == 0)
-      loss, charCounts = forward(numeric, printHere=printHere, train=True)
-      backward(loss, printHere)
-      if loss.data.cpu().numpy() > 15.0:
-          lossHasBeenBad += 1
-      else:
-          lossHasBeenBad = 0
-      if lossHasBeenBad > 100:
-          print("Loss exploding, has been bad for a while")
-          print(loss)
-          quit()
-      trainChars += charCounts 
-      if printHere:
-          print(("Loss here", loss))
-          print((epoch,counter))
-          print("Dev losses")
-          print(devLosses)
-          print("Words per sec "+str(trainChars/(time.time()-startTime)))
-          print(learning_rate)
-          print(__file__)
-          print(args)
-      if counter % 20000 == 0: # and epoch == 0:
-        state = {"arguments" : str(args), "words_1" : itos_1, "words_2" : itos_2, "components" : [c.state_dict() for c in modules]}
-        torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language1+"AND"+args.language2+"_"+__file__+"_code_"+str(args.myID)+".txt")
-
-      if (time.time() - totalStartTime)/60 > 4000:
-          print("Breaking early to get some result within 72 hours")
-          totalStartTime = time.time()
-          break
-
- #     break
+if True:
    rnn_drop.train(False)
 
 
-   dev_data_1 = corpusIteratorWikiWords.dev(args.language1)
-   dev_data_2 = corpusIteratorWikiWords.dev(args.language2)
+   test_data = corpusIterator_V11.load(args.chosen_language, tokenize=True)
 
    print("Got data")
-
-   dev_chars = prepareDatasetChunksTwo(dev_data_1, dev_data_2, train=False)
+   test_chars = prepareDatasetChunks(test_data, train=False)
 
 
 
      
-   dev_loss = 0
-   dev_char_count = 0
+   test_loss = 0
+   test_char_count = 0
    counter = 0
    hidden, beginning = None, None
    while True:
        counter += 1
        try:
-          numeric = next(dev_chars)
+          numeric = next(test_chars)
        except StopIteration:
           break
        printHere = (counter % 50 == 0)
        loss, numberOfCharacters = forward(numeric, printHere=printHere, train=False)
-       dev_loss += numberOfCharacters * loss.cpu().data.numpy()
-       dev_char_count += numberOfCharacters
-   devLosses.append(dev_loss/dev_char_count)
-   print(devLosses)
-
-   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language1+"AND"+args.language2+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
-       print(str(args), file=outFile)
-       print(" ".join([str(x) for x in devLosses]), file=outFile)
-
-   if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
-      break
-
-   state = {"arguments" : str(args), "words_1" : itos_1, "words_2" : itos_2, "components" : [c.state_dict() for c in modules]}
-   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language1+"AND"+args.language2+"_"+__file__+"_code_"+str(args.myID)+".txt")
+       test_char_count += numberOfCharacters
+   testLosses.append(test_loss/test_char_count)
+   print(testLosses)
 
 
-
-
-
-
-   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
-   optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.9
-
+with open("output/V11_"+args.section+"_"+args.chosen_language+"_"+args.load_from, "w") as outFile:
+   print("\t".join(["LineNumber", "RegionLSTM", "Surprisal"]), file=outFile)
+   for num, entry in enumerate(completeData):
+     print("\t".join([str(x) for x in [num, "".join(entry[0]), entry[1]]]), file=outFile)
 
