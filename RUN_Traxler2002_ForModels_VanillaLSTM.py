@@ -7,6 +7,9 @@ models = [x for x in os.listdir(path) if x.startswith("estimates-"+language+"_")
 
 import subprocess
 
+failedScripts = set()
+
+files = set(os.listdir("."))
 with open("results/models_vanillaLSTM_"+language+".tsv", "w") as outFile:
  for model in models:
    model2 = model.split("_")
@@ -18,10 +21,13 @@ with open("results/models_vanillaLSTM_"+language+".tsv", "w") as outFile:
        args = next(inFile)
        surprisal = float(next(inFile).strip())
 
-       print >> outFile, "\t".join([str(x) for x in [ID, script, surprisal]])
+       print("\t".join([str(x) for x in [ID, script, surprisal]]), file=outFile)
 
-
-       for section in ["expt1"]:
-         command = ["/u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python", "RUN_Traxler2002_"+script, "--language=english", "--load-from="+ID, "--section="+section]
+       scriptname = "RUN_Traxler2002_"+script
+       if scriptname not in files:
+          failedScripts.add(scriptname)
+       for section in ["expt1", "expt2", "expt3"]:
+         command = ["/u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python", scriptname, "--language=english", "--load-from="+ID, "--section="+section]
          subprocess.call(command)
 
+print(failedScripts)

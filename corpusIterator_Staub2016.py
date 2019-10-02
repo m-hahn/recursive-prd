@@ -5,9 +5,9 @@ import random
 itos_labels = []
 stoi_labels = {}
 
-def load(language, partition="train", removeMarkup=True, tokenize=True):
+def load(language, section=None, partition="train", removeMarkup=True, tokenize=True):
   assert language == "english"
-  with open("../stimuli/Staub_2016/stims-tokenized.tsv", "r") as inFile:
+  with open("../stimuli/Staub_2016/stims-tokenized"+section+".tsv", "r") as inFile:
      text = [x.split("\t") for x in inFile.read().strip().split("\n")]
   header = text[0]
   header = dict(zip(header, range(len(header))))

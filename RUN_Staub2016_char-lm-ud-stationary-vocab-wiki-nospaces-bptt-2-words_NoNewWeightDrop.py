@@ -8,6 +8,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
 parser.add_argument("--load-from", dest="load_from", type=str)
+parser.add_argument("--section", type=str)
 
 import random
 
@@ -309,7 +310,7 @@ if True:
    rnn_drop.train(False)
 
 
-   test_data = corpusIterator_Staub2016.load(args.language, tokenize=True)
+   test_data = corpusIterator_Staub2016.load(args.language, section=args.section, tokenize=True)
    print("Got data")
    test_chars = prepareDatasetChunks(test_data, train=False)
 
@@ -332,7 +333,7 @@ if True:
    print(testLosses)
 
 
-with open("output/Staub2016_"+args.language+"_"+args.load_from, "w") as outFile:
+with open("output/Staub2016"+args.section+"_"+args.language+"_"+args.load_from, "w") as outFile:
    print("\t".join(["LineNumber", "RegionLSTM", "Surprisal"]), file=outFile)
    for num, entry in enumerate(completeData):
      print("\t".join([str(x) for x in [num, "".join(entry[0]), entry[1]]]), file=outFile)

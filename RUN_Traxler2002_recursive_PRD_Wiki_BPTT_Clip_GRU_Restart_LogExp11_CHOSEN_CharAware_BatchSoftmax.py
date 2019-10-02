@@ -16,6 +16,7 @@ import math
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", type=str, default="english")
 parser.add_argument("--load_from", type=str) # 8066636
+parser.add_argument("--section", type=str)
 
 parser.add_argument("--dropout_rate", type=float, default=random.choice([0.0]))
 parser.add_argument("--emb_dim", type=int, default=200)
@@ -656,7 +657,7 @@ def computeDevLoss():
    devLoss = 0.0
    devWords = 0
 #   corpusDev = getNextSentence("valid")
-   corpusDev = corpusIterator_Traxler2002.test(args.language)
+   corpusDev = corpusIterator_Traxler2002.test(args.language, section=args.section)
    stream = prepareDatasetChunks(corpusDev, train=False)
 
    surprisalTable = [0 for _ in range(args.horizon)]
@@ -733,7 +734,7 @@ if True:
              print "Memories "+str(devMemories)
              #break
 
-with open("output/"+"Traxler2002"+"_"+args.load_from, "w") as outFile:
+with open("output/"+"Traxler2002"+"_"+args.section+"_"+args.load_from, "w") as outFile:
    print >> outFile, "\t".join(["LineNumber", "RegionLSTM", "Surprisal"])
    for num, entry in enumerate(completeData):
 #     print (num, args.section)

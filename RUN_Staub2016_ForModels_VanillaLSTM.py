@@ -20,7 +20,7 @@ with open("results/models_vanillaLSTM_"+language+".tsv", "w") as outFile:
 
        print >> outFile, "\t".join([str(x) for x in [ID, script, surprisal]])
 
-
-       command = ["/u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python", "RUN_Staub2016_"+script, "--language=english", "--load-from="+ID]
-       subprocess.call(command)
+       for section in ["_explore3"]:
+          command = ["/u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python", "RUN_Staub2016_"+script, "--language=english", "--load-from="+ID, "--section="+section]
+          subprocess.call(command)
 

@@ -61,12 +61,17 @@ with open(char_vocab_path, "r") as inFile:
      itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
 stoi = dict([(itos[i],i) for i in range(len(itos))])
 
+
+itos_total = ["<SOS>", "<EOS>", "OOV"] + itos
+stoi_total = dict([(itos_total[i],i) for i in range(len(itos_total))])
+
+
 with open("vocabularies/char-vocab-wiki-"+args.language, "r") as inFile:
      itos_chars = [x for x in inFile.read().strip().split("\n")]
 stoi_chars = dict([(itos_chars[i],i) for i in range(len(itos_chars))])
 
 
-itos_chars_total = ["SOS", "EOS", "OOV"] + itos_chars
+itos_chars_total = ["<SOS>", "<EOS>", "OOV"] + itos_chars
 
 
 import random
@@ -298,14 +303,14 @@ def forward(numeric, train=True, printHere=False):
          losses = lossTensor.data.cpu().numpy()
          numericCPU = numeric.cpu().data.numpy()
 #         boundaries_index = [0 for _ in numeric]
-         print(("NONE", itos[numericCPU[0][0]-3]))
+         print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
  #           if boundaries_index[0] < len(boundaries[0]) and i+1 == boundaries[0][boundaries_index[0]]:
   #             boundary = True
    #            boundaries_index[0] += 1
     #        else:
      #          boundary = False
-            print((losses[i][0], itos[numericCPU[i+1][0]-3]))
+            print((losses[i][0], itos_total[numericCPU[i+1][0]]))
       return loss, target_tensor.view(-1).size()[0]
 
 def backward(loss, printHere):

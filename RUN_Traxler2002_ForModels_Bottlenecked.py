@@ -1,6 +1,11 @@
 import os
 from math import log 
 
+failedScripts = set()
+
+files = set(os.listdir("."))
+
+
 for language in ["english"]:
    path = "/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/"
    models = [x for x in os.listdir(path) if x.startswith("estimates-"+language+"_") and "LogExp11_CHOSEN" in x]
@@ -30,7 +35,11 @@ for language in ["english"]:
           surprisal = float(next(inFile).strip().split(" ")[-1])
           print("\t".join([str(x) for x in [ID, model, script, surprisal, log_beta]]), file=outFile)
  #         continue 
-          command = ["/u/nlp/anaconda/ubuntu_16/envs/py27-mhahn/bin/python2.7", "RUN_Traxler2002_"+script, "--language="+language, "--load_from="+ID]
-          print(" ".join(command))
-          subprocess.call(command)
-   
+          calledScript = "RUN_Traxler2002_"+script
+          if calledScript not in files:
+             failedScripts.add(calledScript)
+          for section in ["expt1", "expt2", "expt3"]:
+            command = ["/u/nlp/anaconda/ubuntu_16/envs/py27-mhahn/bin/python2.7", calledScript, "--language="+language, "--load_from="+ID, "--section="+section]
+            print(" ".join(command))
+            subprocess.call(command)
+print(failedScripts) 
