@@ -88,6 +88,7 @@ library(ggplot2)
 plot = ggplot(data3 %>% group_by(grammatical, Model, LogBeta) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~LogBeta)
 plot = ggplot(data3 %>% group_by(grammatical, Model, Memory) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~Memory)
 plot = ggplot(data3 %>% group_by(grammatical, Model, NumberOfDevRuns) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~NumberOfDevRuns)
+plot = ggplot(data3 %>% group_by(grammatical, Model, ModelPerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_point() + facet_wrap(~ModelPerformance)
 
 
 

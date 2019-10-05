@@ -2,7 +2,7 @@ library(tidyr)
 library(dplyr)
 library(lme4)
 
- raw.spr.data <- read.csv("../stimuli/Staub_2016/stims-tokenized.tsv", sep="\t")
+ raw.spr.data <- read.csv("../stimuli/Staub_2006/staub2006_s_tokenized.tsv", sep="\t")
  raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
 
 modelsTable = read.csv("results/models_bottlenecked_english", sep="\t")
@@ -10,7 +10,7 @@ modelsTable = read.csv("results/models_bottlenecked_english", sep="\t")
 models = modelsTable$ID
 datModel = data.frame()
 for(model in models) {
-   datModel2 = tryCatch(read.csv(paste("output/Staub2016_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
+   datModel2 = tryCatch(read.csv(paste("output/Staub2006_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
    if(datModel2 != 1) {
      cat(model,"\n")
      datModel = rbind(datModel, datModel2)
@@ -24,6 +24,27 @@ datModel = datModel %>% filter(RegionLSTM != "OOV")
  raw.spr.data = merge(raw.spr.data, datModel, by=c("LineNumber"))
 
 mean(as.character(raw.spr.data$Word) == as.character(raw.spr.data$RegionLSTM))
+
+
+
+library(ggplot2)
+
+
+plot = ggplot(raw.spr.data %>% filter(Region %in% c("NP2")) %>% group_by(Round, Model, Item, Condition, ModelPerformance, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(ModelPerformance, Group, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=paste(Group, Condition), color=paste(Group, Condition), fill=paste(Group, Condition))) + geom_bar(stat="identity", position=position_dodge(width=0.9))  + facet_grid(~ModelPerformance)
+
+
+
+library(lme4)
+
+raw.spr.data = raw.spr.data %>% mutate(withEither.C = (Condition == "withEither") - 0.5)
+raw.spr.data = raw.spr.data %>% mutate(ModelPerformance.C = ModelPerformance - mean(ModelPerformance))
+
+
+summary(lmer(Surprisal ~ withEither.C*ModelPerformance.C + (withEither.C|Model) + (withEither.C|Item), data= raw.spr.data%>% filter(Region %in% c("NP2"))))
+
+
+crash()
+
 
 raw.spr.data = raw.spr.data %>% mutate("RCType" = ifelse(Condition %in% c("A", "B", "C", "D"), "ORC", "SRC"))
 raw.spr.data = raw.spr.data %>% mutate("HasPP" = ifelse(Condition %in% c("B", "D", "F"), TRUE, FALSE))
@@ -46,13 +67,13 @@ plot = ggplot(raw.spr.data %>% filter(Region %in% c("P0", "D2", "N2")) %>% group
 
 # Surprisal on the Embedded Verb
 plot = ggplot(raw.spr.data %>% filter(Region == "V0", Group != "ORCPhrasal") %>% group_by(ModelPerformance, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal)) + geom_point() + facet_wrap(~ModelPerformance)
-ggsave(plot, file="figures/staub2016_bottlenecked_v0.pdf", width=18, height=3.5)
+ggsave(plot, file="figures/staub2006_bottlenecked_v0.pdf", width=18, height=3.5)
 
 
 
 # Surprisal on the Matrix Verb
 plot = ggplot(raw.spr.data %>% filter(Region == "V1") %>% group_by(ModelPerformance, Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) + facet_grid(~ModelPerformance)
-ggsave(plot, file="figures/staub2016_bottlenecked_v1.pdf", width=18, height=3.5)
+ggsave(plot, file="figures/staub2006_bottlenecked_v1.pdf", width=18, height=3.5)
 
 
 

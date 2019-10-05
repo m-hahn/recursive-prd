@@ -37,6 +37,7 @@ data = merge(data, datModel, by=c("LineNumber"))
 
 data = data %>% filter(!grepl("OOV", RegionLSTM))
 
+library(reshape)
 
 NP3.data <- subset(data,position==5)
 V3.data <- subset(data,position==6)

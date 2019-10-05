@@ -40,4 +40,11 @@ raw.spr.data = raw.spr.data %>% mutate(ModelPerformance.C = ModelPerformance-mea
 summary(lmer(Surprisal ~ ModelPerformance.C*Verb1*Verb2 + (1 + Verb1+Verb2 + Verb1*Verb2 | Item) + (1+Verb1+Verb2+Verb1*Verb2|Model), data=raw.spr.data %>% filter(Region == "critical")))
 # Storage cost effects, also an interaction
 
+library(ggplot2)
+plot = ggplot(data=raw.spr.data %>% filter(Region == "critical") %>% group_by(ModelPerformance, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal))
+plot = plot + geom_point()
+plot = plot + facet_wrap(~ModelPerformance)
+ggsave(plot, file="figures/chen2005-expt1-critical.pdf")
+
+
 

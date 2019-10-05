@@ -5,10 +5,9 @@ import random
 itos_labels = []
 stoi_labels = {}
 
-def load(language, section="expt1", partition="train", removeMarkup=True, tokenize=True):
-#  assert section in ["expt1", "expt2", "expt3", "expt4"]
+def load(language, section=None, partition="train", removeMarkup=True, tokenize=True):
   assert language == "english"
-  with open("../stimuli/traxler_etal_2002/"+section+"-tokenized.tsv", "r") as inFile:
+  with open("../stimuli/Staub_2006/staub2006_s_tokenized.tsv", "r") as inFile:
      text = [x.split("\t") for x in inFile.read().strip().split("\n")]
   header = text[0]
   header = dict(zip(header, range(len(header))))
@@ -34,8 +33,8 @@ def load(language, section="expt1", partition="train", removeMarkup=True, tokeni
 #  print(chunk)
   yield chunk, chunk_line_numbers
 
-def test(language, section="expt1", removeMarkup=True, tokenize=True):
-  return load(language, section, removeMarkup=removeMarkup, tokenize=tokenize)
+def test(language, removeMarkup=True, tokenize=True):
+  return load(language, removeMarkup=removeMarkup, tokenize=tokenize)
 
 
 

@@ -54,6 +54,7 @@ data$expt <- factor(data$expt)
 ## make every position start with 1 instead of 0
 data$position <- as.numeric(data$position)+1
 
+data$Memory = 0
 
 data$gram <- ifelse(data$condition%in%c("a","b"),"gram","ungram")
 data$int <- ifelse(data$condition%in%c("a","c"),"hi","lo")
@@ -286,6 +287,7 @@ data3 = data3 %>% mutate(ModelPerformance.C = ModelPerformance-mean(ModelPerform
 data3 = data3 %>% mutate(Bottleneck = (!grepl("Control", Script))) %>% mutate(LogBeta = ifelse(Bottleneck, LogBeta, NA)) %>% mutate(grammatical = ifelse(g==-1, "Ungrammatical", "Grammatical"))
 library(ggplot2)
 plot = ggplot(data3 %>% group_by(grammatical, Model, LogBeta) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~LogBeta)
+ggsave(plot, file="V11_expt1_bottlenecked.pdf")
 plot = ggplot(data3 %>% group_by(grammatical, Model, Memory) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~Memory)
 plot = ggplot(data3 %>% group_by(grammatical, Model, ModelPerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=grammatical, y=Surprisal, group=Model)) + geom_line() + facet_wrap(~ModelPerformance)
 

@@ -26,7 +26,7 @@ with open("results/models_vanillaLSTM_"+language+".tsv", "w") as outFile:
        scriptname = "RUN_Traxler2002_"+script
        if scriptname not in files:
           failedScripts.add(scriptname)
-       for section in ["expt1", "expt2", "expt3"]:
+       for section in ["expt4"]: # "expt1", "expt2", "expt3", 
          command = ["/u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python", scriptname, "--language=english", "--load-from="+ID, "--section="+section]
          subprocess.call(command)
 

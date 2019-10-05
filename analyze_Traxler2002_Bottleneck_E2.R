@@ -8,7 +8,7 @@ modelsTable = read.csv("results/models_bottlenecked_english", sep="\t")
 models = modelsTable$ID
 datModel = data.frame()
 for(model in models) {
-   datModel2 = tryCatch(read.csv(paste("output/Traxler2002_expt1_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
+   datModel2 = tryCatch(read.csv(paste("output/Traxler2002_expt2_", model, sep=""), sep="\t") %>% mutate(Model = model), error=function(q) 1)
    if(datModel2 != 1) {
      cat(model,"\n")
      datModel = rbind(datModel, datModel2)
@@ -20,7 +20,7 @@ datModel = merge(datModel, modelsTable, by=c("Model"))
 datModel = datModel %>% filter(RegionLSTM != "OOV")
 
 
- raw.spr.data <- read.csv("../stimuli/traxler_etal_2002/expt1-tokenized.tsv", sep="\t")
+ raw.spr.data <- read.csv("../stimuli/traxler_etal_2002/expt2-tokenized.tsv", sep="\t")
  raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
 
 
@@ -55,16 +55,16 @@ raw.spr.data = raw.spr.data %>% mutate(RegPosition = case_when(Region == "d0" ~ 
 raw.spr.data = raw.spr.data %>% mutate(RegWord = case_when(Region == "d0" ~ "the", Region == "n0" ~ "banker", Region == "c" ~ "that", Region == "d1" ~ "the", Region == "n1" ~ "lawyer", Region == "v0" ~ "irritated", Region == "v1" ~ "played", Region == "post" ~ "tennis every Sunday"))
 
 library(ggplot2)
-plot = ggplot(raw.spr.data %>% group_by(LogBeta, RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
+plot = ggplot(raw.spr.data %>% group_by(ModelPerformance, RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
 plot = plot + geom_line()
 plot = plot + geom_text(aes(label=RegWord))
-plot = plot + facet_wrap(~LogBeta)
+plot = plot + facet_wrap(~ModelPerformance)
 
 library(ggplot2)
-plot = ggplot(raw.spr.data %>% filter(Region == "v0") %>% group_by(LogBeta, RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
+plot = ggplot(raw.spr.data %>% filter(Region == "v1") %>% group_by(ModelPerformance, RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
 plot = plot + geom_line()
 plot = plot + geom_text(aes(label=RegWord))
-plot = plot + facet_wrap(~LogBeta)
+plot = plot + facet_wrap(~ModelPerformance)
 
 # This looks like convincing evidence for a U-shaped curve
 plot = ggplot(raw.spr.data %>% filter(Region == "v0") %>% group_by(ModelPerformance, RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
