@@ -62,6 +62,6 @@ raw.spr.data = raw.spr.data %>% mutate(RegWord = case_when(Region == "d0" ~ "the
 plot = ggplot(raw.spr.data %>% group_by(RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
 plot = plot + geom_line()
 plot = plot + geom_text(aes(label=RegWord))
-
+ggsave(plot, file="traxler2002-full-vanilla.pdf", height=7, width=7)
 
 

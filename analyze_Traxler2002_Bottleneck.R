@@ -55,10 +55,11 @@ raw.spr.data = raw.spr.data %>% mutate(RegPosition = case_when(Region == "d0" ~ 
 raw.spr.data = raw.spr.data %>% mutate(RegWord = case_when(Region == "d0" ~ "the", Region == "n0" ~ "banker", Region == "c" ~ "that", Region == "d1" ~ "the", Region == "n1" ~ "lawyer", Region == "v0" ~ "irritated", Region == "v1" ~ "played", Region == "post" ~ "tennis every Sunday"))
 
 library(ggplot2)
-plot = ggplot(raw.spr.data %>% group_by(LogBeta, RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
+plot = ggplot(raw.spr.data %>% group_by(ModelPerformance, RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
 plot = plot + geom_line()
 plot = plot + geom_text(aes(label=RegWord))
-plot = plot + facet_wrap(~LogBeta)
+plot = plot + facet_wrap(~ModelPerformance)
+ggsave(plot, file="traxler2002-full-bottlenecked.pdf", height=15, width=15)
 
 library(ggplot2)
 plot = ggplot(raw.spr.data %>% filter(Region == "v0") %>% group_by(LogBeta, RegWord, RegPosition, Region, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=RegPosition, y=Surprisal, group=Condition, color=Condition))
@@ -71,5 +72,5 @@ plot = ggplot(raw.spr.data %>% filter(Region == "v0") %>% group_by(ModelPerforma
 plot = plot + geom_line()
 plot = plot + geom_text(aes(label=RegWord))
 plot = plot + facet_wrap(~ModelPerformance)
-
+ggsave(plot, file="traxler2002-embeddedVerb-bottlenecked.pdf")
 

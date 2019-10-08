@@ -35,7 +35,7 @@ vb = vb %>% mutate(someIntervention = case_when(intervention == "none" ~ -1, TRU
 
 vb = vb %>% mutate(ModelPerformance.C=ModelPerformance-mean(ModelPerformance), LogBeta.C=LogBeta-mean(LogBeta))
 # TODO why are there duplicates???
-vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Model, intervention, embedding, ModelPerformance.C, Script, LogBeta.C, LogBeta, Memory))
+vb_ = unique(vb %>% select(Surprisal, pp_rc, emb_c, someIntervention, item, Model, intervention, embedding, ModelPerformance.C, Script, LogBeta.C, LogBeta, Memory, ModelPerformance))
 
 
 library(ggplot2)
@@ -43,10 +43,10 @@ library(ggplot2)
 plot = ggplot(data=vb_ %>% group_by(intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~embedding)
 ggsave(plot, file="figures/bartek_gg_bottleneck.pdf")
 
-plot = ggplot(data=vb_ %>% filter(embedding == "mat") %>% group_by(LogBeta, intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~LogBeta)
+plot = ggplot(data=vb_ %>% filter(embedding == "mat") %>% group_by(ModelPerformance, intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~ModelPerformance)
 ggsave(plot, file="figures/bartek_gg_bottleneck_matrix.pdf")
 
-plot = ggplot(data=vb_ %>% filter(embedding == "emb") %>% group_by(LogBeta, intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~LogBeta)
+plot = ggplot(data=vb_ %>% filter(embedding == "emb") %>% group_by(ModelPerformance, intervention, Model, embedding) %>% summarise(Surprisal=mean(Surprisal)), aes(x=intervention, y=Surprisal, group=Model, color=Model)) + geom_line() + facet_wrap(~ModelPerformance)
 ggsave(plot, file="figures/bartek_gg_bottleneck_emb.pdf")
 
 
