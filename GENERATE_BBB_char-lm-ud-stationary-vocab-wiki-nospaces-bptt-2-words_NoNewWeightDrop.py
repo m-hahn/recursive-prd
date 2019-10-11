@@ -1,8 +1,22 @@
 # /u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python GENERATE_BBB_char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py --language=english --load-from=905843526
 
+
+
+
+
+
 print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model
+
+
+
+#data = read.csv("~/scr/TMP/bartek2.txt", sep="\t")
+#names(data) = c("Embedding", "Intervention", "Category", "Count")
+#data$IsV = (data$Category == " vbd")
+#summary(glm(IsV ~ Embedding + Intervention, data=data)) # VBD less predicted in matrix, more in PP, less in RC
+#savehistory(file = ".Rhistory")
+
 
 import sys
 
@@ -296,12 +310,24 @@ def countList(x):
      result[y] = result.get(y,0)+1
    return sorted(list(result.items()), key=lambda x:-x[1])
 
+def countDict(x):
+   if x is None:
+     return None
+   result = {}
+   for y in x:
+     result[y] = result.get(y,0)+1
+   return result
+
+
+
 generateAfterNext = False
 def forward(numericAndLineNumbers, train=True, printHere=False):
       global generateAfterNext
       global hidden
       global beginning
       global beginning_chars
+      global embedding
+      global intervention
       if hidden is None:
           hidden = None
           beginning = zeroBeginning
@@ -358,6 +384,8 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
 #vb = raw.spr.data %>% filter(roi == case_when(embedding == "matrix" ~ case_when(intervention == "none" ~ 2, intervention == "pp" ~ 5, intervention == "rc" ~ 7), embedding == "emb" ~ case_when(intervention == "none" ~ 5, intervention == "pp" ~ 8, intervention == "rc" ~ 10)))
           if generateAfterNext:
               generated[i], entropies[i] = doGeneration(out[i], hidden)
+              print(embedding, "\t", intervention, "\t", "\t".join([str(y) for y in (countList([posDictMax.get(x[1:], "UNK") for x in generated[i]])[0])]), file=sys.stderr)
+
 
           if condition == "a":
             embedding = "matrix"
@@ -423,11 +451,12 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
 
 
          while lineNum >= len(completeData):
-             completeData.append([[], 0])
+             completeData.append([[], 0, None])
          completeData[lineNum][0].append(itos_complete[numericCPU[i+1][j]])
          completeData[lineNum][1] += losses[i][j]
-
-
+         assert completeData[lineNum][2] == None
+         completeData[lineNum][2] = countDict([posDictMax.get(x[1:], "UNK") for x in generated[i]]).get("vbd", 0) if generated[i] is not None else None
+        
       return None, target_tensor.view(-1).size()[0]
 
 
@@ -467,12 +496,20 @@ if True:
 
 
 with open("outputGeneration/"+"Bartek_BB"+"_"+args.load_from, "w") as outFile:
-   print("\t".join(["LineNumber", "RegionLSTM", "Surprisal"]), file=outFile)
+   print("\t".join(["LineNumber", "RegionLSTM", "Surprisal", "VBD_Generated"]), file=outFile)
    for num, entry in enumerate(completeData):
      words = "".join(entry[0])
      if len(words) == 0:
         words= "NONE"
-     print("\t".join([str(x) for x in [num, words, entry[1]]]), file=outFile)
+     print("\t".join([str(x) for x in [num, words, entry[1], entry[2]]]), file=outFile)
+
+#
+#data = read.csv("~/scr/TMP/bartek2.txt", sep="\t")
+#names(data) = c("Embedding", "Intervention", "Category", "Count")
+#data$IsV = (data$Category == " vbd")
+#summary(glm(IsV ~ Embedding + Intervention, data=data))
+#savehistory(file = ".Rhistory")
+#
 
 
 
