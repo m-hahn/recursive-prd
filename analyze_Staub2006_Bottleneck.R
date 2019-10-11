@@ -29,6 +29,8 @@ mean(as.character(raw.spr.data$Word) == as.character(raw.spr.data$RegionLSTM))
 
 library(ggplot2)
 
+# Moderately bottlenecked models do show an effect of `either' on the surprisal of `or'
+plot = ggplot(raw.spr.data %>% filter(Word %in% c("or")) %>% group_by(Round, Model, Item, Condition, ModelPerformance, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(ModelPerformance, Group, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=paste(Group, Condition), color=paste(Group, Condition), fill=paste(Group, Condition))) + geom_bar(stat="identity", position=position_dodge(width=0.9))  + facet_wrap(~ModelPerformance)
 
 plot = ggplot(raw.spr.data %>% filter(Region %in% c("NP2")) %>% group_by(Round, Model, Item, Condition, ModelPerformance, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(ModelPerformance, Group, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=paste(Group, Condition), color=paste(Group, Condition), fill=paste(Group, Condition))) + geom_bar(stat="identity", position=position_dodge(width=0.9))  + facet_grid(~ModelPerformance)
 

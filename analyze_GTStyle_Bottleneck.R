@@ -33,8 +33,13 @@ mean(as.character(raw.spr.data$Word) == as.character(raw.spr.data$RegionLSTM))
 
 
 
-
 library(ggplot2)
+
+raw.spr.data$Region = factor(raw.spr.data$Region, levels=c("D1", "N1", "THAT1", "D2", "N2", "THAT2", "D3", "N3", "V3", "V2", "V1", "Punct"))
+
+plot = ggplot(raw.spr.data %>% filter(ModelPerformance < 5) %>% group_by(Region, Round, Model, Item, Condition, ModelPerformance) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Region, ModelPerformance, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Region, y=Surprisal, group=paste(Condition), color=paste(Condition), fill=paste(Condition)))
+plot = plot + geom_line()  + facet_wrap(~ModelPerformance)
+
 
 
 plot = ggplot(raw.spr.data %>% filter(Region %in% c("Punct")) %>% group_by(Round, Model, Item, Condition, ModelPerformance) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(ModelPerformance, Condition) %>% summarise(Surprisal=mean(Surprisal)), aes(x=1, y=Surprisal, group=paste(Condition), color=paste(Condition), fill=paste(Condition))) + geom_bar(stat="identity", position=position_dodge(width=0.9))  + facet_grid(~ModelPerformance)

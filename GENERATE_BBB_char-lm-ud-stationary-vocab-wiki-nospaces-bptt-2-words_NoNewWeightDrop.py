@@ -138,7 +138,26 @@ optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.
 #   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
 
 
+posDict = {}
+with open("/u/scr/mhahn/FAIR18/english-wiki-word-vocab_POS.txt", "r") as dictIn:
+    for line in dictIn:
+        line = line.strip().split("\t")
+        line[2] = int(line[2])
+        if line[2] < 100:
+           print(len(posDict))
+           break
+        if line[0] not in posDict:
+           posDict[line[0]] = {}
+        if line[1] not in posDict[line[0]]:
+            posDict[line[0]][line[1]] = 0
+        posDict[line[0]][line[1]] += 1
 
+posDictMax = {}
+for word, entry in posDict.items():
+    maxCount = max([entry[x] for x in entry])
+    bestPOS = [x for x in entry if entry[x] == maxCount][0]
+    posDictMax[word] = bestPOS
+        
 if args.load_from is not None:
   checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("GENERATE_BBB_", "")+"_code_"+str(args.load_from)+".txt")
   for i in range(len(checkpoint["components"])):
@@ -225,20 +244,57 @@ bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.w
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 
 
-def doGeneration(out, hidden):
-
-      out = out.expand(1, 50, -1)
-      logits = output(out)
+def doGeneration(outHere, hiddenHere):
+   result = ["" for _ in range(100)]
+   outHere = outHere.expand(1, 100, -1)
+   hiddenHere = [x.expand(-1, 100, -1).contiguous() for x in hiddenHere]
+   GENERATING_LENGTH = 1
+   for l in range(GENERATING_LENGTH):
+      logits = output(outHere)
       probs = softmax(logits)
-      print(probs.size())
+      
+#      print(probs.size())
+      if l == 0:
+           entropy = -float((probs[0,0] * torch.log(probs[0,0])).sum())
+
       dist = torch.distributions.Categorical(probs=probs)
        
       nextWord = (dist.sample())
-      print([x for x in nextWord.cpu().numpy()[0]])
+#      print([x for x in nextWord.cpu().numpy()[0]])
 
       nextWordStrings = [itos_complete[x] for x in nextWord.cpu().numpy()[0]]
-      return nextWordStrings
+      for i in range(100):
+         result[i] += " "+nextWordStrings[i]
+      if l == GENERATING_LENGTH-1:
+         break
 
+      numerified_chars = [([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char]) for char in nextWordStrings]
+      numerified_chars = [x[:15] + [1] for x in numerified_chars]
+      numerified_chars = [x+([0]*(16-len(x))) for x in numerified_chars]
+
+      numerified_chars = torch.LongTensor(numerified_chars).view(1, 100, 1, 16).transpose(0,1).transpose(1,2).cuda()
+
+      embedded_chars = numerified_chars.transpose(0,2).transpose(2,1)
+      embedded_chars = embedded_chars.contiguous().view(16, -1)
+      _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
+      embedded_chars = embedded_chars[0].view(2, 1, 100, args.char_enc_hidden_dim)
+      embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
+      embedded = word_embeddings(nextWord)
+      #print(embedded.size())
+      #print(embedded_chars.size())
+      embedded = torch.cat([embedded, embedded_chars], dim=2)
+      #print(embedded.size())
+      outHere, hiddenHere = rnn_drop(embedded, hiddenHere)
+#   print(result)
+   return result, entropy
+
+def countList(x):
+   if x is None:
+     return None
+   result = {}
+   for y in x:
+     result[y] = result.get(y,0)+1
+   return sorted(list(result.items()), key=lambda x:-x[1])
 
 generateAfterNext = False
 def forward(numericAndLineNumbers, train=True, printHere=False):
@@ -294,14 +350,14 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
 
       out = [None for _ in regionNames]
       generated = [None for _ in regionNames]
+      entropies = [None for _ in regionNames]
       for i in range(len(regionNames)):
           out[i], hidden = rnn_drop(embedded[i:i+1], hidden)
 #          print(regionNames[i])
           condition, roi = regionNames[i].split("_")
 #vb = raw.spr.data %>% filter(roi == case_when(embedding == "matrix" ~ case_when(intervention == "none" ~ 2, intervention == "pp" ~ 5, intervention == "rc" ~ 7), embedding == "emb" ~ case_when(intervention == "none" ~ 5, intervention == "pp" ~ 8, intervention == "rc" ~ 10)))
           if generateAfterNext:
-              generated[i] = doGeneration(out[i], hidden)
-
+              generated[i], entropies[i] = doGeneration(out[i], hidden)
 
           if condition == "a":
             embedding = "matrix"
@@ -330,6 +386,7 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
           else:
             embedding = None
             intervention = None
+            reg = "NONE"
           if roi == reg:
             print("GENERATING")
             generateAfterNext = True
@@ -359,7 +416,11 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
          numericCPU = numeric.cpu().data.numpy()
          lineNum = int(lineNumbers[i][j])
 
-         print (i, itos_complete[numericCPU[i+1][j]], losses[i][j], lineNum, generated[i])
+         print (i, itos_complete[numericCPU[i+1][j]], losses[i][j], lineNum, entropies[i]) #, countList(generated[i]), countList([posDictMax.get(x[1:], "UNK") for x in generated[i]]) if generated[i] is not None else None)
+         if generated[i] is not None:
+            print (countList([posDictMax.get(x[1:], "UNK") for x in generated[i]]) if generated[i] is not None else None)
+            print (countList(generated[i]))
+
 
          while lineNum >= len(completeData):
              completeData.append([[], 0])
@@ -405,7 +466,7 @@ if True:
    print(testLosses)
 
 
-with open("output/"+"Bartek_BB"+"_"+args.load_from, "w") as outFile:
+with open("outputGeneration/"+"Bartek_BB"+"_"+args.load_from, "w") as outFile:
    print("\t".join(["LineNumber", "RegionLSTM", "Surprisal"]), file=outFile)
    for num, entry in enumerate(completeData):
      words = "".join(entry[0])
