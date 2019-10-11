@@ -7,7 +7,7 @@ stoi_labels = {}
 
 def load(language, partition="train", removeMarkup=True, tokenize=True):
   assert language == "english"
-  with open("/u/scr/mhahn/recursive-prd/BarteketalJEP2011data/gg-spr06-data.txt", "r") as inFile:
+  with open("../stimuli/BarteketalJEP2011data/gg-spr06-data.txt", "r") as inFile:
      text = [x.split("\t") for x in inFile.read().strip().split("\n")]
   print(text)
   header = ["subj", "expt", "item", "condition", "roi", "word", "RT", "embedding",  "intervention"] # based on master.tex
