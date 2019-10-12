@@ -12,20 +12,41 @@ def load(language, partition="train", removeMarkup=True):
   else:
     path = WIKIPEDIA_HOME+"/WIKIPEDIA/"+language+"/"+language+"-"+partition+"-tagged.txt"
   chunk = []
-  with open(path, "r") as inFile:
-    for line in inFile:
-      index = line.find("\t")
-      if index == -1:
-        if removeMarkup:
-          continue
-        else:
-          index = len(line)-1
-      word = line[:index]
-      chunk.append(word.lower())
-      if len(chunk) > 1000000:
-      #   random.shuffle(chunk)
-         yield chunk
-         chunk = []
+  if language != "japanese":
+      with open(path, "r") as inFile:
+        for line in inFile:
+          index = line.find("\t")
+          if index == -1:
+            if removeMarkup:
+              continue
+            else:
+              index = len(line)-1
+          word = line[:index]
+          chunk.append(word.lower())
+          if len(chunk) > 1000000:
+          #   random.shuffle(chunk)
+             yield chunk
+             chunk = []
+  else:
+     import gzip
+     with gzip.open(path+".gz", "rb") as inFile:
+      for line in inFile:
+       line = line.decode("utf-8")
+       for t in line.strip().replace("\ ", "").split(" "):
+         if len(t) <= 1:
+            continue
+         try:
+            word = t[:t.index("/")].lower()
+         except ValueError:
+           print(t)
+           continue
+#         print(t, word)
+         if len(word) == 0:
+            continue
+         chunk.append(word)
+         if len(chunk) > 1000000:
+            yield chunk
+            chunk = []
   yield chunk
 
 def training(language):

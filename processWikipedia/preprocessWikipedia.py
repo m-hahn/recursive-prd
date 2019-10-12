@@ -1,4 +1,4 @@
-path = "/u/scr/mhahn/FAIR18/WIKIPEDIA/spanish/" # was: russian
+path = "/u/scr/mhahn/FAIR18/WIKIPEDIA/japanese/" # was: russian
 
 import os
 
