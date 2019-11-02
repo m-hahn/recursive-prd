@@ -1,4 +1,4 @@
-LANGUAGE = "japanese"
+LANGUAGE = "russian"
 
 path = "/u/scr/mhahn/FAIR18/WIKIPEDIA/"+LANGUAGE+"/"
 

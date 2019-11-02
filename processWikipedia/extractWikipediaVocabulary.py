@@ -1,6 +1,6 @@
 unigrams = {}
 
-language = "spanish"
+language = "russian"
 
 WIKIPEDIA_HOME = "/u/scr/mhahn/FAIR18/WIKIPEDIA/"+language+"/"
 if True:
