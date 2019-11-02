@@ -1,0 +1,105 @@
+
+library(tidyr)
+library(dplyr)
+library(lme4)
+
+models = read.csv("results/models_vanillaLSTM_russian.tsv", sep="\t")
+
+data = data.frame()
+for(model in models$Model) {
+   data2 = read.csv(paste("output/Levy20131a_russian_", model, sep=""), sep="\t")
+   data2$Model = model
+   data = rbind(data, data2)
+}
+data = data %>% filter(!grepl("OOV", RegionLSTM))
+# from ~/scr/recursive-prd/BarteketalJEP2011data/master.tex
+ raw.spr.data <- read.csv("../stimuli/Levy_etal_2013/expt1a-tokenized.tsv", sep="\t")
+ raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
+
+ raw.spr.data = merge(raw.spr.data, data, by=c("LineNumber"))
+
+mean(as.character(raw.spr.data$Word) == as.character(raw.spr.data$RegionLSTM))
+
+raw.spr.data = raw.spr.data %>% mutate("RCType" = ifelse(Condition %in% c("C", "D"), "ORC", "SRC"))
+raw.spr.data = raw.spr.data %>% mutate("Order" = ifelse(Condition %in% c("A", "C"), "default", "scrambled"))
+raw.spr.data = raw.spr.data %>% mutate(ORC.C = (RCType == "ORC")-0.5)
+raw.spr.data = raw.spr.data %>% mutate(scrambled.C = (Order == "scrambled")-0.5)
+
+raw.spr.data = merge(raw.spr.data, models, by=c("Model"), all=TRUE)
+
+
+#     conditionA = line
+#     regionsA = ["N0", "Punct0", "Rel", "V0", "N1", "Prep", "U1", "U2", "Punct1", "Post"]
+#
+#     conditionB = [line[0], line[1], line[2], line[4], line[3]] + line[5:]
+#     regionsB = ["N0", "Punct0", "Rel", "N1", "V0", "Prep", "U1", "U2", "Punct1", "Post"]
+#
+#     conditionC = [line[0], line[1], "которого", nominative, line[3]] + line[5:]
+#     regionsC = ["N0", "Punct0", "Rel", "N1", "V0", "Prep", "U1", "U2", "Punct1", "Post"]
+#
+#     conditionD = [line[0], line[1], "которого", line[3], nominative] + line[5:]
+#     regionsD = ["N0", "Punct0", "Rel", "V0", "N1", "Prep", "U1", "U2", "Punct1", "Post"]
+
+
+library(ggplot2)
+
+
+
+# Relative Clause Verb
+summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Region == "V0")))
+
+
+plot = ggplot(raw.spr.data %>% filter(Region %in% c("V0")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal))
+plot = plot + geom_point()
+plot = plot + facet_wrap(~AveragePerformance)
+
+
+# Relative Clause Noun
+summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Region == "N1")))
+
+# End of RC
+summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Region == "Prep")))
+
+summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Region == "U1")))
+
+summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Region == "U2")))
+
+# Matrix Verb
+summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Position == 9)))
+
+
+
+
+plot = ggplot(raw.spr.data %>% filter(!HasParticle, Region %in% c("V0")) %>% group_by(Round, Model, Item, Condition, Length, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) 
+
+
+plot = ggplot(raw.spr.data %>% filter(Region %in% c("A0", "V0")) %>% group_by(Round, Model, Item, Condition, Length, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) 
+
+library(lme4)
+
+summary(lmer(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "V0", !HasParticle)))
+
+#library(brms)
+#summary(brm(Surprisal ~ ORC.C + (1+ORC.C|Item) + (1+ORC.C|Model), data=raw.spr.data %>% filter(Region == "V0", !HasParticle)))
+
+
+
+plot = ggplot(raw.spr.data %>% filter(Region %in% c("P0", "D2", "N2")) %>% group_by(Round, Model, Item, Condition, Length, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) 
+
+
+plot = ggplot(raw.spr.data %>% filter(Region == "V1") %>% group_by(Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) 
+ggsave(plot, file="figures/staub2016_vanilla_v1.pdf", width=18, height=3.5)
+
+
+
+
+orc_data = raw.spr.data %>% filter(RCType == "ORC")
+
+orc_data = orc_data %>% mutate(HasPP.C = HasPP-mean(HasPP))
+orc_data = orc_data %>% mutate(HasParticle.C = HasParticle-mean(HasParticle))
+
+
+summary(lmer(Surprisal ~ HasPP.C * HasParticle.C + (1+HasPP+HasParticle|Item) + (1+HasPP+HasParticle|Model), data=orc_data %>% filter(Region == "V1")))
+
+#summary(lmer(Surprisal ~ Condition + (1+Condition|Item) + (1+Condition|Model), data=raw.spr.data %>% filter(Region == "v1")))
+

@@ -10,6 +10,7 @@ import subprocess
 
 print("results/models_vanillaLSTM_"+language+".tsv")
 with open("results/models_vanillaLSTM_"+language+".tsv", "w") as outFile:
+ print >> outFile, "\t".join(["Model", "FileName", "AveragePerformance"])
  for model in models:
    model2 = model.split("_")
    ID = model2[-3]
