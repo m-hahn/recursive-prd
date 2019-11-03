@@ -59,7 +59,7 @@ def plus(it1, it2):
 words_vocab_path = f"/u/scr/mhahn/FAIR18/WIKIPEDIA/{args.language.lower()}/{args.language.lower()}-wiki-word-vocab.txt"
 bpe_vocab_path = f"/u/scr/mhahn/FAIR18/WIKIPEDIA/{args.language.lower()}/{args.language.lower()}-wiki-word-vocab_BPE_50000_Parsed.txt"
 
-vocab_size_considered = int(1e6)
+vocab_size_considered = 3*int(1e6)
 
 itos_words = [None for _ in range(vocab_size_considered)]
 i2BPE = [None for _ in range(vocab_size_considered)]
