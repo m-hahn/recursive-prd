@@ -11,12 +11,14 @@ for(model in models$Model) {
    data2$Model = model
    data = rbind(data, data2)
 }
-data = data %>% filter(!grepl("OOV", RegionLSTM))
 # from ~/scr/recursive-prd/BarteketalJEP2011data/master.tex
  raw.spr.data <- read.csv("../stimuli/Levy_etal_2013/expt1a-tokenized.tsv", sep="\t")
  raw.spr.data$LineNumber = (1:nrow(raw.spr.data))-1
 
  raw.spr.data = merge(raw.spr.data, data, by=c("LineNumber"))
+
+raw.spr.data = raw.spr.data %>% filter(!grepl("OOV", RegionLSTM))
+
 
 mean(as.character(raw.spr.data$Word) == as.character(raw.spr.data$RegionLSTM))
 
@@ -27,6 +29,8 @@ raw.spr.data = raw.spr.data %>% mutate(scrambled.C = (Order == "scrambled")-0.5)
 
 raw.spr.data = merge(raw.spr.data, models, by=c("Model"), all=TRUE)
 
+# Sanity-checking
+unique(((raw.spr.data %>% group_by(Condition) %>% filter(Region == "V0"))) %>% select(Condition, Word))
 
 #     conditionA = line
 #     regionsA = ["N0", "Punct0", "Rel", "V0", "N1", "Prep", "U1", "U2", "Punct1", "Post"]
@@ -41,12 +45,28 @@ raw.spr.data = merge(raw.spr.data, models, by=c("Model"), all=TRUE)
 #     regionsD = ["N0", "Punct0", "Rel", "V0", "N1", "Prep", "U1", "U2", "Punct1", "Post"]
 
 
+
 library(ggplot2)
+
+
+
+plot = ggplot(raw.spr.data %>% group_by(Region, AveragePerformance, Round, Model, Item, Condition, RCType, Order, Position) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance, Position, Region) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Position, y=Surprisal, group=Condition, color=Condition))
+plot = plot + geom_line()
+plot = plot + geom_label(aes(label=Region))
+plot = plot + facet_wrap(~AveragePerformance)
+
 
 
 
 # Relative Clause Verb
 summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Region == "V0")))
+
+
+
+plot = ggplot(raw.spr.data %>% filter(Region %in% c("V0")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Item, Condition, AveragePerformance) %>% summarise(Surprisal=mean(Surprisal)) %>% transform(ItemF = as.character(Item)), aes(x=Condition, y=Surprisal, group=ItemF, color=ItemF))
+plot = plot + geom_line()
+plot = plot + facet_wrap(~AveragePerformance)
+
 
 
 plot = ggplot(raw.spr.data %>% filter(Region %in% c("V0")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal))
@@ -56,6 +76,20 @@ plot = plot + facet_wrap(~AveragePerformance)
 
 # Relative Clause Noun
 summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Region == "N1")))
+
+
+
+plot = ggplot(raw.spr.data %>% filter(Region %in% c("N1")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Item, Condition, AveragePerformance) %>% summarise(Surprisal=mean(Surprisal)) %>% transform(ItemF = as.character(Item)), aes(x=Condition, y=Surprisal, group=ItemF, color=ItemF))
+plot = plot + geom_line()
+plot = plot + facet_wrap(~AveragePerformance)
+
+
+plot = ggplot(raw.spr.data %>% filter(Region %in% c("N1")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal))
+plot = plot + geom_point()
+plot = plot + facet_wrap(~AveragePerformance)
+
+
+
 
 # End of RC
 summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=raw.spr.data %>% filter(Region == "Prep")))
