@@ -1,0 +1,9 @@
+Model	FileName	AveragePerformance
+300420777	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py	4.22183446395
+327621567	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py	4.15934917866
+400144561	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py	4.37183053677
+466009528	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py	4.10630903183
+541640837	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py	4.23642408542
+692446315	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py	4.0985593429
+717997437	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py	4.05148460315
+734402315	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py	4.11240941745

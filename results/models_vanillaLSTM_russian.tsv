@@ -1,0 +1,5 @@
+Model	FileName	AveragePerformance
+122740713	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py	3.59821165176
+294724093	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py	3.5974921991
+362839388	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py	3.48447202501
+763816795	char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py	3.87452373051

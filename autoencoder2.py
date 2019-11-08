@@ -34,7 +34,7 @@ parser.add_argument("--char_enc_hidden_dim", type=int, default=64)
 parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
 
-parser.add_argument("--deletion_rate", type=float, default=0.99)
+parser.add_argument("--deletion_rate", type=float, default=0.2)
 
 
 model = "REAL_REAL"
@@ -269,7 +269,6 @@ def forward(numeric, train=True, printHere=False):
 
       out_decoder, _ = rnn_decoder(embedded, hidden)
 
-      # TODO somehow this leaks information
       attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
       attention = attention_softmax(attention).transpose(0,1)
       from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
