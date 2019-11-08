@@ -60,18 +60,19 @@ data_ = data_ %>% mutate(Position_ = ifelse(!Region %in% c("V0", "N1"), Position
 				            ifelse(Position == 4 & Region == "V0", 3.75,
 					    ifelse(Position == 4 & Region == "N1", 4.5, NA))))))
 
-plot = ggplot(data_ %>% filter(Model == 466009528) %>% group_by(Region, AveragePerformance, Round, Model, Item, Condition, RCType, Order, Position_) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance, Position_, Region, RCType, Order) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Position_, y=Surprisal, group=Condition, color=RCType, linetype=Order))
+plot = ggplot(data_ %>% group_by(Region, AveragePerformance, Round, Model, Item, Condition, RCType, Order, Position_) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance, Position_, Region, RCType, Order) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Position_, y=Surprisal, group=Condition, color=RCType, linetype=Order))
 plot = plot + geom_line()
 plot = plot + geom_label(aes(label=Region))
 plot = plot + facet_wrap(~AveragePerformance)
-
+ggsave("figures/levy2013-fullplot.pdf")
 
 
 
 # Relative Clause Verb
 summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=data_ %>% filter(Region == "V0")))
 
-summary(brm(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Item) + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Model), data=data_ %>% filter(Region == "V0")))
+#library(brms)
+model = brm(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Item) + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Model), data=data_ %>% filter(Region == "V0"))
 
 
 
@@ -85,9 +86,10 @@ plot = plot + facet_wrap(~AveragePerformance)
 
 
 
-plot = ggplot(data_ %>% filter(Region %in% c("V0")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal))
+plot = ggplot(data_ %>% filter(Region %in% c("V0")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance, RCType, Order) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal, color=RCType, shape=Order))
 plot = plot + geom_point()
 plot = plot + facet_wrap(~AveragePerformance)
+ggsave("figures/levy2013-relclverb.pdf")
 
 
 
@@ -102,9 +104,10 @@ plot = plot + geom_line()
 plot = plot + facet_wrap(~AveragePerformance)
 
 
-plot = ggplot(data_ %>% filter(Region %in% c("N1")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal))
+plot = ggplot(data_ %>% filter(Region %in% c("N1")) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance, RCType, Order) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal, color=RCType, shape=Order))
 plot = plot + geom_point()
 plot = plot + facet_wrap(~AveragePerformance)
+ggsave("figures/levy2013-relclnoun.pdf")
 
 
 
@@ -120,6 +123,31 @@ summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+sc
 summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=data_ %>% filter(Position == 9)))
 
 
+#plot = ggplot(data_ %>% filter(Position == 9) %>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance, RCType, Order) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal, color=RCType, shape=Order))
+#plot = plot + geom_point()
+#plot = plot + facet_wrap(~AveragePerformance)
+#ggsave("figures/levy2013-relclnoun.pdf")
+
+
+
+
+
+data__ = data_ %>% filter(Position < 9) %>% group_by(AveragePerformance, Round, Model, Item, RCType, Order, Condition, ORC.C, scrambled.C) %>% summarise(Surprisal = sum(Surprisal))
+
+
+
+plot = ggplot(data__%>% group_by(AveragePerformance, Round, Model, Item, Condition, RCType, Order) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Condition, AveragePerformance, RCType, Order) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Condition, y=Surprisal, color=RCType, shape=Order))
+plot = plot + geom_point()
+plot = plot + facet_wrap(~AveragePerformance)
+ggsave("figures/levy2013-aggregate.pdf")
+
+
+
+
+
+summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=data__))
+
+modelFull = brm(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C+ ORC.C * scrambled.C|Item) + (1+ORC.C+scrambled.C+ ORC.C * scrambled.C|Model), data=data__)
 
 
 plot = ggplot(data_ %>% filter(!HasParticle, Region %in% c("V0")) %>% group_by(Round, Model, Item, Condition, Length, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) 
