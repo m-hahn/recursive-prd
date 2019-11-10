@@ -43,10 +43,6 @@ import math
 
 args=parser.parse_args()
 
-#if "MYID" in args.save_to:
-#   args.save_to = args.save_to.replace("MYID", str(args.myID))
-
-#assert "word" in args.save_to, args.save_to
 
 print(args)
 
@@ -91,17 +87,17 @@ print(torch.__version__)
 #from weight_drop import WeightDrop
 
 
-rnn_encoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
-rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+process_mlp1 = torch.nn.Linear(2*args.word_embedding_size + args.hidden_dim, args.hidden_dim).cuda()
+process_mlp2 = torch.nn.Linear(args.hidden_dim, args.hidden_dim).cuda()
 
+relu = torch.nn.ReLU()
 
-
-
-output = torch.nn.Linear(2*args.hidden_dim, len(itos)+3).cuda()
+output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 
 word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
+softmax = torch.nn.Softmax(dim=2)
 
 attention_softmax = torch.nn.Softmax(dim=1)
 
@@ -118,7 +114,7 @@ attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).c
 #attention_layer = torch.nn.Bilinear(args.hidden_dim, args.hidden_dim, 1, bias=False).cuda()
 attention_proj.weight.data.fill_(0)
 
-modules = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj]
+modules = [process_mlp1,process_mlp2, output, word_embeddings, attention_proj]
 
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
@@ -227,7 +223,7 @@ bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.w
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * 2 * args.hidden_dim)]).cuda())
 
 
-
+zeroChunk = torch.zeros((1, args.batchSize, args.hidden_dim)).cuda()
 
 def forward(numeric, train=True, printHere=False):
       global beginning
@@ -238,8 +234,7 @@ def forward(numeric, train=True, printHere=False):
 
       numeric, numeric_chars = numeric
 
-      numeric_noised = [[x for x in y if random.random() > args.deletion_rate] for y in numeric.cpu().t()]
-      numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
+      numeric_noised = numeric
 
       numeric = torch.cat([beginning, numeric], dim=0)
       numeric_noised = torch.cat([beginning, numeric_noised], dim=0)
@@ -257,36 +252,59 @@ def forward(numeric, train=True, printHere=False):
          mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
          embedded = embedded * mask
 
-      embedded_noised = word_embeddings(input_tensor_noised)
-      if train:
-         embedded_noised = char_dropout(embedded_noised)
-         mask = bernoulli_input.sample()
-         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
-         embedded_noised = embedded_noised * mask
-#      print(input_tensor_noised)
- #     print("NOISED", embedded_noised[1,1,])
-  #    print("NOISED", embedded_noised[1,2,])
-   #   print("NOISED", embedded_noised[2,2,])
+#      embedded_noised = word_embeddings(input_tensor_noised)
+#      if train:
+#         embedded_noised = char_dropout(embedded_noised)
+#         mask = bernoulli_input.sample()
+#         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+#         embedded_noised = embedded_noised * mask
+##      print(input_tensor_noised)
+# #     print("NOISED", embedded_noised[1,1,])
+#  #    print("NOISED", embedded_noised[1,2,])
+#   #   print("NOISED", embedded_noised[2,2,])
+#
+#    #  print(embedded_noised.size())
+#      out_encoder, hidden = rnn_encoder(embedded_noised, None)
+#
+#      out_decoder, _ = rnn_decoder(embedded, hidden)
+#
+#      attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
+#      attention = attention_softmax(attention).transpose(0,1)
+#      from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
+#      out_full = torch.cat([out_decoder, from_encoder], dim=2)
+#
+#
+#      if train:
+#        mask = bernoulli_output.sample()
+#        mask = mask.view(1, args.batchSize, 2*args.hidden_dim)
+#        out_full = out_full * mask
+#
+#
+#
+#      logits = output(out_full) 
 
-    #  print(embedded_noised.size())
-      out_encoder, hidden = rnn_encoder(embedded_noised, None)
+      outputsSoFar = [zeroChunk]
+      fullOutputsSoFar = []
+      hidden = None
+      result  = ["" for _ in range(args.batchSize)]
+      retrieved = zeroChunk
+      for i in range(args.sequence_length):
+          embeddedLast = embedded[i].unsqueeze(0)
 
-      out_decoder, _ = rnn_decoder(embedded, hidden)
+          out_decoder = process_mlp2(relu(process_mlp1(torch.cat([embeddedLast, retrieved], dim=2))))
+          out_encoder = torch.cat(outputsSoFar, dim=0)
+          attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
+          attention = attention_softmax(attention).transpose(0,1)
+          if printHere:
+             print(attention[:,0], attention.size(), i)
+          from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
+          retrieved = from_encoder
+          outputsSoFar.append(out_decoder)     # for retrieval
+          fullOutputsSoFar.append(out_decoder) # for prediction
 
-      attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
-      attention = attention_softmax(attention).transpose(0,1)
-      from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
-      out_full = torch.cat([out_decoder, from_encoder], dim=2)
+      logits = output(torch.cat(fullOutputsSoFar, dim=0)) 
 
 
-      if train:
-        mask = bernoulli_output.sample()
-        mask = mask.view(1, args.batchSize, 2*args.hidden_dim)
-        out_full = out_full * mask
-
-
-
-      logits = output(out_full) 
       log_probs = logsoftmax(logits)
 
       
@@ -301,6 +319,12 @@ def forward(numeric, train=True, printHere=False):
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
             print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]]))
+
+
+
+
+
+
       return loss, target_tensor.view(-1).size()[0]
 
 def backward(loss, printHere):
@@ -328,8 +352,8 @@ for epoch in range(10000):
 
 
 
-   rnn_encoder.train(True)
-   rnn_decoder.train(True)
+   #rnn_encoder.train(True)
+   #rnn_decoder.train(True)
 
    startTime = time.time()
    trainChars = 0
@@ -363,19 +387,18 @@ for epoch in range(10000):
           print(lastSaved)
           print(__file__)
           print(args)
-      if counter % 2000 == 0: # and epoch == 0:
-     #   if args.save_to is not None:
-        state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
-        torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-        lastSaved = (epoch, counter)
+#      if counter % 2000 == 0: # and epoch == 0:
+#        state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
+#        torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+#        lastSaved = (epoch, counter)
       if (time.time() - totalStartTime)/60 > 4000:
           print("Breaking early to get some result within 72 hours")
           totalStartTime = time.time()
           break
 
  #     break
-   rnn_encoder.train(False)
-   rnn_decoder.train(False)
+   #rnn_encoder.train(False)
+   #rnn_decoder.train(False)
 
 
    dev_data = corpusIteratorWikiWords.dev(args.language)
@@ -400,20 +423,17 @@ for epoch in range(10000):
        dev_char_count += numberOfCharacters
    devLosses.append(dev_loss/dev_char_count)
    print(devLosses)
-#   quit()
-   #if args.save_to is not None:
- #     torch.save(dict([(name, module.state_dict()) for name, module in named_modules.items()]), MODELS_HOME+"/"+args.save_to+".pth.tar")
 
-   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
-       print(str(args), file=outFile)
-       print(" ".join([str(x) for x in devLosses]), file=outFile)
+#   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
+#       print(str(args), file=outFile)
+#       print(" ".join([str(x) for x in devLosses]), file=outFile)
 
    if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
       break
 
-   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
-   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-   lastSaved = (epoch, counter)
+#   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
+#   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+#   lastSaved = (epoch, counter)
 
 
 

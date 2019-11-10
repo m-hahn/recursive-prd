@@ -238,7 +238,7 @@ def forward(numeric, train=True, printHere=False):
 
       numeric, numeric_chars = numeric
 
-      numeric_noised = [[x for x in y if random.random() > args.deletion_rate] for y in numeric.cpu().t()]
+      numeric_noised = [[x if random.random() > args.deletion_rate else 0 for x in y] for y in numeric.cpu().t()]
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
 
       numeric = torch.cat([beginning, numeric], dim=0)

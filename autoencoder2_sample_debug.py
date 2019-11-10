@@ -1,22 +1,17 @@
-print("Character aware!")
 
 
 # Derived from autoencoder.py, uses noise
 
-# Character-aware version of the `Tabula Rasa' language model
-# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py
-# Adopted for English and German
 import sys
 
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
 parser.add_argument("--load-from", dest="load_from", type=str)
-#parser.add_argument("--save-to", dest="save_to", type=str)
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([128]))
+parser.add_argument("--batchSize", type=int, default=random.choice([1]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([512]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
@@ -102,6 +97,7 @@ output = torch.nn.Linear(2*args.hidden_dim, len(itos)+3).cuda()
 word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
+softmax = torch.nn.Softmax(dim=2)
 
 attention_softmax = torch.nn.Softmax(dim=1)
 
@@ -153,6 +149,8 @@ if args.load_from is not None:
   checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_sample_debug", "")+"_code_"+str(args.load_from)+".txt")
   for i in range(len(checkpoint["components"])):
       modules[i].load_state_dict(checkpoint["components"][i])
+else:
+  assert False
 
 from torch.autograd import Variable
 
@@ -162,50 +160,6 @@ from torch.autograd import Variable
 #from embed_regularize import embedded_dropout
 
 
-
-def prepareDatasetChunks(data, train=True):
-      numeric = [0]
-      count = 0
-      print("Prepare chunks")
-      numerified = []
-      numerified_chars = []
-      for chunk in data:
-       #print(len(chunk))
-       for char in chunk:
-#         if char == " ":
- #          continue
-         count += 1
-#         if count % 100000 == 0:
-#             print(count/len(data))
-         numerified.append((stoi[char]+3 if char in stoi else 2))
-         numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
-
-       if len(numerified) > (args.batchSize*args.sequence_length):
-         sequenceLengthHere = args.sequence_length
-
-         cutoff = int(len(numerified)/(args.batchSize*sequenceLengthHere)) * (args.batchSize*sequenceLengthHere)
-         numerifiedCurrent = numerified[:cutoff]
-         numerifiedCurrent_chars = numerified_chars[:cutoff]
-
-         for i in range(len(numerifiedCurrent_chars)):
-            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
-            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
-
-
-         numerified = numerified[cutoff:]
-         numerified_chars = numerified_chars[cutoff:]
-       
-         numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
-         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
-
-#         print(numerifiedCurrent_chars.size())
- #        quit()
-         numberOfSequences = numerifiedCurrent.size()[0]
-         for i in range(numberOfSequences):
-             yield numerifiedCurrent[i], numerifiedCurrent_chars[i]
-         hidden = None
-       else:
-         print("Skipping")
 
 
 
@@ -229,14 +183,13 @@ bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.
 
 
 
-def forward(numeric, train=True, printHere=False):
+def forward(numeric, train=True, printHere=True):
       global beginning
       global beginning_chars
       if True:
           beginning = zeroBeginning
           beginning_chars = zeroBeginning_chars
 
-      numeric, numeric_chars = numeric
 
       numeric_noised = [[x for x in y if random.random() > args.deletion_rate] for y in numeric.cpu().t()]
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
@@ -251,24 +204,9 @@ def forward(numeric, train=True, printHere=False):
 
 
       embedded = word_embeddings(input_tensor)
-      if train:
-         embedded = char_dropout(embedded)
-         mask = bernoulli_input.sample()
-         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
-         embedded = embedded * mask
 
       embedded_noised = word_embeddings(input_tensor_noised)
-      if train:
-         embedded_noised = char_dropout(embedded_noised)
-         mask = bernoulli_input.sample()
-         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
-         embedded_noised = embedded_noised * mask
-#      print(input_tensor_noised)
- #     print("NOISED", embedded_noised[1,1,])
-  #    print("NOISED", embedded_noised[1,2,])
-   #   print("NOISED", embedded_noised[2,2,])
 
-    #  print(embedded_noised.size())
       out_encoder, hidden = rnn_encoder(embedded_noised, None)
 
       out_decoder, _ = rnn_decoder(embedded, hidden)
@@ -301,126 +239,87 @@ def forward(numeric, train=True, printHere=False):
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
             print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]]))
+
+
+
+
+
+
+
+      result  = ["" for _ in range(args.batchSize)]
+      embeddedLast = embedded[0].unsqueeze(0)
+      for i in range(args.sequence_length):
+          out_decoder, hidden = rnn_decoder(embeddedLast, hidden)
+    
+          attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
+          attention = attention_softmax(attention).transpose(0,1)
+          from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
+          out_full = torch.cat([out_decoder, from_encoder], dim=2)
+
+          print(input_tensor.size())
+
+
+          logits = output(out_full) 
+          probs = softmax(logits)
+
+#          print(probs.size(), probs.sum(dim=2))
+ #         quit()
+
+          dist = torch.distributions.Categorical(probs=probs)
+       
+          nextWord = (dist.sample())
+          print(nextWord.size())
+          nextWordStrings = [itos_total[x] for x in nextWord.cpu().numpy()[0]]
+          for i in range(args.batchSize):
+             result[i] += " "+nextWordStrings[i]
+          embeddedLast = word_embeddings(nextWord)
+          print(embeddedLast.size())
+      print(result)
+      quit()
+#      if l == GENERATING_LENGTH-1:
+#         break
+#
+#      numerified_chars = [([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char]) for char in nextWordStrings]
+#      numerified_chars = [x[:15] + [1] for x in numerified_chars]
+#      numerified_chars = [x+([0]*(16-len(x))) for x in numerified_chars]
+#
+#      numerified_chars = torch.LongTensor(numerified_chars).view(1, 100, 1, 16).transpose(0,1).transpose(1,2).cuda()
+#
+#      embedded_chars = numerified_chars.transpose(0,2).transpose(2,1)
+#      embedded_chars = embedded_chars.contiguous().view(16, -1)
+#      _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
+#      embedded_chars = embedded_chars[0].view(2, 1, 100, args.char_enc_hidden_dim)
+#      embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
+#      embedded = word_embeddings(nextWord)
+#      #print(embedded.size())
+#      #print(embedded_chars.size())
+#      embedded = torch.cat([embedded, embedded_chars], dim=2)
+#      #print(embedded.size())
+#      outHere, hiddenHere = rnn_drop(embedded, hiddenHere)
+##   print(result)
+#   return result, entropy
+#
+#
+
+      
+      loss = train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
+
+      if printHere:
+         lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
+         losses = lossTensor.data.cpu().numpy()
+         numericCPU = numeric.cpu().data.numpy()
+         numeric_noisedCPU = numeric_noised.cpu().data.numpy()
+
+         print(("NONE", itos_total[numericCPU[0][0]]))
+         for i in range((args.sequence_length)):
+            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]]))
       return loss, target_tensor.view(-1).size()[0]
 
-def backward(loss, printHere):
-      optim.zero_grad()
-      if printHere:
-         print(loss)
-      loss.backward()
-      torch.nn.utils.clip_grad_value_(parameters_cached, 5.0) #, norm_type="inf")
-      optim.step()
 
-
-lossHasBeenBad = 0
-
-import time
-
-totalStartTime = time.time()
-
-lastSaved = (None, None)
-devLosses = []
-for epoch in range(10000):
-   print(epoch)
-   training_data = corpusIteratorWikiWords.training(args.language)
-   print("Got data")
-   training_chars = prepareDatasetChunks(training_data, train=True)
-
-
-
-   rnn_encoder.train(True)
-   rnn_decoder.train(True)
-
-   startTime = time.time()
-   trainChars = 0
-   counter = 0
-   hidden, beginning = None, None
-   while True:
-      counter += 1
-      try:
-         numeric = next(training_chars)
-      except StopIteration:
-         break
-      printHere = (counter % 50 == 0)
-      loss, charCounts = forward(numeric, printHere=printHere, train=True)
-      backward(loss, printHere)
-      if loss.data.cpu().numpy() > 15.0:
-          lossHasBeenBad += 1
-      else:
-          lossHasBeenBad = 0
-      if lossHasBeenBad > 100:
-          print("Loss exploding, has been bad for a while")
-          print(loss)
-          quit()
-      trainChars += charCounts 
-      if printHere:
-          print(("Loss here", loss))
-          print((epoch,counter))
-          print("Dev losses")
-          print(devLosses)
-          print("Words per sec "+str(trainChars/(time.time()-startTime)))
-          print(learning_rate)
-          print(lastSaved)
-          print(__file__)
-          print(args)
-      if counter % 2000 == 0: # and epoch == 0:
-     #   if args.save_to is not None:
-        state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
-        torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-        lastSaved = (epoch, counter)
-      if (time.time() - totalStartTime)/60 > 4000:
-          print("Breaking early to get some result within 72 hours")
-          totalStartTime = time.time()
-          break
-
- #     break
-   rnn_encoder.train(False)
-   rnn_decoder.train(False)
-
-
-   dev_data = corpusIteratorWikiWords.dev(args.language)
-   print("Got data")
-   dev_chars = prepareDatasetChunks(dev_data, train=False)
-
-
-     
-   dev_loss = 0
-   dev_char_count = 0
-   counter = 0
-   hidden, beginning = None, None
-   while True:
-       counter += 1
-       try:
-          numeric = next(dev_chars)
-       except StopIteration:
-          break
-       printHere = (counter % 50 == 0)
-       loss, numberOfCharacters = forward(numeric, printHere=printHere, train=False)
-       dev_loss += numberOfCharacters * loss.cpu().data.numpy()
-       dev_char_count += numberOfCharacters
-   devLosses.append(dev_loss/dev_char_count)
-   print(devLosses)
-#   quit()
-   #if args.save_to is not None:
- #     torch.save(dict([(name, module.state_dict()) for name, module in named_modules.items()]), MODELS_HOME+"/"+args.save_to+".pth.tar")
-
-   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
-       print(str(args), file=outFile)
-       print(" ".join([str(x) for x in devLosses]), file=outFile)
-
-   if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
-      break
-
-   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
-   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-   lastSaved = (epoch, counter)
-
-
-
-
-
-
-   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
-   optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.9
-
+sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the fact that the janitor who the doctor admired"
+numerified = [stoi[char]+3 if char in stoi else 2 for char in sentence.split(" ")]
+print(len(numerified))
+assert len(numerified) == args.sequence_length
+numerified=torch.LongTensor([numerified for _ in range(args.batchSize)]).t().cuda()
+forward(numerified, train=False)
 

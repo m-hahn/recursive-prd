@@ -91,13 +91,13 @@ print(torch.__version__)
 #from weight_drop import WeightDrop
 
 
-rnn_encoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+rnn_encoder = torch.nn.LSTM(2*args.word_embedding_size, int(args.hidden_dim/2.0), args.layer_num, bidirectional=True).cuda()
 rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
 
 
 
 
-output = torch.nn.Linear(2*args.hidden_dim, len(itos)+3).cuda()
+output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 
 word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
@@ -118,7 +118,10 @@ attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).c
 #attention_layer = torch.nn.Bilinear(args.hidden_dim, args.hidden_dim, 1, bias=False).cuda()
 attention_proj.weight.data.fill_(0)
 
-modules = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj]
+
+output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
+
+modules = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj, output_mlp]
 
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
@@ -161,7 +164,7 @@ from torch.autograd import Variable
 
 #from embed_regularize import embedded_dropout
 
-
+relu = torch.nn.ReLU()
 
 def prepareDatasetChunks(data, train=True):
       numeric = [0]
@@ -238,7 +241,7 @@ def forward(numeric, train=True, printHere=False):
 
       numeric, numeric_chars = numeric
 
-      numeric_noised = [[x for x in y if random.random() > args.deletion_rate] for y in numeric.cpu().t()]
+      numeric_noised = [[x if random.random() > args.deletion_rate else 0 for x in y] for y in numeric.cpu().t()]
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
 
       numeric = torch.cat([beginning, numeric], dim=0)
@@ -269,9 +272,9 @@ def forward(numeric, train=True, printHere=False):
    #   print("NOISED", embedded_noised[2,2,])
 
     #  print(embedded_noised.size())
-      out_encoder, hidden = rnn_encoder(embedded_noised, None)
-
-      out_decoder, _ = rnn_decoder(embedded, hidden)
+      
+      out_encoder, _ = rnn_encoder(embedded_noised, None)
+      out_decoder, _ = rnn_decoder(embedded, None)
 
       attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
       attention = attention_softmax(attention).transpose(0,1)
@@ -286,7 +289,7 @@ def forward(numeric, train=True, printHere=False):
 
 
 
-      logits = output(out_full) 
+      logits = output(relu(output_mlp(out_full) ))
       log_probs = logsoftmax(logits)
 
       

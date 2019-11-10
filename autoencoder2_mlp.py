@@ -97,7 +97,7 @@ rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.la
 
 
 
-output = torch.nn.Linear(2*args.hidden_dim, len(itos)+3).cuda()
+output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 
 word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
@@ -118,7 +118,10 @@ attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).c
 #attention_layer = torch.nn.Bilinear(args.hidden_dim, args.hidden_dim, 1, bias=False).cuda()
 attention_proj.weight.data.fill_(0)
 
-modules = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj]
+
+output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
+
+modules = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj, output_mlp]
 
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
@@ -161,7 +164,7 @@ from torch.autograd import Variable
 
 #from embed_regularize import embedded_dropout
 
-
+relu = torch.nn.ReLU()
 
 def prepareDatasetChunks(data, train=True):
       numeric = [0]
@@ -286,7 +289,7 @@ def forward(numeric, train=True, printHere=False):
 
 
 
-      logits = output(out_full) 
+      logits = output(relu(output_mlp(out_full) ))
       log_probs = logsoftmax(logits)
 
       
