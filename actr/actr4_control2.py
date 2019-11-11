@@ -217,7 +217,7 @@ zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda
 bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
 bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
-bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * 2 * args.hidden_dim)]).cuda())
+bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 
 
 zeroChunk = torch.zeros((1, args.batchSize, args.hidden_dim)).cuda()
@@ -255,11 +255,17 @@ def forward(numeric, train=True, printHere=False):
       hidden = None
       result  = ["" for _ in range(args.batchSize)]
       #retrieved = zeroChunk
-      for i in range(args.sequence_length):
-          embeddedLast = embedded[i].unsqueeze(0)
-          out_decoder, hidden = rnn_decoder(embeddedLast, hidden)
-          fullOutputsSoFar.append(out_decoder) # for prediction
-      logits = output(torch.cat(fullOutputsSoFar, dim=0)) 
+      out_decoder, _ = rnn_decoder(embedded, None)
+
+
+      if train:
+        mask = bernoulli_output.sample()
+        mask = mask.view(1, args.batchSize, args.hidden_dim)
+        out_decoder = out_decoder * mask
+
+
+
+      logits = output(out_decoder) 
       log_probs = logsoftmax(logits)
       loss = train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
 
