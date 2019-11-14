@@ -18,7 +18,7 @@ import random
 
 parser.add_argument("--batchSize", type=int, default=random.choice([128]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
-parser.add_argument("--hidden_dim", type=int, default=random.choice([512]))
+parser.add_argument("--hidden_dim", type=int, default=random.choice([256]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
 parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.05]))
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
@@ -32,10 +32,6 @@ parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 parser.add_argument("--char_emb_dim", type=int, default=128)
 parser.add_argument("--char_enc_hidden_dim", type=int, default=64)
 parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
-
-
-parser.add_argument("--deletion_rate", type=float, default=0.2)
-
 
 model = "REAL_REAL"
 
@@ -87,11 +83,10 @@ print(torch.__version__)
 #from weight_drop import WeightDrop
 
 
-rnn_encoder = torch.nn.GRU(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
 rnn_decoder = torch.nn.GRU(2*args.word_embedding_size + args.hidden_dim, args.hidden_dim, args.layer_num).cuda()
 
 
-output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
+output = torch.nn.Linear(2*args.hidden_dim, len(itos)+3).cuda()
 
 word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
@@ -113,7 +108,7 @@ attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).c
 #attention_layer = torch.nn.Bilinear(args.hidden_dim, args.hidden_dim, 1, bias=False).cuda()
 attention_proj.weight.data.fill_(0)
 
-modules = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj]
+modules = [rnn_decoder, output, word_embeddings, attention_proj]
 
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
@@ -251,37 +246,6 @@ def forward(numeric, train=True, printHere=False):
          mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
          embedded = embedded * mask
 
-#      embedded_noised = word_embeddings(input_tensor_noised)
-#      if train:
-#         embedded_noised = char_dropout(embedded_noised)
-#         mask = bernoulli_input.sample()
-#         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
-#         embedded_noised = embedded_noised * mask
-##      print(input_tensor_noised)
-# #     print("NOISED", embedded_noised[1,1,])
-#  #    print("NOISED", embedded_noised[1,2,])
-#   #   print("NOISED", embedded_noised[2,2,])
-#
-#    #  print(embedded_noised.size())
-#      out_encoder, hidden = rnn_encoder(embedded_noised, None)
-#
-#      out_decoder, _ = rnn_decoder(embedded, hidden)
-#
-#      attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
-#      attention = attention_softmax(attention).transpose(0,1)
-#      from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
-#      out_full = torch.cat([out_decoder, from_encoder], dim=2)
-#
-#
-#      if train:
-#        mask = bernoulli_output.sample()
-#        mask = mask.view(1, args.batchSize, 2*args.hidden_dim)
-#        out_full = out_full * mask
-#
-#
-#
-#      logits = output(out_full) 
-
       outputsSoFar = [zeroChunk]
       fullOutputsSoFar = []
       hidden = None
@@ -294,31 +258,37 @@ def forward(numeric, train=True, printHere=False):
 
           out_encoder = torch.cat(outputsSoFar, dim=0)
           attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
+ #         print(attention, i)
           attention = attention_softmax(attention).transpose(0,1)
-          if printHere:
+#          print(attention_proj.weight.data)
+          if printHere or True:
              print(attention[:,0].view(-1), attention.size(), i)
           from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
           retrieved = from_encoder
           outputsSoFar.append(out_decoder)     # for retrieval
-          fullOutputsSoFar.append(out_decoder) # for prediction
+          fullOutputsSoFar.append(torch.cat([out_decoder, retrieved], dim=2)) # for prediction
 
-      logits = output(torch.cat(fullOutputsSoFar, dim=0)) 
+      out_decoder = torch.cat(fullOutputsSoFar, dim=0)
+
+      if train:
+        mask = bernoulli_output.sample()
+        mask = mask.view(1, args.batchSize, 2*args.hidden_dim)
+        out_decoder = out_decoder * mask
 
 
+
+      logits = output(out_decoder) 
       log_probs = logsoftmax(logits)
-
-      
       loss = train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
 
       if printHere:
          lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
          losses = lossTensor.data.cpu().numpy()
          numericCPU = numeric.cpu().data.numpy()
-         numeric_noisedCPU = numeric_noised.cpu().data.numpy()
 
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]]))
+            print((losses[i][0], itos_total[numericCPU[i+1][0]]))
 
 
 
@@ -352,7 +322,6 @@ for epoch in range(10000):
 
 
 
-   rnn_encoder.train(True)
    rnn_decoder.train(True)
 
    startTime = time.time()
@@ -397,7 +366,6 @@ for epoch in range(10000):
           break
 
  #     break
-   rnn_encoder.train(False)
    rnn_decoder.train(False)
 
 

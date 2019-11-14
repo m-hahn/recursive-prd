@@ -15,7 +15,7 @@ import random
 
 parser.add_argument("--batchSize", type=int, default=random.choice([128]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
-parser.add_argument("--hidden_dim", type=int, default=random.choice([256]))
+parser.add_argument("--hidden_dim", type=int, default=random.choice([1024]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
 parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.05]))
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
@@ -80,13 +80,13 @@ print(torch.__version__)
 #from weight_drop import WeightDrop
 
 
-rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+rnn_decoder = torch.nn.LSTM(args.hidden_dim, args.hidden_dim, args.layer_num).cuda()
 
 
 
 output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
-
-word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
+word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=args.hidden_dim).cuda()
+output.weight = word_embeddings.weight
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
 
@@ -203,7 +203,7 @@ zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda
 
 bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
-bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
+bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 
 
@@ -234,7 +234,7 @@ def forward(numeric, train=True, printHere=False):
       if train:
          embedded = char_dropout(embedded)
          mask = bernoulli_input.sample()
-         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         mask = mask.view(1, args.batchSize, args.hidden_dim)
          embedded = embedded * mask
 
       out_decoder, _ = rnn_decoder(embedded, None)
@@ -244,7 +244,6 @@ def forward(numeric, train=True, printHere=False):
         mask = bernoulli_output.sample()
         mask = mask.view(1, args.batchSize, args.hidden_dim)
         out_decoder = out_decoder * mask
-
 
 
       logits = output(out_decoder) 

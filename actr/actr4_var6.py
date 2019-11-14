@@ -1,5 +1,8 @@
 print("Character aware!")
 
+
+# Derived from autoencoder.py, uses noise
+
 # Character-aware version of the `Tabula Rasa' language model
 # char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py
 # Adopted for English and German
@@ -16,7 +19,7 @@ import random
 parser.add_argument("--batchSize", type=int, default=random.choice([128]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([256]))
-parser.add_argument("--layer_num", type=int, default=random.choice([2]))
+parser.add_argument("--layer_num", type=int, default=random.choice([1]))
 parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.05]))
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
@@ -36,6 +39,7 @@ import math
 
 args=parser.parse_args()
 
+assert args.layer_num == 1
 
 print(args)
 
@@ -80,8 +84,7 @@ print(torch.__version__)
 #from weight_drop import WeightDrop
 
 
-rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
-
+rnn_decoder = torch.nn.GRU(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
 
 
 output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
@@ -89,6 +92,10 @@ output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
+softmax = torch.nn.Softmax(dim=2)
+
+attention_softmax = torch.nn.Softmax(dim=1)
+
 
 train_loss = torch.nn.NLLLoss(ignore_index=0)
 print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
@@ -97,8 +104,16 @@ char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
 
 train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
 
-modules = [rnn_decoder, output, word_embeddings]
-#, attention_proj
+
+attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
+#attention_proj.weight.data.fill_(0)
+
+
+toKeys = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
+toValues = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
+
+
+modules = [rnn_decoder, output, word_embeddings, attention_proj, toKeys, toValues]
 
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
@@ -213,21 +228,20 @@ def forward(numeric, train=True, printHere=False):
       global beginning
       global beginning_chars
       if True:
-          hidden = None
           beginning = zeroBeginning
           beginning_chars = zeroBeginning_chars
 
-
-
-
-
       numeric, numeric_chars = numeric
 
+      numeric_noised = numeric
+
       numeric = torch.cat([beginning, numeric], dim=0)
+      numeric_noised = torch.cat([beginning, numeric_noised], dim=0)
 
       input_tensor = Variable(numeric[:-1], requires_grad=False)
       target_tensor = Variable(numeric[1:], requires_grad=False)
 
+      input_tensor_noised = Variable(numeric_noised, requires_grad=False)
 
 
       embedded = word_embeddings(input_tensor)
@@ -237,8 +251,30 @@ def forward(numeric, train=True, printHere=False):
          mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
          embedded = embedded * mask
 
-      out_decoder, _ = rnn_decoder(embedded, None)
+      outputsSoFar = [(zeroChunk, zeroChunk)]
+      fullOutputsSoFar = []
+      hidden = None
+      result  = ["" for _ in range(args.batchSize)]
+      retrieved = zeroChunk
+      for i in range(args.sequence_length):
+          embeddedLast = embedded[i].unsqueeze(0)
 
+          out_decoder, hidden = rnn_decoder(embeddedLast, hidden)
+#          print(embeddedLast.size(), hidden.size())
+          #print(out_decoder.size(), hidden.size())
+          out_encoder_keys = torch.cat([x[0] for x in outputsSoFar], dim=0)
+          out_encoder_values = torch.cat([x[1] for x in outputsSoFar], dim=0)
+          attention = torch.bmm(attention_proj(out_encoder_keys).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
+          attention = attention_softmax(attention).transpose(0,1)
+#          print(attention_proj.weight.data)
+          if printHere:
+             print(attention[:,0].view(-1), attention.size(), i)
+          from_encoder = (out_encoder_values.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
+          hidden = from_encoder
+          outputsSoFar.append((toKeys(out_decoder), hidden))     # for retrieval
+          fullOutputsSoFar.append(out_decoder) #torch.cat([out_decoder, retrieved], dim=2)) # for prediction
+
+      out_decoder = torch.cat(fullOutputsSoFar, dim=0)
 
       if train:
         mask = bernoulli_output.sample()

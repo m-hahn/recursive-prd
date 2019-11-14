@@ -199,6 +199,8 @@ def forward(numeric, train=True, printHere=True):
 
 
       numeric_noised = [[x for x in y if random.random() > args.deletion_rate] for y in numeric.cpu().t()]
+#      numeric_noised = [[x for x in y if itos_total[int(x)] not in ["that"]] for y in numeric.cpu().t()]
+
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
 
       numeric = torch.cat([beginning, numeric], dim=0)
@@ -283,6 +285,9 @@ def forward(numeric, train=True, printHere=True):
           print(embeddedLast.size())
       for r in result:
          print(r)
+      print(float(len([x for x in result if NOUN in x]))/len(result))
+
+      print(float(len([x for x in result if NOUN+" that" in x]))/len(result))
       quit()
 #      if l == GENERATING_LENGTH-1:
 #         break
@@ -323,8 +328,8 @@ def forward(numeric, train=True, printHere=True):
             print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]]))
       return loss, target_tensor.view(-1).size()[0]
 
-
-sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the fact that the janitor who the doctor admired"
+NOUN = "allegation"
+sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" that the janitor who the doctor admired"
 numerified = [stoi[char]+3 if char in stoi else 2 for char in sentence.split(" ")]
 print(len(numerified))
 assert len(numerified) == args.sequence_length

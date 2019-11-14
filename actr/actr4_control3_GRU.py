@@ -80,7 +80,7 @@ print(torch.__version__)
 #from weight_drop import WeightDrop
 
 
-rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+rnn_decoder = torch.nn.GRU(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
 
 
 
