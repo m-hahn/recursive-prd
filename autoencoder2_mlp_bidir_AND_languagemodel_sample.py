@@ -13,7 +13,8 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str)
+parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default="264073608")
+parser.add_argument("--load-from-lm", dest="load_from_lm", type=str, default=45661490)
 #parser.add_argument("--save-to", dest="save_to", type=str)
 
 import random
@@ -21,6 +22,7 @@ import random
 parser.add_argument("--batchSize", type=int, default=random.choice([128]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_autoencoder", type=int, default=random.choice([512]))
+parser.add_argument("--hidden_dim_lm", type=int, default=random.choice([1024]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
 parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.05]))
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
@@ -90,17 +92,89 @@ import torch
 
 print(torch.__version__)
 
-#from weight_drop import WeightDrop
 
 
+class LanguageModel(torch.nn.Module):
+  def __init__(self):
+      super(LanguageModel, self).__init__()
+      self.rnn = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim_lm, args.layer_num).cuda()
+      self.output = torch.nn.Linear(args.hidden_dim_lm, len(itos)+3).cuda()
+      self.word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
+      self.logsoftmax = torch.nn.LogSoftmax(dim=2)
+      self.train_loss = torch.nn.NLLLoss(ignore_index=0)
+      self.print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
+      self.char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
+      self.train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
+      self.modules = [self.rnn, self.output, self.word_embeddings]
+      self.learning_rate = args.learning_rate
+      self.optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.0) # 0.02, 0.9
+      self.zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
+      self.beginning = None
+      self.zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
+      self.zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim_lm)).cuda()
+      self.bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
+      self.bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
+      self.bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim_lm)]).cuda())
 
+      self.hidden = None
 
-class Autoencoder(nn.Module):
+  def parameters(self):
+     for module in self.modules:
+         for param in module.parameters():
+              yield param
+
+  def forward(self, numeric, train=True, printHere=False):
+       if self.hidden is None:
+           self.hidden = None
+           self.beginning = self.zeroBeginning
+       elif self.hidden is not None:
+           hidden1 = Variable(self.hidden[0]).detach()
+           hidden2 = Variable(self.hidden[1]).detach()
+           forRestart = bernoulli.sample()
+           hidden1 = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroHidden, hidden1)
+           hidden2 = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroHidden, hidden2)
+           self.hidden = (hidden1, hidden2)
+           self.beginning = torch.where(forRestart.unsqueeze(0) == 1, zeroBeginning, self.beginning)
+       numeric = torch.cat([self.beginning, numeric], dim=0)
+       self.beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize)
+       input_tensor = Variable(numeric[:-1], requires_grad=False)
+       target_tensor = Variable(numeric[1:], requires_grad=False)
+       embedded = self.word_embeddings(input_tensor)
+       if train:
+          embedded = self.char_dropout(embedded)
+          mask = self.bernoulli_input.sample()
+          mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+          embedded = embedded * mask
+  
+       out, self.hidden = self.rnn(embedded, self.hidden)
+   
+       if train:
+         mask = self.bernoulli_output.sample()
+         mask = mask.view(1, args.batchSize, args.hidden_dim_lm)
+         out = out * mask
+   
+       logits = self.output(out) 
+       log_probs = self.logsoftmax(logits)
+        
+       loss = self.train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
+  
+       if printHere:
+          lossTensor = self.print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
+          losses = lossTensor.data.cpu().numpy()
+          numericCPU = numeric.cpu().data.numpy()
+          print(("NONE", itos_total[numericCPU[0][0]]))
+          for i in range((args.sequence_length)):
+             print((losses[i][0], itos_total[numericCPU[i+1][0]]))
+       return loss, target_tensor.view(-1).size()[0]
+    
+from torch.autograd import Variable
+
+class Autoencoder(torch.nn.Module):
   def __init__(self):
       super(Autoencoder, self).__init__()
-      self.rnn_encoder = torch.nn.LSTM(2*args.word_embedding_size, int(args.hidden_dim/2.0), args.layer_num, bidirectional=True).cuda()
-      self.rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
-      self.output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
+      self.rnn_encoder = torch.nn.LSTM(2*args.word_embedding_size, int(args.hidden_dim_autoencoder/2.0), args.layer_num, bidirectional=True).cuda()
+      self.rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim_autoencoder, args.layer_num).cuda()
+      self.output = torch.nn.Linear(args.hidden_dim_autoencoder, len(itos)+3).cuda()
       
       self.word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
       
@@ -114,23 +188,39 @@ class Autoencoder(nn.Module):
       self.print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
       self.char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
       
-      
       self.train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
       
-      
-      self.attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
-      #attention_layer = torch.nn.Bilinear(args.hidden_dim, args.hidden_dim, 1, bias=False).cuda()
+      self.attention_proj = torch.nn.Linear(args.hidden_dim_autoencoder, args.hidden_dim_autoencoder, bias=False).cuda()
       self.attention_proj.weight.data.fill_(0)
       
-      
-      self.output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
+      self.output_mlp = torch.nn.Linear(2*args.hidden_dim_autoencoder, args.hidden_dim_autoencoder).cuda()
       
       self.modules = [self.rnn_decoder, self.rnn_encoder, self.output, self.word_embeddings, self.attention_proj, self.output_mlp]
       
       self.learning_rate = args.learning_rate
 
       self.optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.0) # 0.02, 0.9
- 
+      self.relu = torch.nn.ReLU()
+      
+      self.hidden = None
+      
+      self.zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
+      self.beginning = None
+      
+      self.zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
+      
+      
+      self.zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim_autoencoder)).cuda()
+      
+      self.bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
+      
+      self.bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
+      self.bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * 2 * args.hidden_dim_autoencoder)]).cuda())
+      
+      
+      
+
+
   def parameters(self):
       for module in self.modules:
           for param in module.parameters():
@@ -139,20 +229,16 @@ class Autoencoder(nn.Module):
 
 
   def forward(self, numeric, train=True, printHere=True):
-      global beginning
-      global beginning_chars
       if True:
-          beginning = zeroBeginning
-          beginning_chars = zeroBeginning_chars
+          self.beginning = self.zeroBeginning
 
 
       numeric_noised = [[x for x in y if random.random() > args.deletion_rate] for y in numeric.cpu().t()]
-#      numeric_noised = [[x for x in y if itos_total[int(x)] not in ["that"]] for y in numeric.cpu().t()]
 
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
 
-      numeric = torch.cat([beginning, numeric], dim=0)
-      numeric_noised = torch.cat([beginning, numeric_noised], dim=0)
+      numeric = torch.cat([self.beginning, numeric], dim=0)
+      numeric_noised = torch.cat([self.beginning, numeric_noised], dim=0)
 
       input_tensor = Variable(numeric[:-1], requires_grad=False)
       target_tensor = Variable(numeric[1:], requires_grad=False)
@@ -175,14 +261,14 @@ class Autoencoder(nn.Module):
 
 
       if train:
-        mask = bernoulli_output_self.sample()
-        mask = mask.view(1, args.batchSize, 2*args.hidden_dim)
+        mask = self.bernoulli_output.sample()
+        mask = mask.view(1, args.batchSize, 2*args.hidden_dim_autoencoder)
         out_full = out_full * mask
 
 
 
       logits = self.output(self.relu(self.output_mlp(out_full) ))
-      log_probs = logsoftmax(logits)
+      log_probs = self.logsoftmax(logits)
 
       
       loss = self.train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
@@ -204,13 +290,14 @@ class Autoencoder(nn.Module):
 
       hidden = None
       result  = ["" for _ in range(args.batchSize)]
+      result_numeric = [[] for _ in range(args.batchSize)]
       embeddedLast = embedded[0].unsqueeze(0)
       for i in range(args.sequence_length):
           out_decoder, hidden = self.rnn_decoder(embeddedLast, hidden)
     
           attention = torch.bmm(self.attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
           attention = self.attention_softmax(attention).transpose(0,1)
-          from_encoder = (self.out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
+          from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
           out_full = torch.cat([out_decoder, from_encoder], dim=2)
 
           print(input_tensor.size())
@@ -226,20 +313,23 @@ class Autoencoder(nn.Module):
        
           nextWord = (dist.sample())
           print(nextWord.size())
-          nextWordStrings = [itos_total[x] for x in nextWord.cpu().numpy()[0]]
+          nextWordDistCPU = nextWord.cpu().numpy()[0]
+          nextWordStrings = [itos_total[x] for x in nextWordDistCPU]
           for i in range(args.batchSize):
              result[i] += " "+nextWordStrings[i]
-          embeddedLast = word_embeddings(nextWord)
+             result_numeric[i].append( nextWordDistCPU[i] )
+          embeddedLast = self.word_embeddings(nextWord)
           print(embeddedLast.size())
       for r in result:
          print(r)
       print(float(len([x for x in result if NOUN in x]))/len(result))
 
       print(float(len([x for x in result if NOUN+" that" in x]))/len(result))
-      return result
+      return result, torch.LongTensor(result_numeric).cuda()
 
 
 autoencoder = Autoencoder()
+lm = LanguageModel()
 
 
 
@@ -249,8 +339,21 @@ autoencoder = Autoencoder()
 #  checkpoint = torch.load(MODELS_HOME+"/"+args.load_from+".pth.tar")
 #  for name, module in named_modules.items():
  #     module.load_state_dict(checkpoint[name])
+
+
+lmFileName = "char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars.py"
+
+if args.load_from_lm is not None:
+  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+lmFileName+"_code_"+str(args.load_from_lm)+".txt")
+  for i in range(len(checkpoint["components"])):
+      lm.modules[i].load_state_dict(checkpoint["components"][i])
+
+
+
+autoencoderFileName = "autoencoder2_mlp_bidir.py"
+
 if args.load_from_autoencoder is not None:
-  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_sample", "")+"_code_"+str(args.load_from)+".txt")
+  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+autoencoderFileName+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
       autoencoder.modules[i].load_state_dict(checkpoint["components"][i])
 
@@ -261,36 +364,26 @@ from torch.autograd import Variable
 
 #from embed_regularize import embedded_dropout
 
-relu = torch.nn.ReLU()
 
 
 
 
 
 
-hidden = None
-
-zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
-beginning = None
-
-zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
 
 
-zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda()
-
-bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
-
-bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
-bernoulli_output_autoencoder = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * 2 * args.hidden_dim)]).cuda())
-
-
-
-
-NOUN = "story"
+NOUN = "evidence"
 sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" that the janitor who the doctor admired"
 numerified = [stoi[char]+3 if char in stoi else 2 for char in sentence.split(" ")]
 print(len(numerified))
 assert len(numerified) == args.sequence_length
 numerified=torch.LongTensor([numerified for _ in range(args.batchSize)]).t().cuda()
-autoencoder.forward(numerified, train=False)
+denoised, denoised_numeric = autoencoder.forward(numerified, train=False)
+print(denoised_numeric.size())
+
+lm.hidden = None
+lm.beginning = None
+
+lm.forward(denoised_numeric.t(), train=False, printHere=True)
+
 
