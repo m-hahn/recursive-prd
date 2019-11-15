@@ -71,7 +71,7 @@ ggsave("figures/levy2013-fullplot.pdf")
 # Relative Clause Verb
 summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=data_ %>% filter(Region == "V0")))
 
-#library(brms)
+library(brms)
 model = brm(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Item) + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Model), data=data_ %>% filter(Region == "V0"))
 
 

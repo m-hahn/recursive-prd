@@ -1,4 +1,5 @@
-#~/python-py37-mhahn GENERATE_Levy2013_char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py --load-from=327621567 --section=1a
+# Running this:
+#~/python-py37-mhahn GENERATE_Levy2013_char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py --load-from=717997437 --section=1a > ~/scr/TMP/tmp.txt
 
 
 
@@ -336,7 +337,7 @@ def countDict(x):
    return result
 
 
-
+resultsByConditionAndRegion = {}
 generateAfterNext = False
 def forward(numericAndLineNumbers, train=True, printHere=False):
       global generateAfterNext
@@ -372,21 +373,30 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
           condition, region = regionNames[i].split("_")
 
           if itos_complete[numeric[i][0]].endswith(">"):
+
+
+
               if generateAfterNext:
-                  generated[i], entropies[i] = doGeneration(out[i], hidden, " ".join([itos_complete[numeric[j][0]] for j in range(i-4, i+1)]))
+                  preceding = " ".join([itos_complete[numeric[j][0]] for j in range(i-4, i+1)])
+                  generated[i], entropies[i] = doGeneration(out[i], hidden, preceding)
                   print(generated[i][0])
                   print((condition, region))
-                  print(countList([posDictMax.get(x[0], "UNK") for x in generated[i]]), file=sys.stderr)
-                  print(countList([x[0] for x in generated[i]]), file=sys.stderr)
+                  poss = countList([posDictMax.get(x[0], "UNK") for x in generated[i]])
+                  print(poss, file=sys.stderr)
+                  words = countList([x[0] for x in generated[i]])
+                  print(words, file=sys.stderr)
+                  if (condition, region) not in resultsByConditionAndRegion:
+                      resultsByConditionAndRegion[(condition, region)] = []
+                  
 
-    
+                  resultsByConditionAndRegion[(condition, region)].append((words, poss, generated[i], preceding.replace(" ", "").replace("</w>", " ")))
     
               if ((region == "V0" and condition in ["A", "D"]) or (region == "N1" and condition in ["B", "C"])):
                 print("GENERATING", int(lineNumbers[i][0]), itos_complete[numeric[i][0]])
                 generateAfterNext = True
               else:
                 generateAfterNext = False
-    
+   
 
 
       out = torch.cat(out, dim=0)
@@ -475,4 +485,11 @@ with open("outputGeneration/"+"Levy2013"+"_"+args.load_from, "w") as outFile:
 #
 
 
+for condition, region in resultsByConditionAndRegion:
+    print("====================================")
+    for entry in resultsByConditionAndRegion[(condition, region)]:
+       wordss, poss, continuations, preceding = entry
+       print(condition, region, wordss)
+       print(condition, region, poss)
+       print("\n".join([condition+" "+region+" "+preceding+" "+(" ".join(x)) for x in continuations]))
 
