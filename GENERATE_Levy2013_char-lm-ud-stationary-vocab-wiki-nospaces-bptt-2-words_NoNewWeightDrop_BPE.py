@@ -1,3 +1,7 @@
+#~/python-py37-mhahn GENERATE_Levy2013_char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_BPE.py --load-from=327621567 --section=1a
+
+
+
 print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model
@@ -88,8 +92,8 @@ assert len(itos) > 50000, len(itos)
 assert len(itos_words) > 50000
 stoi = dict([(itos[i],i) for i in range(len(itos))])
 
-itos_total = ["SOS", "EOS", "OOV"] + itos
-stoi_total = dict([(itos_total[i],i) for i in range(len(itos_total))])
+itos_complete = ["SOS", "EOS", "OOV"] + itos
+stoi_complete = dict([(itos_complete[i],i) for i in range(len(itos_complete))])
 
 
 #with open("vocabularies/char-vocab-wiki-"+args.language, "r") as inFile:
@@ -279,11 +283,11 @@ bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.w
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 
 
-def doGeneration(outHere, hiddenHere):
+def doGeneration(outHere, hiddenHere, preceding):
    result = ["" for _ in range(100)]
    outHere = outHere.expand(1, 100, -1)
    hiddenHere = [x.expand(-1, 100, -1).contiguous() for x in hiddenHere]
-   GENERATING_LENGTH = 1
+   GENERATING_LENGTH = 10
    for l in range(GENERATING_LENGTH):
       logits = output(outHere)
       probs = softmax(logits)
@@ -303,25 +307,17 @@ def doGeneration(outHere, hiddenHere):
       if l == GENERATING_LENGTH-1:
          break
 
-      numerified_chars = [([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char]) for char in nextWordStrings]
-      numerified_chars = [x[:15] + [1] for x in numerified_chars]
-      numerified_chars = [x+([0]*(16-len(x))) for x in numerified_chars]
 
-      numerified_chars = torch.LongTensor(numerified_chars).view(1, 100, 1, 16).transpose(0,1).transpose(1,2).cuda()
-
-      embedded_chars = numerified_chars.transpose(0,2).transpose(2,1)
-      embedded_chars = embedded_chars.contiguous().view(16, -1)
-      _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
-      embedded_chars = embedded_chars[0].view(2, 1, 100, args.char_enc_hidden_dim)
-      embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
       embedded = word_embeddings(nextWord)
-      #print(embedded.size())
-      #print(embedded_chars.size())
-      embedded = torch.cat([embedded, embedded_chars], dim=2)
-      #print(embedded.size())
       outHere, hiddenHere = rnn_drop(embedded, hiddenHere)
-#   print(result)
-   return result, entropy
+   result2 = []
+   preceding = preceding.replace(" ", "").replace("</w>", " ")
+   for r in result:
+      r = r.replace(" ", "").replace("</w>", " ")
+     
+      print(preceding+r)
+      result2.append(r.split(" "))
+   return result2, entropy
 
 def countList(x):
    if x is None:
@@ -359,39 +355,12 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
       numeric, lineNumbers, regionNames = numericAndLineNumbers
       numeric = torch.cat([beginning, numeric], dim=0)
 
-#      numeric_chars = torch.cat([beginning_chars, numeric_chars], dim=0)
-
       beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize)
-#      beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, args.batchSize, 16)
-
 
       input_tensor = Variable(numeric[:-1], requires_grad=False)
       target_tensor = Variable(numeric[1:], requires_grad=False)
 
-#      input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
- #     target_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
-
-#      embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
- #     embedded_chars = embedded_chars.contiguous().view(16, -1)
-  #    _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
-   #   embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
-      #print(embedded_chars.size())
-
-    #  embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
-      #print(embedded_chars.size())
-
-    #  print(word_embeddings)
-      #if train and (embedding_full_dropout_prob is not None):
-      #   embedded = embedded_dropout(word_embeddings, input_tensor, dropout=embedding_full_dropout_prob, scale=None) #word_embeddings(input_tensor)
-      #else:
       embedded = word_embeddings(input_tensor)
-      #print(embedded.size())
-#      print("=========")
-#      print(numeric[:,5])
-#      print(embedded[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
-#      print(embedded_chars[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
-      embedded = embedded
-      #print(embedded.size())
 
       out = [None for _ in regionNames]
       generated = [None for _ in regionNames]
@@ -400,57 +369,30 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
           out[i], hidden = rnn_drop(embedded[i:i+1], hidden)
           print(regionNames[i])
 
-          condition, roi = regionNames[i].split("_")
-#vb = raw.spr.data %>% filter(roi == case_when(embedding == "matrix" ~ case_when(intervention == "none" ~ 2, intervention == "pp" ~ 5, intervention == "rc" ~ 7), embedding == "emb" ~ case_when(intervention == "none" ~ 5, intervention == "pp" ~ 8, intervention == "rc" ~ 10)))
-          if generateAfterNext:
-              generated[i], entropies[i] = doGeneration(out[i], hidden)
-              print(embedding, "\t", intervention, "\t", "\t".join([str(y) for y in (countList([posDictMax.get(x[1:], "UNK") for x in generated[i]])[0])]), file=sys.stderr)
+          condition, region = regionNames[i].split("_")
 
+          if itos_complete[numeric[i][0]].endswith(">"):
+              if generateAfterNext:
+                  generated[i], entropies[i] = doGeneration(out[i], hidden, " ".join([itos_complete[numeric[j][0]] for j in range(i-4, i+1)]))
+                  print(generated[i][0])
+                  print((condition, region))
+                  print(countList([posDictMax.get(x[0], "UNK") for x in generated[i]]), file=sys.stderr)
+                  print(countList([x[0] for x in generated[i]]), file=sys.stderr)
 
-          if condition == "a":
-            embedding = "matrix"
-            intervention = "none"
-            reg = "1"
-          elif condition == "b":
-            embedding = "matrix"
-            intervention = "pp"
-            reg = "4"
-          elif condition == "c":
-            embedding = "matrix"
-            intervention = "rc"
-            reg = "6"
-          elif condition == "d":
-            embedding = "emb"
-            intervention = "none"
-            reg = "4"
-          elif condition == "e":
-            embedding = "emb"
-            intervention = "pp"
-            reg = "7"
-          elif condition == "f":
-            embedding = "emb"
-            intervention = "rc"
-            reg = "9"
-          else:
-            embedding = None
-            intervention = None
-            reg = "NONE"
-          if roi == reg:
-            print("GENERATING")
-            generateAfterNext = True
-          else:
-            generateAfterNext = False
+    
+    
+              if ((region == "V0" and condition in ["A", "D"]) or (region == "N1" and condition in ["B", "C"])):
+                print("GENERATING", int(lineNumbers[i][0]), itos_complete[numeric[i][0]])
+                generateAfterNext = True
+              else:
+                generateAfterNext = False
+    
 
-#      if train:
-#          out = dropout(out)
 
       out = torch.cat(out, dim=0)
 
       logits = output(out) 
       log_probs = logsoftmax(logits)
-   #   print(logits)
-  #    print(log_probs)
- #     print(target_tensor)
 
       
       lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
@@ -466,16 +408,17 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
 
          print (i, itos_complete[numericCPU[i+1][j]], losses[i][j], lineNum, entropies[i]) #, countList(generated[i]), countList([posDictMax.get(x[1:], "UNK") for x in generated[i]]) if generated[i] is not None else None)
          if generated[i] is not None:
-            print (countList([posDictMax.get(x[1:], "UNK") for x in generated[i]]) if generated[i] is not None else None)
-            print (countList(generated[i]))
+            print (countList([posDictMax.get(x[0], "UNK") for x in generated[i]]) if generated[i] is not None else None)
+            print (countList([x[0] for x in generated[i]]))
 
 
          while lineNum >= len(completeData):
              completeData.append([[], 0, None])
          completeData[lineNum][0].append(itos_complete[numericCPU[i+1][j]])
          completeData[lineNum][1] += losses[i][j]
-         assert completeData[lineNum][2] == None
-         completeData[lineNum][2] = countDict([posDictMax.get(x[1:], "UNK") for x in generated[i]]).get("vbd", 0) if generated[i] is not None else None
+         assert completeData[lineNum][2] == None or generated[i] == None, lineNum
+ #        if generated[i] is not None:
+#            completeData[lineNum][2] = countDict([posDictMax.get(x[0], "UNK") for x in generated[i]]).get("vbd", 0) if generated[i] is not None else None
         
       return None, target_tensor.view(-1).size()[0]
 
