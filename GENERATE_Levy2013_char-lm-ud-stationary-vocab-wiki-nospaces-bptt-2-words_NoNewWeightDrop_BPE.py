@@ -398,7 +398,8 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
       entropies = [None for _ in regionNames]
       for i in range(len(regionNames)):
           out[i], hidden = rnn_drop(embedded[i:i+1], hidden)
-#          print(regionNames[i])
+          print(regionNames[i])
+
           condition, roi = regionNames[i].split("_")
 #vb = raw.spr.data %>% filter(roi == case_when(embedding == "matrix" ~ case_when(intervention == "none" ~ 2, intervention == "pp" ~ 5, intervention == "rc" ~ 7), embedding == "emb" ~ case_when(intervention == "none" ~ 5, intervention == "pp" ~ 8, intervention == "rc" ~ 10)))
           if generateAfterNext:
