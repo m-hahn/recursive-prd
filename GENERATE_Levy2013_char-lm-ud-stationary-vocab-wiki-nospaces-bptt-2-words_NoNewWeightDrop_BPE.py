@@ -1,29 +1,15 @@
-# /u/nlp/anaconda/main/anaconda3/envs/py37-mhahn/bin/python GENERATE_BBB_char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py --language=english --load-from=905843526
-
-
-
-
-
-
 print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model
-
-
-
-#data = read.csv("~/scr/TMP/bartek2.txt", sep="\t")
-#names(data) = c("Embedding", "Intervention", "Category", "Count")
-#data$IsV = (data$Category == " vbd")
-#summary(glm(IsV ~ Embedding + Intervention, data=data)) # VBD less predicted in matrix, more in PP, less in RC
-#savehistory(file = ".Rhistory")
-
-
+# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop.py
+# Adopted for English and German
 import sys
 
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("--language", dest="language", type=str, default="english")
+parser.add_argument("--language", dest="language", type=str, default="russian")
 parser.add_argument("--load-from", dest="load_from", type=str)
+parser.add_argument("--section", type=str)
 
 import random
 
@@ -57,10 +43,9 @@ args=parser.parse_args()
 
 print(args)
 
+assert args.section == "1a"
 
-
-import corpusIterator_Bartek_BB_Py37
-
+import corpusIterator_Levy2013
 
 
 def plus(it1, it2):
@@ -69,22 +54,50 @@ def plus(it1, it2):
    for x in it2:
       yield x
 
-char_vocab_path = {"german" : "vocabularies/german-wiki-word-vocab-50000.txt", "italian" : "vocabularies/italian-wiki-word-vocab-50000.txt", "english" : "vocabularies/english-wiki-word-vocab-50000.txt"}[args.language]
 
-with open(char_vocab_path, "r") as inFile:
-     itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:50000]]
+words_vocab_path = f"/u/scr/mhahn/FAIR18/WIKIPEDIA/{args.language.lower()}/{args.language.lower()}-wiki-word-vocab.txt"
+bpe_vocab_path = f"/u/scr/mhahn/FAIR18/WIKIPEDIA/{args.language.lower()}/{args.language.lower()}-wiki-word-vocab_BPE_50000_Parsed.txt"
+
+vocab_size_considered = 3*int(1e6)
+
+itos_words = [None for _ in range(vocab_size_considered)]
+i2BPE = [None for _ in range(vocab_size_considered)]
+with open(words_vocab_path, "r") as inFile:
+  with open(bpe_vocab_path, "r") as inFileBPE:
+     for i in range(vocab_size_considered):
+        if i % 50000 == 0:
+           print(i)
+        word = next(inFile).strip().split("\t")
+        bpe = next(inFileBPE).strip().split("\t")
+        itos_words[i] = word[0]
+        i2BPE[i] = bpe[0].split("@@ ")
+stoi_words = dict([(itos_words[i],i) for i in range(len(itos_words))])
+
+itos = []
+with open("vocabularies/char-vocab-wiki-"+args.language, "r") as inFile:
+     itos = [x for x in inFile.read().strip().split("\n")]
+itos += [x+"</w>" for x in itos]
+
+with open(f"/u/scr/mhahn/FAIR18/WIKIPEDIA/{args.language.lower()}/{args.language.lower()}-wiki-word-vocab_BPE_50000.txt", "r") as inFile:
+     itos += [x.replace(" ",  "") for x in inFile.read().strip().split("\n") if not x.startswith("#version: ")]
+assert len(itos) > 50000, len(itos)
+
+#print(itos)
+#print(stoi)
+#quit()
+assert len(itos_words) > 50000
 stoi = dict([(itos[i],i) for i in range(len(itos))])
 
-itos_complete = ["SOS", "EOS", "OOV"] + itos
-stoi_complete = dict([(itos_complete[i],i) for i in range(len(itos_complete))])
+itos_total = ["SOS", "EOS", "OOV"] + itos
+stoi_total = dict([(itos_total[i],i) for i in range(len(itos_total))])
 
 
-with open("vocabularies/char-vocab-wiki-"+args.language, "r") as inFile:
-     itos_chars = [x for x in inFile.read().strip().split("\n")]
-stoi_chars = dict([(itos_chars[i],i) for i in range(len(itos_chars))])
+#with open("vocabularies/char-vocab-wiki-"+args.language, "r") as inFile:
+#     itos_chars = [x for x in inFile.read().strip().split("\n")]
+#stoi_chars = dict([(itos_chars[i],i) for i in range(len(itos_chars))])
 
 
-itos_chars_total = ["SOS", "EOS", "OOV"] + itos_chars
+#itos_chars_total = ["<SOS>", "<EOS>", "OOV"] + itos_chars
 
 
 import random
@@ -108,7 +121,7 @@ rnn_drop = rnn #WeightDrop(rnn, layer_names=[(name, args.weight_dropout_in) for 
 
 output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 
-word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=args.word_embedding_size).cuda()
+word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
 softmax = torch.nn.Softmax(dim=2)
@@ -123,16 +136,16 @@ train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
 modules = [rnn, output, word_embeddings]
 
 
-character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
+#character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
 
-char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
-char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
-
-char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
-char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
-
-
-modules += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
+#char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
+#char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
+#
+#char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
+#char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
+#
+#
+#modules += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 def parameters():
    for module in modules:
        for param in module.parameters():
@@ -153,7 +166,7 @@ optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.
 
 
 posDict = {}
-with open("/u/scr/mhahn/FAIR18/english-wiki-word-vocab_POS.txt", "r") as dictIn:
+with open("/u/scr/mhahn/FAIR18/WIKIPEDIA/russian/russian-wiki-word-vocab_POS.txt", "r") as dictIn:
     for line in dictIn:
         line = line.strip().split("\t")
         line[2] = int(line[2])
@@ -173,7 +186,7 @@ for word, entry in posDict.items():
     posDictMax[word] = bestPOS
         
 if args.load_from is not None:
-  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("GENERATE_BBB_", "")+"_code_"+str(args.load_from)+".txt")
+  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("GENERATE_Levy2013_", "")+"_code_"+str(args.load_from)+".txt")
   for i in range(len(checkpoint["components"])):
       modules[i].load_state_dict(checkpoint["components"][i])
 else:
@@ -193,17 +206,25 @@ def prepareDatasetChunks(data, train=True):
       count = 0
       print("Prepare chunks")
       numerified = []
-      numerified_chars = []
+#      numerified_chars = []
       line_numbers = []
       region_list = []
       for chunk, chunk_line_numbers, regions in data:
        for char, linenum, region in zip(chunk, chunk_line_numbers, regions):
          count += 1
-         numerified.append((stoi[char]+3 if char in stoi else 2))
-         numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
-         line_numbers.append(linenum)
-         region_list.append(region)
-
+         char_i = stoi_words.get(char, -1)
+         if char_i == -1:
+            numerified.append(2)
+            line_numbers.append(linenum)
+            region_list.append(region)
+         else:
+            bpes = i2BPE[stoi_words[char]]
+            if not bpes[-1].endswith("</w>"):
+                bpes[-1] += "</w>"
+            for bpe in bpes:
+               numerified.append(stoi.get(bpe, -1)+3) 
+               line_numbers.append(linenum)
+               region_list.append(region)
        assert len(region_list) == len(numerified)
 
        if len(numerified) > (1*args.sequence_length):
@@ -211,15 +232,15 @@ def prepareDatasetChunks(data, train=True):
 
          cutoff = int(len(numerified)/(1*sequenceLengthHere)) * (1*sequenceLengthHere)
          numerifiedCurrent = numerified[:cutoff]
-         numerifiedCurrent_chars = numerified_chars[:cutoff]
+#         numerifiedCurrent_chars = numerified_chars[:cutoff]
 
-         for i in range(len(numerifiedCurrent_chars)):
-            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
-            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
+#         for i in range(len(numerifiedCurrent_chars)):
+#            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
+#            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
 
 
          numerified = numerified[cutoff:]
-         numerified_chars = numerified_chars[cutoff:]
+#         numerified_chars = numerified_chars[cutoff:]
          regionsHere = region_list[:cutoff]
  
          line_numbersCurrent = line_numbers[:cutoff]
@@ -227,12 +248,12 @@ def prepareDatasetChunks(data, train=True):
          region_list = region_list[cutoff:]
 
          numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(1, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
-         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(1, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
+#         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
 
          line_numbersCurrent = torch.LongTensor(line_numbersCurrent).view(1, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
          numberOfSequences = numerifiedCurrent.size()[0]
          for i in range(numberOfSequences):
-             yield numerifiedCurrent[i], numerifiedCurrent_chars[i], line_numbersCurrent[i], regionsHere[i*sequenceLengthHere:(i+1)*sequenceLengthHere]
+             yield numerifiedCurrent[i], line_numbersCurrent[i], regionsHere[i*sequenceLengthHere:(i+1)*sequenceLengthHere]
          hidden = None
        else:
          print("Skipping")
@@ -247,7 +268,7 @@ hidden = None
 zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
 beginning = None
 
-zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
+#zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
 
 
 zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda()
@@ -331,34 +352,32 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
       if hidden is None:
           hidden = None
           beginning = zeroBeginning
-          beginning_chars = zeroBeginning_chars
+#          beginning_chars = zeroBeginning_chars
       elif hidden is not None:
           hidden = tuple([Variable(x.data).detach() for x in hidden])
 
-      numeric, numeric_chars, lineNumbers, regionNames = numericAndLineNumbers
-
-
+      numeric, lineNumbers, regionNames = numericAndLineNumbers
       numeric = torch.cat([beginning, numeric], dim=0)
 
-      numeric_chars = torch.cat([beginning_chars, numeric_chars], dim=0)
+#      numeric_chars = torch.cat([beginning_chars, numeric_chars], dim=0)
 
       beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize)
-      beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, args.batchSize, 16)
+#      beginning_chars = numeric_chars[numeric_chars.size()[0]-1].view(1, args.batchSize, 16)
 
 
       input_tensor = Variable(numeric[:-1], requires_grad=False)
       target_tensor = Variable(numeric[1:], requires_grad=False)
 
-      input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
-      target_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
+#      input_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
+ #     target_tensor_chars = Variable(numeric_chars[:-1], requires_grad=False)
 
-      embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
-      embedded_chars = embedded_chars.contiguous().view(16, -1)
-      _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
-      embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
+#      embedded_chars = input_tensor_chars.transpose(0,2).transpose(2,1)
+ #     embedded_chars = embedded_chars.contiguous().view(16, -1)
+  #    _, embedded_chars = char_composition(character_embeddings(embedded_chars), None)
+   #   embedded_chars = embedded_chars[0].view(2, args.sequence_length, args.batchSize, args.char_enc_hidden_dim)
       #print(embedded_chars.size())
 
-      embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
+    #  embedded_chars = char_composition_output(torch.cat([embedded_chars[0], embedded_chars[1]], dim=2))
       #print(embedded_chars.size())
 
     #  print(word_embeddings)
@@ -371,7 +390,7 @@ def forward(numericAndLineNumbers, train=True, printHere=False):
 #      print(numeric[:,5])
 #      print(embedded[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
 #      print(embedded_chars[:,5,:].mean(dim=1)[numeric[:-1,5] == 3])
-      embedded = torch.cat([embedded, embedded_chars], dim=2)
+      embedded = embedded
       #print(embedded.size())
 
       out = [None for _ in regionNames]
@@ -470,7 +489,7 @@ if True:
    rnn_drop.train(False)
 
 
-   test_data = corpusIterator_Bartek_BB_Py37.load(args.language, tokenize=True, forGeneration=True)
+   test_data = corpusIterator_Levy2013.load(args.language, section=args.section, tokenize=True, forGeneration=True)
    print("Got data")
    test_chars = prepareDatasetChunks(test_data, train=False)
 
@@ -495,7 +514,7 @@ if True:
    print(testLosses)
 
 
-with open("outputGeneration/"+"Bartek_BB"+"_"+args.load_from, "w") as outFile:
+with open("outputGeneration/"+"Levy2013"+"_"+args.load_from, "w") as outFile:
    print("\t".join(["LineNumber", "RegionLSTM", "Surprisal", "VBD_Generated"]), file=outFile)
    for num, entry in enumerate(completeData):
      words = "".join(entry[0])

@@ -328,7 +328,7 @@ def forward(numeric, train=True, printHere=True):
             print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]]))
       return loss, target_tensor.view(-1).size()[0]
 
-NOUN = "allegation"
+NOUN = "story"
 sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" that the janitor who the doctor admired"
 numerified = [stoi[char]+3 if char in stoi else 2 for char in sentence.split(" ")]
 print(len(numerified))

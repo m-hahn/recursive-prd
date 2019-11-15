@@ -1,8 +1,8 @@
 unigrams = {}
 
-language = "english"
+language = "russian"
 
-WIKIPEDIA_HOME = "/u/scr/mhahn/FAIR18/"
+WIKIPEDIA_HOME = "/u/scr/mhahn/FAIR18/WIKIPEDIA/russian/"
 if True:
  pathIn  = WIKIPEDIA_HOME+""+language+"-train-tagged.txt"
  pathOut = WIKIPEDIA_HOME+""+language+"-wiki-word-vocab_POS.txt"
