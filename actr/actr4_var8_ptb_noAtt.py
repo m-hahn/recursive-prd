@@ -16,26 +16,25 @@ parser.add_argument("--load-from", dest="load_from", type=str)
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([32, 32, 64])) # , 256, 128
-parser.add_argument("--word_embedding_size", type=int, default=random.choice([256, 512]))
-parser.add_argument("--hidden_dim", type=int, default=random.choice([512, 1024])) # 256, 512, 
+parser.add_argument("--batchSize", type=int, default=random.choice([32])) # , 256, 128
+parser.add_argument("--word_embedding_size", type=int, default=random.choice([256]))
+parser.add_argument("--hidden_dim", type=int, default=random.choice([512])) # 256, 512, 
 parser.add_argument("--layer_num", type=int, default=random.choice([2])) # 1, 
-parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.01, 0.05, 0.1, 0.2, 0.3]))
-parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.01, 0.05, 0.1])) # , 0.2, 0.3
-parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.0, 0.01, 0.05, 0.1, 0.2])) # , 0.1, 0.2, 0.3
+parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.2]))
+parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.01])) # , 0.2, 0.3
+parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.2])) # , 0.1, 0.2, 0.3
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.8, 1.0, 1.2, 1.3])) # 0.1, 0.15, 0.2, 0.3, 0.5, 2.0
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.8])) # 0.1, 0.15, 0.2, 0.3, 0.5, 2.0
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
-parser.add_argument("--sequence_length", type=int, default=random.choice([30, 50]))
+parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
 parser.add_argument("--lr_decay", type=float, default=random.choice([ 1.0])) # 0.95, 0.98, 0.99
-parser.add_argument("--lr_decay_after_failure", type=float, default=random.choice([0.5, 0.5, 0.5, 0.7, 0.8])) # , 1.0, 0.9, 0.95
+parser.add_argument("--lr_decay_after_failure", type=float, default=random.choice([0.7])) # , 1.0, 0.9, 0.95
 parser.add_argument("--char_emb_dim", type=int, default=128)
 parser.add_argument("--char_enc_hidden_dim", type=int, default=64)
 parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 parser.add_argument("--celltype", type=str, default=random.choice(["gru"])) # , "lstm"
 parser.add_argument("--infinite_context", type=bool, default=random.choice([True])) # , False
-parser.add_argument("--embedding_tying", type=bool, default=random.choice([False])) # , False
 
 model = "REAL_REAL"
 
@@ -43,9 +42,6 @@ import math
 
 args=parser.parse_args()
 
-if args.embedding_tying:
-   assert False
-   args.word_embedding_size = int(args.hidden_dim/2)
 
 print(args)
 
@@ -114,10 +110,6 @@ char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
 train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
 
 modules = [rnn_decoder, output, word_embeddings]
-
-if args.embedding_tying:
-   word_embeddings.weight = output.weight
-   modules = [rnn_decoder, output]
 
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
