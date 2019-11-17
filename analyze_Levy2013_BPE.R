@@ -72,7 +72,7 @@ ggsave("figures/levy2013-fullplot.pdf")
 summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=data_ %>% filter(Region == "V0")))
 
 library(brms)
-model = brm(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Item) + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Model), data=data_ %>% filter(Region == "V0"))
+#model = brm(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Item) + (1+ORC.C+scrambled.C+ORC.C * scrambled.C |Model), data=data_ %>% filter(Region == "V0"))
 
 
 
@@ -148,6 +148,11 @@ ggsave("figures/levy2013-aggregate.pdf")
 summary(lmer(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C|Item) + (1+ORC.C+scrambled.C|Model), data=data__))
 
 modelFull = brm(Surprisal ~ ORC.C + scrambled.C + ORC.C * scrambled.C + (1+ORC.C+scrambled.C+ ORC.C * scrambled.C|Item) + (1+ORC.C+scrambled.C+ ORC.C * scrambled.C|Model), data=data__)
+#                  Estimate Est.Error l-95% CI u-95% CI Eff.Sample Rhat
+#Intercept            62.46      1.42    59.86    65.37        277 1.02
+#ORC.C                -1.25      0.52    -2.28    -0.25        495 1.00
+#scrambled.C           3.44      0.26     2.94     3.96       1028 1.00
+#ORC.C:scrambled.C    -6.61      0.63    -7.86    -5.37       1021 1.01
 
 
 plot = ggplot(data_ %>% filter(!HasParticle, Region %in% c("V0")) %>% group_by(Round, Model, Item, Condition, Length, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) 

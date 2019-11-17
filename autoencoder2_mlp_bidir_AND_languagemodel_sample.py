@@ -101,6 +101,8 @@ class LanguageModel(torch.nn.Module):
       self.output = torch.nn.Linear(args.hidden_dim_lm, len(itos)+3).cuda()
       self.word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
       self.logsoftmax = torch.nn.LogSoftmax(dim=2)
+      self.softmax = torch.nn.Softmax(dim=2)
+
       self.train_loss = torch.nn.NLLLoss(ignore_index=0)
       self.print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
       self.char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
@@ -122,6 +124,25 @@ class LanguageModel(torch.nn.Module):
      for module in self.modules:
          for param in module.parameters():
               yield param
+
+  def sample(self, numeric):
+     print(numeric.size())
+     embedded = self.word_embeddings(numeric.unsqueeze(0))
+     results = ["" for _ in range(args.batchSize)]     
+     for _ in range(10): 
+        out, self.hidden = self.rnn(embedded, self.hidden)
+        logits = self.output(out) 
+        probs = self.softmax(logits)
+        print(probs.size())
+        dist = torch.distributions.Categorical(probs=probs)
+         
+        nextWord = (dist.sample())
+        nextWordStrings = [itos_total[x] for x in nextWord.cpu().numpy()[0]]
+        for i in range(args.batchSize):
+            results[i] += " "+nextWordStrings[i]
+        embedded = self.word_embeddings(nextWord)
+     return results
+
 
   def forward(self, numeric, train=True, printHere=False):
        if self.hidden is None:
@@ -165,7 +186,8 @@ class LanguageModel(torch.nn.Module):
           print(("NONE", itos_total[numericCPU[0][0]]))
           for i in range((args.sequence_length)):
              print((losses[i][0], itos_total[numericCPU[i+1][0]]))
-       return loss, target_tensor.view(-1).size()[0]
+       samples = self.sample(numeric[-1])
+       return loss, target_tensor.view(-1).size()[0], samples
     
 from torch.autograd import Variable
 
@@ -233,7 +255,7 @@ class Autoencoder(torch.nn.Module):
           self.beginning = self.zeroBeginning
 
 
-      numeric_noised = [[x for x in y if random.random() > args.deletion_rate] for y in numeric.cpu().t()]
+      numeric_noised = [[x for x in y if random.random() > args.deletion_rate or itos_total[int(x)] == "."] for y in numeric.cpu().t()]
 
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
 
@@ -325,6 +347,9 @@ class Autoencoder(torch.nn.Module):
       print(float(len([x for x in result if NOUN in x]))/len(result))
 
       print(float(len([x for x in result if NOUN+" that" in x]))/len(result))
+
+      print(float(len([x for x in result if NOUN2+" who" in x]))/len(result))
+
       return result, torch.LongTensor(result_numeric).cuda()
 
 
@@ -372,8 +397,11 @@ from torch.autograd import Variable
 
 
 
-NOUN = "evidence"
+NOUN = "nurse"
+NOUN2 = "janitor"
 sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" that the janitor who the doctor admired"
+#sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" which the janitor who the doctor admired"
+
 numerified = [stoi[char]+3 if char in stoi else 2 for char in sentence.split(" ")]
 print(len(numerified))
 assert len(numerified) == args.sequence_length
@@ -384,6 +412,7 @@ print(denoised_numeric.size())
 lm.hidden = None
 lm.beginning = None
 
-lm.forward(denoised_numeric.t(), train=False, printHere=True)
+_, _, samples = lm.forward(denoised_numeric.t(), train=False, printHere=True)
 
-
+for i in range(args.batchSize):
+   print(denoised[i]+" ### "+samples[i])
