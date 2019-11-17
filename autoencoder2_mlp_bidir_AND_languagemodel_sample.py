@@ -402,6 +402,9 @@ NOUN2 = "janitor"
 sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" that the janitor who the doctor admired"
 #sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" which the janitor who the doctor admired"
 
+#sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the city that the explorer who the inaccurate map had misled"
+#sentence = " ".join(sentence.split(" ")[-args.sequence_length:])
+
 numerified = [stoi[char]+3 if char in stoi else 2 for char in sentence.split(" ")]
 print(len(numerified))
 assert len(numerified) == args.sequence_length
