@@ -1,6 +1,10 @@
+import sys
+
+script = sys.argv[1]
+
 import os
 PATH = "/u/scr/mhahn/recursive-prd/actr/"
-files = os.listdir(PATH)
+files = [x for x in os.listdir(PATH) if script in x]
 
 print(files)
 results = []
