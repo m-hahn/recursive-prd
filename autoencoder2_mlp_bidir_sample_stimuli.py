@@ -374,6 +374,7 @@ topNouns.append( "realization")
 topNouns.append( "news")
 topNouns.append( "opinion" )
 topNouns.append( "idea")
+topNouns.append("myth")
 
 with open("../forgetting/fromCorpus_counts.csv", "r") as inFile:
    counts = [x.split("\t") for x in inFile.read().strip().split("\n")]

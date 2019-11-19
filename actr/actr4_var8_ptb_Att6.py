@@ -18,8 +18,8 @@ import random
 
 parser.add_argument("--batchSize", type=int, default=random.choice([32])) # , 256, 128
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([256]))
-parser.add_argument("--hidden_dim", type=int, default=random.choice([512])) # 256, 512, 
-parser.add_argument("--layer_num", type=int, default=random.choice([1])) # 1, 
+parser.add_argument("--hidden_dim", type=int, default=random.choice([256])) # 256, 512, 
+parser.add_argument("--layer_num", type=int, default=random.choice([3])) # 1, 
 parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.2]))
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.01])) # , 0.2, 0.3
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.2])) # , 0.1, 0.2, 0.3
@@ -281,9 +281,9 @@ def forward(numeric, train=True, printHere=False):
       for i in range(args.sequence_length):
           embeddedLast = embedded[i].unsqueeze(0)
           if len(outputsSoFar) > 0:
-             out_encoder_keys = torch.cat([x[0] for x in outputsSoFar], dim=0)
-             out_encoder_values = torch.cat([x[1] for x in outputsSoFar], dim=0)
-             attention_logits = attention_out(tanh(attention_proj(torch.cat([out_encoder_keys, out_decoder.expand(i, -1, -1), embeddedLast.expand(i, -1, -1)], dim=2))))
+             out_encoder_keys = torch.stack([x[0] for x in outputsSoFar], dim=0)
+             out_encoder_values = torch.stack([x[1] for x in outputsSoFar], dim=0)
+             attention_logits = attention_out(tanh(attention_proj(torch.cat([out_encoder_keys, hidden.unsqueeze(0).expand(i, -1, -1, -1), embeddedLast.unsqueeze(0).expand(i, args.layer_num, -1, -1)], dim=3))))
 
 #             prior_activations = torch.stack(fluctuatingActivations, dim=2)
  #            powerDistances = torch.FloatTensor([(i-j) ** (-0.5) for j in range(0, i)]).cuda().unsqueeze(0).unsqueeze(0)
@@ -292,8 +292,9 @@ def forward(numeric, train=True, printHere=False):
 
 
              attention = attention_softmax(attention_logits)
-             fluctuatingActivations.append(attention.squeeze(2))
-             fluctuatingActivations = [torch.cat([x, basAct], dim=0) for x in fluctuatingActivations]
+#             print(attention.size())
+ #            fluctuatingActivations.append(attention.squeeze(2))
+#             fluctuatingActivations = [torch.cat([x, basAct], dim=0) for x in fluctuatingActivations]
              attention = attention #.transpose(0,1)
              #print(attention.size(), attention.sum(dim=0).mean(), attention.sum(dim=2).mean(), attention.sum(dim=1).mean())
              if printHere:
@@ -303,18 +304,16 @@ def forward(numeric, train=True, printHere=False):
 #                print(torch.log(fluctuatingActivations[:2,]))
                 print(attention.size(), attention.sum(dim=0).mean())
                 print("ATTENTION LOGITS")
-                print(attention_logits[:,0].view(-1))
+                print(attention_logits[:,0,0].view(-1))
                 print("ATENTION")
-                print(attention[:,0].view(-1), attention.size(), i)
+                print(attention[:,0,0].view(-1), attention.size(), i)
                 print(out_encoder_values.size(), attention.size())
-             from_encoder = (out_encoder_values.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
+ #            print(out_encoder_values.size(), attention.size())
+             from_encoder = (out_encoder_values * attention).sum(dim=0)
              retrieved = from_encoder
           else:
              retrieved = toValues(zeroChunk)
-
-
-
-          
+#          print(retrieved.size())
           out_decoder, hidden = rnn_decoder(embeddedLast, retrieved)
 
           outputsSoFar.append((toKeys(hidden), toValues(hidden)))     # for retrieval

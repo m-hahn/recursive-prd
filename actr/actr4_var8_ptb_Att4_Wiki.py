@@ -47,7 +47,7 @@ print(args)
 
 
 
-import corpusIterator_PTB_Deps
+import corpusIteratorWikiWords
 
 
 
@@ -57,7 +57,7 @@ def plus(it1, it2):
    for x in it2:
       yield x
 
-char_vocab_path = "vocabularies/ptb-word-vocab.txt"
+char_vocab_path = "vocabularies/"+args.language.lower()+"-wiki-word-vocab-50000.txt"
 
 with open(char_vocab_path, "r") as inFile:
      itos = [x.split("\t")[0] for x in inFile.read().strip().split("\n")[:10000]]
@@ -371,7 +371,7 @@ lastSaved = (None, None)
 devLosses = []
 for epoch in range(10000):
    print(epoch)
-   training_data = corpusIterator_PTB_Deps.training(args.language)
+   training_data = corpusIteratorWikiWords.training(args.language)
    print("Got data")
    training_chars = prepareDatasetChunks(training_data, train=True)
 
@@ -424,7 +424,7 @@ for epoch in range(10000):
    rnn_decoder.train(False)
 
 
-   dev_data = corpusIterator_PTB_Deps.dev(args.language)
+   dev_data = corpusIteratorWikiWords.dev(args.language)
    print("Got data")
    dev_chars = prepareDatasetChunks(dev_data, train=False)
 

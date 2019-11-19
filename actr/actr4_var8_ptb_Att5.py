@@ -84,11 +84,12 @@ import torch
 print(torch.__version__)
 
 #from weight_drop import WeightDrop
+HEADS = 3
 
 if args.celltype == "gru":
-   rnn_decoder = torch.nn.GRU(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+   rnn_decoder = torch.nn.GRU(2*args.word_embedding_size + args.hidden_dim, args.hidden_dim, args.layer_num).cuda()
 elif args.celltype == "lstm":
-   rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+   rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size + args.hidden_dim, args.hidden_dim, args.layer_num).cuda()
 else:
    assert False
 
@@ -116,12 +117,12 @@ attention_proj.weight.data.fill_(0)
 
 
 
-attention_out = torch.nn.Linear(args.hidden_dim, 1, bias=False).cuda()
+attention_out = torch.nn.Linear(args.hidden_dim, HEADS, bias=False).cuda()
 #attention_out.weight.data.fill_(0)
 
 
 toKeys = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
-toValues = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
+toValues = torch.nn.Linear(HEADS*args.hidden_dim, args.hidden_dim, bias=False).cuda()
 
 
 modules = [rnn_decoder, output, word_embeddings, attention_proj, toKeys, toValues, attention_out]
@@ -232,7 +233,7 @@ bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.w
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 
 
-zeroChunk = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda()
+zeroChunk = torch.zeros((args.layer_num, args.batchSize, HEADS*args.hidden_dim)).cuda()
 
 hidden = None
 beginning = zeroBeginning
@@ -276,7 +277,7 @@ def forward(numeric, train=True, printHere=False):
       fullOutputsSoFar = []
       result  = ["" for _ in range(args.batchSize)]
       retrieved = zeroChunk
-      basAct = torch.zeros(1, args.batchSize).cuda() + 1
+      basAct = torch.zeros(1, args.batchSize, HEADS).cuda() + 1
       fluctuatingActivations = [basAct]
       for i in range(args.sequence_length):
           embeddedLast = embedded[i].unsqueeze(0)
@@ -289,10 +290,8 @@ def forward(numeric, train=True, printHere=False):
  #            powerDistances = torch.FloatTensor([(i-j) ** (-0.5) for j in range(0, i)]).cuda().unsqueeze(0).unsqueeze(0)
   #           multiplied = torch.log((prior_activations * powerDistances).sum(dim=2))
              attention_logits = attention_logits  #+ multiplied.unsqueeze(2)
-
-
              attention = attention_softmax(attention_logits)
-             fluctuatingActivations.append(attention.squeeze(2))
+             fluctuatingActivations.append(attention)
              fluctuatingActivations = [torch.cat([x, basAct], dim=0) for x in fluctuatingActivations]
              attention = attention #.transpose(0,1)
              #print(attention.size(), attention.sum(dim=0).mean(), attention.sum(dim=2).mean(), attention.sum(dim=1).mean())
@@ -303,21 +302,17 @@ def forward(numeric, train=True, printHere=False):
 #                print(torch.log(fluctuatingActivations[:2,]))
                 print(attention.size(), attention.sum(dim=0).mean())
                 print("ATTENTION LOGITS")
-                print(attention_logits[:,0].view(-1))
+                print(attention_logits[:,0,0].view(-1))
                 print("ATENTION")
-                print(attention[:,0].view(-1), attention.size(), i)
+                print(attention[:,0,0].view(-1), attention.size(), i)
                 print(out_encoder_values.size(), attention.size())
-             from_encoder = (out_encoder_values.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
-             retrieved = from_encoder
+             from_encoder = (out_encoder_values.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).view(1, args.batchSize, HEADS*args.hidden_dim)
+             retrieved = toValues(from_encoder)
           else:
              retrieved = toValues(zeroChunk)
+          out_decoder, hidden = rnn_decoder(torch.cat([embeddedLast, retrieved], dim=2), hidden)
 
-
-
-          
-          out_decoder, hidden = rnn_decoder(embeddedLast, retrieved)
-
-          outputsSoFar.append((toKeys(hidden), toValues(hidden)))     # for retrieval
+          outputsSoFar.append((toKeys(out_decoder), out_decoder))     # for retrieval
 #          outputsSoFar.append((out_decoder, out_decoder))     # for retrieval
 
           fullOutputsSoFar.append(out_decoder) # for prediction
@@ -328,8 +323,6 @@ def forward(numeric, train=True, printHere=False):
         mask = bernoulli_output.sample()
         mask = mask.view(1, args.batchSize, args.hidden_dim)
         out_decoder = out_decoder * mask
-
-
 
       logits = output(out_decoder) 
       log_probs = logsoftmax(logits)
@@ -343,11 +336,6 @@ def forward(numeric, train=True, printHere=False):
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
             print((losses[i][0], itos_total[numericCPU[i+1][0]]))
-
-
-
-
-
 
       return loss, target_tensor.view(-1).size()[0]
 
