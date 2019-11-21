@@ -308,6 +308,12 @@ def forward(numeric, train=True, printHere=False):
                 print("ATENTION")
                 print(attention[:,0,0].view(-1), attention.size(), i)
                 print(out_encoder_values.size(), attention.size())
+
+                maxAttention = int(attention[:,0,0].view(-1).argmax(0))
+#                print(maxAttention, attention[:,0,0].view(-1).argmax())
+ #               print(maxAttention, attention[:,0,0].view(-1))
+                print(itos_total[int(input_tensor[i,0])], "<-", itos_total[int(input_tensor[maxAttention,0])])
+               
  #            print(out_encoder_values.size(), attention.size())
              from_encoder = (out_encoder_values * attention).sum(dim=0)
              retrieved = from_encoder

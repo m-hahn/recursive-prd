@@ -8,7 +8,7 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-#parser.add_argument("--load-from", dest="load_from", type=str)
+parser.add_argument("--load-from", dest="load_from", type=str)
 #parser.add_argument("--save-to", dest="save_to", type=str)
 
 import random
@@ -137,6 +137,12 @@ optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.
 #  checkpoint = torch.load(MODELS_HOME+"/"+args.load_from+".pth.tar")
 #  for name, module in named_modules.items():
  #     module.load_state_dict(checkpoint[name])
+if args.load_from is not None:
+  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.load_from)+".txt")
+  for i in range(len(checkpoint["components"])):
+      modules[i].load_state_dict(checkpoint["components"][i])
+else:
+  assert False
 
 from torch.autograd import Variable
 
