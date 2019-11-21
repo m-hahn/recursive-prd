@@ -41,40 +41,27 @@ nounFreqs = unique(rbind(nounFreqs, nounFreqs2))
 nounFreqs = nounFreqs[!duplicated(nounFreqs$noun),]
 data = merge(data, nounFreqs %>% rename(Noun=noun), by=c("Noun"), all.x=TRUE)
 
+data$True_Minus_False = data$True_False_False - data$False_False_False
+
+
+data = data %>% mutate(True_Minus_False.C = True_Minus_False - mean(True_Minus_False, na.rm=TRUE))
+data = data %>% mutate(Grammatical.C = Grammatical - mean(Grammatical, na.rm=TRUE))
+data = data %>% mutate(ModelPerformance.C = ModelPerformance - mean(ModelPerformance, na.rm=TRUE))
+
+
+summary(lmer(Surprisal ~ True_Minus_False.C * Grammatical.C * ModelPerformance.C + (1|Model) + (1+Grammatical.C|Noun) + (1|Remainder), data=data %>% filter(Region == "EOS")))
+
 
 library(ggplot2)
 
+data$Condition = as.factor(as.character(data$Condition))
 
-plot = ggplot(data %>% filter(Region %in% c("D1", "N1")) %>% group_by(Round, Model, Item, Condition, ModelPerformance, Length, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(ModelPerformance, Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9))  + facet_grid(~ModelPerformance)
-
-plot = ggplot(data %>% filter(Region %in% c("A0", "V0")) %>% group_by(Round, Model, Item, Condition, ModelPerformance, Length, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(ModelPerformance, Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9))  + facet_grid(~ModelPerformance)
-
-
-plot = ggplot(data %>% filter(Region %in% c("P0", "D2", "N2")) %>% group_by(Round, Model, Item, Condition, ModelPerformance, Length, Group) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) 
+plot = ggplot(data %>% filter(Region == c("EOS")) %>% group_by(Round, Model, Item, Condition, ModelPerformance, True_Minus_False) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(ModelPerformance, Condition, True_Minus_False) %>% summarise(Surprisal=mean(Surprisal)), aes(x=True_Minus_False, y=Surprisal, group=Condition, color=Condition, fill=Condition)) + geom_point() + geom_smooth(method="lm") + facet_wrap(~ModelPerformance)
 
 
-# Surprisal on the Embedded Verb
-plot = ggplot(data %>% filter(Region == "V0", Group != "ORCPhrasal") %>% group_by(ModelPerformance, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal)) + geom_point() + facet_wrap(~ModelPerformance)
-ggsave(plot, file="figures/staub2016_bottlenecked_v0.pdf", width=18, height=3.5)
+plot = ggplot(data %>% filter(Region == c("EOS")) %>% group_by(Round, Model, Item, Condition, ModelPerformance, True_False_False) %>% summarise(Surprisal=sum(Surprisal)) %>% group_by(ModelPerformance, Condition, True_False_False) %>% summarise(Surprisal=mean(Surprisal)), aes(x=True_False_False, y=Surprisal, group=Condition, color=Condition, fill=Condition)) + geom_point() + geom_smooth(method="lm") + facet_wrap(~ModelPerformance)
 
+###################################
 
-
-# Surprisal on the Matrix Verb
-plot = ggplot(data %>% filter(Region == "V1") %>% group_by(ModelPerformance, Length, Group) %>% summarise(Surprisal=mean(Surprisal)), aes(x=Group, y=Surprisal, group=Length, color=Length, fill=Length)) + geom_bar(stat="identity", position=position_dodge(width=0.9)) + facet_grid(~ModelPerformance)
-ggsave(plot, file="figures/staub2016_bottlenecked_v1.pdf", width=18, height=3.5)
-
-
-
-
-orc_data = data %>% filter(RCType == "ORC")
-
-orc_data = orc_data %>% mutate(HasPP.C = HasPP-mean(HasPP))
-orc_data = orc_data %>% mutate(HasParticle.C = HasParticle-mean(HasParticle))
-
-orc_data = orc_data %>% mutate(LogBeta.C = LogBeta - mean(LogBeta, na.rm=TRUE))
-
-summary(lmer(Surprisal ~ HasPP.C * HasParticle.C + (1+HasPP+HasParticle|Item) + (1+HasPP+HasParticle|Model), data=orc_data %>% filter(Region == "V1")))
-
-#summary(lmer(Surprisal ~ Condition + (1+Condition|Item) + (1+Condition|Model), data=data %>% filter(Region == "v1")))
 
 
