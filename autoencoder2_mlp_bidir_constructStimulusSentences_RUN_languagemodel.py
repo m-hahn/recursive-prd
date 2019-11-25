@@ -51,9 +51,10 @@ import math
 
 args=parser.parse_args()
 
+#################################
 SAMPLES_PER_BATCH = 100
 NUMBER_OF_RUNS = 20
-
+#################################
 
 #if "MYID" in args.save_to:
 #   args.save_to = args.save_to.replace("MYID", str(args.myID))
@@ -420,20 +421,21 @@ from torch.autograd import Variable
 
 
 nounsAndVerbs = []
-nounsAndVerbs.append(["the school principal",       "the teacher",        "had an affair with",                     "had been fired",                     "was quoted in the newspaper"])
-nounsAndVerbs.append(["the famous sculptor",        "the painter",        "admired more than anyone",            "wasn't talented",                    "was completely untrue"])
-nounsAndVerbs.append(["the marketing whiz",  "the artist",         "had hired",                  "was a fraud",                        "shocked everyone"])
-nounsAndVerbs.append(["the marathon runner",         "the psychiatrist",       "treated for his illness",                "was actually doping",            "was ridiculous"])
-nounsAndVerbs.append(["the frightened child",           "the medic",          "rescued from the flood",    "was completely unharmed",            "relieved everyone"])
-nounsAndVerbs.append(["the alleged criminal",        "the officer",        "arrested after the murder",                  "was not in fact guilty",             "was bogus"])
-nounsAndVerbs.append(["the college student",         "the professor",      "accused of cheating",                     "was dropping the class",             "made the professor happy"])
-nounsAndVerbs.append(["the suspected mobster",         "the media",          "portrayed in detail",               "was on the run",                     "turned out to be true"])
-nounsAndVerbs.append(["the leading man",           "the starlet",        "fell in love with",                    "would miss the show",                "almost made her cry"])
-nounsAndVerbs.append(["the old preacher",        "the parishioners",   "fired yesterday",                     "stole money from the church",        "proved to be true"])
-nounsAndVerbs.append(["the young violinist",      "the sponsors",       "backed financially",                    "abused drugs",                       "is likely true"])
-nounsAndVerbs.append(["the conservative senator",        "the diplomat",       "opposed in the election",                   "won in the run-off",                   "really made him angry"])
-#nounsAndVerbs = _.shuffle(nounsAndVerbs)
+#nounsAndVerbs.append(["the school principal",       "the teacher",        "had an affair with",                     "had been fired",                     "was quoted in the newspaper"])
+#nounsAndVerbs.append(["the famous sculptor",        "the painter",        "admired more than anyone",            "wasn't talented",                    "was completely untrue"])
+#nounsAndVerbs.append(["the marketing whiz",  "the artist",         "had hired",                  "was a fraud",                        "shocked everyone"])
+#nounsAndVerbs.append(["the marathon runner",         "the psychiatrist",       "treated for his illness",                "was actually doping",            "was ridiculous"])
+#nounsAndVerbs.append(["the frightened child",           "the medic",          "rescued from the flood",    "was completely unharmed",            "relieved everyone"])
+#nounsAndVerbs.append(["the alleged criminal",        "the officer",        "arrested after the murder",                  "was not in fact guilty",             "was bogus"])
+#nounsAndVerbs.append(["the college student",         "the professor",      "accused of cheating",                     "was dropping the class",             "made the professor happy"])
+#nounsAndVerbs.append(["the suspected mobster",         "the media",          "portrayed in detail",               "was on the run",                     "turned out to be true"])
+#nounsAndVerbs.append(["the leading man",           "the starlet",        "fell in love with",                    "would miss the show",                "almost made her cry"])
+#nounsAndVerbs.append(["the old preacher",        "the parishioners",   "fired yesterday",                     "stole money from the church",        "proved to be true"])
+#nounsAndVerbs.append(["the young violinist",      "the sponsors",       "backed financially",                    "abused drugs",                       "is likely true"])
+#nounsAndVerbs.append(["the conservative senator",        "the diplomat",       "opposed in the election",                   "won in the run-off",                   "really made him angry"])
 
+#nounsAndVerbs.append(["the senator",        "the diplomat",       "opposed",                   "won",                   "was true"])
+nounsAndVerbs.append(["the janitor",        "the doctor",       "admired",                   "won",                   "was true"])
 
 #nounsAndVerbs = nounsAndVerbs[:1]
 
@@ -472,20 +474,74 @@ topNouns.append( "opinion" )
 topNouns.append( "idea")
 topNouns.append("myth")
 
+topNouns.append("announcement")
+topNouns.append("suspicion")
+topNouns.append("allegation")
+topNouns.append("realization")
+topNouns.append("indication")
+topNouns.append("remark")
+topNouns.append("speculation")
+topNouns.append("assurance")
+topNouns.append("presumption")
+topNouns.append("concern")
+topNouns.append("finding")
+topNouns.append("assertion")
+topNouns.append("feeling")
+topNouns.append("perception")
+topNouns.append("statement")
+topNouns.append("assumption")
+topNouns.append("conclusion")
+
+
+topNouns.append("report")
+topNouns.append("story")
+#topNouns.append("disclosure")
+topNouns.append("confirmation")   
+topNouns.append("information")
+topNouns.append("evidence")
+topNouns.append("reminder")
+topNouns.append("rumor")
+topNouns.append("thought")
+topNouns.append("suggestion")
+topNouns.append("revelation")    
+topNouns.append("belief")
+topNouns.append("inkling")
+topNouns.append("suspicion")
+topNouns.append("idea")
+topNouns.append("claim")
+topNouns.append("news")
+topNouns.append("proof")
+topNouns.append("admission")
+topNouns.append("declaration")
+
+
+
 with open("../forgetting/fromCorpus_counts.csv", "r") as inFile:
    counts = [x.split("\t") for x in inFile.read().strip().split("\n")]
    header = counts[0]
    header = dict(list(zip(header, range(len(header)))))
    counts = {line[0] : line[1:] for line in counts}
 
+topNouns = [x for x in topNouns if x in counts]
 topNouns = sorted(list(set(topNouns)), key=lambda x:float(counts[x][header["True_False"]])-float(counts[x][header["False_False"]]))
 
+print(topNouns)
+print(len(topNouns))
+
+#quit()
 
 
 results = []
 with torch.no_grad():
-  with open("temporary-stimuli/stimuli1.txt", "w") as outFile:
-   with open("temporary-stimuli/surprisals2.txt", "w") as outFileSurps:
+  with open("temporary-stimuli/stimuli2.txt", "w") as outFile:
+
+   # surprisals4.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.1 --load-from-autoencoder=922930056
+
+   # surprisals5.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.0 --load-from-autoencoder=922930056
+
+   # surprisals6.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.05 --load-from-autoencoder=922930056
+
+   with open("temporary-stimuli/surprisals6.txt", "w") as outFileSurps:
     for NOUN in topNouns:
      for sentenceList in nounsAndVerbs:
        print(sentenceList)
@@ -521,7 +577,7 @@ with torch.no_grad():
              print(resultNumeric.size())
       #       quit()
        #      quit()
-   
+             print(NOUN,  topNouns.index(NOUN), RUN)
              lastTokenSurprisal = lm.forward(resultNumeric.t(), train=False, printHere=True)
              lastTokenSurprisal = lastTokenSurprisal.view(-1, SAMPLES_PER_BATCH)
              print(lastTokenSurprisal)

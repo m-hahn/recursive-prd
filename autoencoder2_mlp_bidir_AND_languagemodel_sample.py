@@ -397,7 +397,7 @@ from torch.autograd import Variable
 
 
 
-NOUN = "nurse"
+NOUN = "information"
 NOUN2 = "janitor"
 sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" that the janitor who the doctor admired"
 #sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" which the janitor who the doctor admired"
