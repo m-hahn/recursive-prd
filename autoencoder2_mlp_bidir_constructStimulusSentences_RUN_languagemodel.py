@@ -23,7 +23,7 @@ parser.add_argument("--load-from-lm", dest="load_from_lm", type=str, default=456
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([32]))
+parser.add_argument("--batchSize", type=int, default=random.choice([8]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_autoencoder", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_lm", type=int, default=random.choice([1024]))
@@ -51,7 +51,8 @@ import math
 
 args=parser.parse_args()
 
-SAMPLES_PER_BATCH = 16
+SAMPLES_PER_BATCH = 100
+NUMBER_OF_RUNS = 20
 
 
 #if "MYID" in args.save_to:
@@ -473,10 +474,12 @@ with open("../forgetting/fromCorpus_counts.csv", "r") as inFile:
 
 topNouns = sorted(list(set(topNouns)), key=lambda x:float(counts[x][header["True_False"]])-float(counts[x][header["False_False"]]))
 
+
+
 results = []
 with torch.no_grad():
   with open("temporary-stimuli/stimuli1.txt", "w") as outFile:
-   with open("temporary-stimuli/surprisals1.txt", "w") as outFileSurps:
+   with open("temporary-stimuli/surprisals2.txt", "w") as outFileSurps:
     for NOUN in topNouns:
      for sentenceList in nounsAndVerbs:
        print(sentenceList)
@@ -497,31 +500,39 @@ with torch.no_grad():
           numerified=torch.LongTensor([numerified for _ in range(args.batchSize)]).t().cuda()
           print(" ".join([itos[int(x)-3] for x in numerified[:,0]]))
           print("===========")
-          result, resultNumeric = autoencoder.forward(numerified, train=False)
-  
-          lm.hidden = None
-          lm.beginning = None
-        
-          resultNumeric = torch.cat([resultNumeric, torch.LongTensor([stoi_total["."] for _ in range(args.batchSize*SAMPLES_PER_BATCH)]).cuda().view(-1, 1)], dim=1)
-          print(resultNumeric.size())
-   #       quit()
-    #      quit()
-
-          lastTokenSurprisal = lm.forward(resultNumeric.t(), train=False, printHere=True)
-          lastTokenSurprisal = lastTokenSurprisal.view(-1, SAMPLES_PER_BATCH)
-          print(lastTokenSurprisal)
-          probabilityOfEOS = torch.exp(-lastTokenSurprisal)
-          print(probabilityOfEOS)
-          averageProbabilityOfEOS = probabilityOfEOS.mean(dim=1)
-          print(averageProbabilityOfEOS)
-          surprisalPerBatch = -torch.log(averageProbabilityOfEOS)
-          print(surprisalPerBatch)
+          surprisalsPerRun = []
+          for RUN in range(NUMBER_OF_RUNS):
+             result, resultNumeric = autoencoder.forward(numerified, train=False)
+     
+             lm.hidden = None
+             lm.beginning = None
+           
+             resultNumeric = torch.cat([resultNumeric, torch.LongTensor([stoi_total["."] for _ in range(args.batchSize*SAMPLES_PER_BATCH)]).cuda().view(-1, 1)], dim=1)
+             print(resultNumeric.size())
+      #       quit()
+       #      quit()
+   
+             lastTokenSurprisal = lm.forward(resultNumeric.t(), train=False, printHere=True)
+             lastTokenSurprisal = lastTokenSurprisal.view(-1, SAMPLES_PER_BATCH)
+             print(lastTokenSurprisal)
+             probabilityOfEOS = torch.exp(-lastTokenSurprisal)
+             print(probabilityOfEOS)
+             averageProbabilityOfEOS = probabilityOfEOS.mean(dim=1)
+             print(averageProbabilityOfEOS)
+             surprisalPerBatch = -torch.log(averageProbabilityOfEOS)
+             print(surprisalPerBatch)
+             surprisalsPerRun.append(surprisalPerBatch)
+             for index, imputed in enumerate(result):
+                print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{int(index / SAMPLES_PER_BATCH)}\t{condition}\t{imputed}', file=outFile)
 
    #       print(lastTokenSurprisal.view(SAMPLES_PER_BATCH, -1))
     #      quit()
           #for i in range(args.batchSize*SAMPLES_PER_BATCH):
           #   print(denoised[i]+" ### "+samples[i])
-          results.append((NOUN, sentenceList[0], condition, result))
-          for index, imputed in enumerate(result):
-             print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{int(index / SAMPLES_PER_BATCH)}\t{condition}\t{imputed}', file=outFile)
-          print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{condition}\t{surprisalPerBatch.mean()}', file=outFileSurps)
+  #        results.append((NOUN, sentenceList[0], condition, result))
+          print(surprisalsPerRun)
+          surprisalsPerRun = torch.stack(surprisalsPerRun, dim=0)
+          meanSurprisal = surprisalsPerRun.mean()
+          varianceSurprisal = (surprisalsPerRun.pow(2)).mean() - (meanSurprisal**2)
+          print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{condition}\t{meanSurprisal}\t{varianceSurprisal/math.sqrt(NUMBER_OF_RUNS*args.batchSize)}', file=outFileSurps)
+          print("NOUNS SO FAR", topNouns.index(NOUN))
