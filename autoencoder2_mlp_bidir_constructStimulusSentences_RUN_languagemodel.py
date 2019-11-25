@@ -369,8 +369,11 @@ class Autoencoder(torch.nn.Module):
           print(embeddedLast.size())
       for r in result:
          print(r)
+      nounFraction = (float(len([x for x in result if NOUN in x]))/len(result))
 
-      return result, torch.LongTensor(result_numeric).cuda()
+      thatFraction = (float(len([x for x in result if NOUN+" that" in x]))/len(result))
+
+      return result, torch.LongTensor(result_numeric).cuda(), (nounFraction, thatFraction)
 
 
 autoencoder = Autoencoder()
@@ -430,6 +433,9 @@ nounsAndVerbs.append(["the old preacher",        "the parishioners",   "fired ye
 nounsAndVerbs.append(["the young violinist",      "the sponsors",       "backed financially",                    "abused drugs",                       "is likely true"])
 nounsAndVerbs.append(["the conservative senator",        "the diplomat",       "opposed in the election",                   "won in the run-off",                   "really made him angry"])
 #nounsAndVerbs = _.shuffle(nounsAndVerbs)
+
+
+#nounsAndVerbs = nounsAndVerbs[:1]
 
 topNouns = []
 topNouns.append("report")
@@ -501,9 +507,13 @@ with torch.no_grad():
           print(" ".join([itos[int(x)-3] for x in numerified[:,0]]))
           print("===========")
           surprisalsPerRun = []
+          thatFractions = []
           for RUN in range(NUMBER_OF_RUNS):
-             result, resultNumeric = autoencoder.forward(numerified, train=False)
-     
+             result, resultNumeric, fractions = autoencoder.forward(numerified, train=False)
+             (nounFraction, thatFraction) = fractions
+             thatFractions.append(thatFraction)
+
+
              lm.hidden = None
              lm.beginning = None
            
@@ -534,5 +544,5 @@ with torch.no_grad():
           surprisalsPerRun = torch.stack(surprisalsPerRun, dim=0)
           meanSurprisal = surprisalsPerRun.mean()
           varianceSurprisal = (surprisalsPerRun.pow(2)).mean() - (meanSurprisal**2)
-          print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{condition}\t{meanSurprisal}\t{varianceSurprisal/math.sqrt(NUMBER_OF_RUNS*args.batchSize)}', file=outFileSurps)
+          print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{condition}\t{meanSurprisal}\t{varianceSurprisal/math.sqrt(NUMBER_OF_RUNS*args.batchSize)}\t{sum(thatFractions)/len(thatFractions)}', file=outFileSurps)
           print("NOUNS SO FAR", topNouns.index(NOUN))
