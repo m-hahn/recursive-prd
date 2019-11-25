@@ -1,5 +1,9 @@
 print("Character aware!")
 
+
+# TODO can also do importance weighting using the language model -- maybe that makes it better
+
+
 # Built using char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars.py
 
 
@@ -19,7 +23,7 @@ parser.add_argument("--load-from-lm", dest="load_from_lm", type=str, default=456
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([16]))
+parser.add_argument("--batchSize", type=int, default=random.choice([32]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_autoencoder", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_lm", type=int, default=random.choice([1024]))
@@ -47,7 +51,7 @@ import math
 
 args=parser.parse_args()
 
-SAMPLES_PER_BATCH = 2
+SAMPLES_PER_BATCH = 16
 
 
 #if "MYID" in args.save_to:
@@ -184,13 +188,13 @@ class LanguageModel(torch.nn.Module):
   
        if True or printHere:
           lossTensor = self.print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize*SAMPLES_PER_BATCH)
-          losses = lossTensor.data.cpu().numpy()
-          numericCPU = numeric.cpu().data.numpy()
+          losses = lossTensor.data.cpu()
+          numericCPU = numeric.cpu().data
           print(("NONE", itos_total[numericCPU[0][0]]))
-          for i in range((args.sequence_length)):
-             print((losses[i][0], itos_total[numericCPU[i+1][0]]))
-       samples = self.sample(numeric[-1])
-       return loss, target_tensor.view(-1).size()[0], samples
+          for i in range((args.sequence_length+1)):
+             print((float(losses[i][0]), itos_total[numericCPU[i+1][0]]))
+       lastTokenSurprisal = losses[args.sequence_length, :]
+       return lastTokenSurprisal
     
 from torch.autograd import Variable
 
@@ -470,8 +474,9 @@ with open("../forgetting/fromCorpus_counts.csv", "r") as inFile:
 topNouns = sorted(list(set(topNouns)), key=lambda x:float(counts[x][header["True_False"]])-float(counts[x][header["False_False"]]))
 
 results = []
-#with torch.no_grad():
-with open("temporary-stimuli/stimuli1.txt", "w") as outFile:
+with torch.no_grad():
+  with open("temporary-stimuli/stimuli1.txt", "w") as outFile:
+   with open("temporary-stimuli/surprisals1.txt", "w") as outFileSurps:
     for NOUN in topNouns:
      for sentenceList in nounsAndVerbs:
        print(sentenceList)
@@ -502,11 +507,21 @@ with open("temporary-stimuli/stimuli1.txt", "w") as outFile:
    #       quit()
     #      quit()
 
-   #       _, _, samples = lm.forward(resultNumeric.t(), train=False, printHere=True)
-          
+          lastTokenSurprisal = lm.forward(resultNumeric.t(), train=False, printHere=True)
+          lastTokenSurprisal = lastTokenSurprisal.view(-1, SAMPLES_PER_BATCH)
+          print(lastTokenSurprisal)
+          probabilityOfEOS = torch.exp(-lastTokenSurprisal)
+          print(probabilityOfEOS)
+          averageProbabilityOfEOS = probabilityOfEOS.mean(dim=1)
+          print(averageProbabilityOfEOS)
+          surprisalPerBatch = -torch.log(averageProbabilityOfEOS)
+          print(surprisalPerBatch)
+
+   #       print(lastTokenSurprisal.view(SAMPLES_PER_BATCH, -1))
+    #      quit()
           #for i in range(args.batchSize*SAMPLES_PER_BATCH):
           #   print(denoised[i]+" ### "+samples[i])
           results.append((NOUN, sentenceList[0], condition, result))
           for index, imputed in enumerate(result):
-             print(f'{NOUN} {sentenceList[0].replace(" ","_")} {int(index / SAMPLES_PER_BATCH)} {condition} {imputed}', file=outFile)
-    
+             print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{int(index / SAMPLES_PER_BATCH)}\t{condition}\t{imputed}', file=outFile)
+          print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{condition}\t{surprisalPerBatch.mean()}', file=outFileSurps)
