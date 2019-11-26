@@ -11,7 +11,7 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-parser.add_argument("--load-from", dest="load_from", type=str, default="264073608")
+parser.add_argument("--load-from", dest="load_from", type=str)
 #parser.add_argument("--save-to", dest="save_to", type=str)
 
 import random
@@ -102,7 +102,6 @@ output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
 logsoftmax = torch.nn.LogSoftmax(dim=2)
-softmax = torch.nn.Softmax(dim=2)
 
 attention_softmax = torch.nn.Softmax(dim=1)
 
@@ -112,7 +111,7 @@ print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
 char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
 
 
-#train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
+train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
 
 
 attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
@@ -154,7 +153,7 @@ optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.
 #  for name, module in named_modules.items():
  #     module.load_state_dict(checkpoint[name])
 if args.load_from is not None:
-  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_sample_stimuli", "")+"_code_"+str(args.load_from)+".txt")
+  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_sample_debug", "")+"_code_"+str(args.load_from)+".txt")
   for i in range(len(checkpoint["components"])):
       modules[i].load_state_dict(checkpoint["components"][i])
 
@@ -167,6 +166,49 @@ from torch.autograd import Variable
 
 relu = torch.nn.ReLU()
 
+def prepareDatasetChunks(data, train=True):
+      numeric = [0]
+      count = 0
+      print("Prepare chunks")
+      numerified = []
+      numerified_chars = []
+      for chunk in data:
+       #print(len(chunk))
+       for char in chunk:
+#         if char == " ":
+ #          continue
+         count += 1
+#         if count % 100000 == 0:
+#             print(count/len(data))
+         numerified.append((stoi[char]+3 if char in stoi else 2))
+         numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
+
+       if len(numerified) > (args.batchSize*args.sequence_length):
+         sequenceLengthHere = args.sequence_length
+
+         cutoff = int(len(numerified)/(args.batchSize*sequenceLengthHere)) * (args.batchSize*sequenceLengthHere)
+         numerifiedCurrent = numerified[:cutoff]
+         numerifiedCurrent_chars = numerified_chars[:cutoff]
+
+         for i in range(len(numerifiedCurrent_chars)):
+            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i][:15] + [1]
+            numerifiedCurrent_chars[i] = numerifiedCurrent_chars[i] + ([0]*(16-len(numerifiedCurrent_chars[i])))
+
+
+         numerified = numerified[cutoff:]
+         numerified_chars = numerified_chars[cutoff:]
+       
+         numerifiedCurrent = torch.LongTensor(numerifiedCurrent).view(args.batchSize, -1, sequenceLengthHere).transpose(0,1).transpose(1,2).cuda()
+         numerifiedCurrent_chars = torch.LongTensor(numerifiedCurrent_chars).view(args.batchSize, -1, sequenceLengthHere, 16).transpose(0,1).transpose(1,2).cuda()
+
+#         print(numerifiedCurrent_chars.size())
+ #        quit()
+         numberOfSequences = numerifiedCurrent.size()[0]
+         for i in range(numberOfSequences):
+             yield numerifiedCurrent[i], numerifiedCurrent_chars[i]
+         hidden = None
+       else:
+         print("Skipping")
 
 
 
@@ -190,38 +232,16 @@ bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.
 
 
 
-posDict = {}
-with open("/u/scr/mhahn/FAIR18/english-wiki-word-vocab_POS.txt", "r") as dictIn:
-    for line in dictIn:
-        line = line.strip().split("\t")
-        line[2] = int(line[2])
-        if line[2] < 100:
-           print(len(posDict))
-           break
-        if line[0] not in posDict:
-           posDict[line[0]] = {}
-        if line[1] not in posDict[line[0]]:
-            posDict[line[0]][line[1]] = 0
-        posDict[line[0]][line[1]] += 1
-
-posDictMax = {}
-for word, entry in posDict.items():
-    maxCount = max([entry[x] for x in entry])
-    bestPOS = [x for x in entry if entry[x] == maxCount][0]
-    posDictMax[word] = bestPOS
-        
-
-def forward(numeric, train=True, printHere=True):
+def forward(numeric, train=True, printHere=False):
       global beginning
       global beginning_chars
       if True:
           beginning = zeroBeginning
           beginning_chars = zeroBeginning_chars
 
+      numeric, numeric_chars = numeric
 
-      numeric_noised = [[x for x in y if random.random() > args.deletion_rate or itos_total[int(x)] == "."] for y in numeric.cpu().t()]
-#      numeric_noised = [[x for x in y if itos_total[int(x)] not in ["that"]] for y in numeric.cpu().t()]
-
+      numeric_noised = [[x if random.random() > args.deletion_rate else 0 for x in y] for y in numeric.cpu().t()]
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
 
       numeric = torch.cat([beginning, numeric], dim=0)
@@ -234,11 +254,26 @@ def forward(numeric, train=True, printHere=True):
 
 
       embedded = word_embeddings(input_tensor)
+      if train:
+         embedded = char_dropout(embedded)
+         mask = bernoulli_input.sample()
+         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         embedded = embedded * mask
 
       embedded_noised = word_embeddings(input_tensor_noised)
+      if train:
+         embedded_noised = char_dropout(embedded_noised)
+         mask = bernoulli_input.sample()
+         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         embedded_noised = embedded_noised * mask
+#      print(input_tensor_noised)
+ #     print("NOISED", embedded_noised[1,1,])
+  #    print("NOISED", embedded_noised[1,2,])
+   #   print("NOISED", embedded_noised[2,2,])
 
+    #  print(embedded_noised.size())
+      
       out_encoder, _ = rnn_encoder(embedded_noised, None)
-
       out_decoder, _ = rnn_decoder(embedded, None)
 
       attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
@@ -269,139 +304,126 @@ def forward(numeric, train=True, printHere=True):
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
             print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]]))
+      return loss, target_tensor.view(-1).size()[0]
+
+def backward(loss, printHere):
+      optim.zero_grad()
+      if printHere:
+         print(loss)
+      loss.backward()
+      torch.nn.utils.clip_grad_value_(parameters_cached, 5.0) #, norm_type="inf")
+      optim.step()
+
+
+lossHasBeenBad = 0
+
+import time
+
+totalStartTime = time.time()
+
+lastSaved = (None, None)
+devLosses = []
+for epoch in range(10000):
+   print(epoch)
+   training_data = corpusIteratorWikiWords.training(args.language)
+   print("Got data")
+   training_chars = prepareDatasetChunks(training_data, train=True)
+
+
+
+   rnn_encoder.train(True)
+   rnn_decoder.train(True)
+
+   startTime = time.time()
+   trainChars = 0
+   counter = 0
+   hidden, beginning = None, None
+   while True:
+      counter += 1
+      try:
+         numeric = next(training_chars)
+      except StopIteration:
+         break
+      printHere = (counter % 50 == 0)
+      loss, charCounts = forward(numeric, printHere=printHere, train=True)
+      backward(loss, printHere)
+      if loss.data.cpu().numpy() > 15.0:
+          lossHasBeenBad += 1
+      else:
+          lossHasBeenBad = 0
+      if lossHasBeenBad > 100:
+          print("Loss exploding, has been bad for a while")
+          print(loss)
+          quit()
+      trainChars += charCounts 
+      if printHere:
+          print(("Loss here", loss))
+          print((epoch,counter))
+          print("Dev losses")
+          print(devLosses)
+          print("Words per sec "+str(trainChars/(time.time()-startTime)))
+          print(learning_rate)
+          print(lastSaved)
+          print(__file__)
+          print(args)
+      if counter % 2000 == 0: # and epoch == 0:
+     #   if args.save_to is not None:
+        state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
+        torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+        lastSaved = (epoch, counter)
+      if (time.time() - totalStartTime)/60 > 4000:
+          print("Breaking early to get some result within 72 hours")
+          totalStartTime = time.time()
+          break
+
+ #     break
+   rnn_encoder.train(False)
+   rnn_decoder.train(False)
+
+
+   dev_data = corpusIteratorWikiWords.dev(args.language)
+   print("Got data")
+   dev_chars = prepareDatasetChunks(dev_data, train=False)
+
+
+     
+   dev_loss = 0
+   dev_char_count = 0
+   counter = 0
+   hidden, beginning = None, None
+   while True:
+       counter += 1
+       try:
+          numeric = next(dev_chars)
+       except StopIteration:
+          break
+       printHere = (counter % 50 == 0)
+       loss, numberOfCharacters = forward(numeric, printHere=printHere, train=False)
+       dev_loss += numberOfCharacters * loss.cpu().data.numpy()
+       dev_char_count += numberOfCharacters
+   devLosses.append(dev_loss/dev_char_count)
+   print(devLosses)
+#   quit()
+   #if args.save_to is not None:
+ #     torch.save(dict([(name, module.state_dict()) for name, module in named_modules.items()]), MODELS_HOME+"/"+args.save_to+".pth.tar")
+
+   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
+       print(str(args), file=outFile)
+       print(" ".join([str(x) for x in devLosses]), file=outFile)
+
+   if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
+      break
+
+   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules]}
+   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+   lastSaved = (epoch, counter)
 
 
 
 
 
 
-      hidden = None
-      result  = ["" for _ in range(args.batchSize)]
-      embeddedLast = embedded[0].unsqueeze(0)
-      for i in range(args.sequence_length):
-          out_decoder, hidden = rnn_decoder(embeddedLast, hidden)
-    
-          attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
-          attention = attention_softmax(attention).transpose(0,1)
-          from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
-          out_full = torch.cat([out_decoder, from_encoder], dim=2)
-
-          print(input_tensor.size())
-
-
-          logits = output(relu(output_mlp(out_full) )) 
-          probs = softmax(logits)
-
-#          print(probs.size(), probs.sum(dim=2))
- #         quit()
-
-          dist = torch.distributions.Categorical(probs=probs)
-       
-          nextWord = (dist.sample())
-          print(nextWord.size())
-          nextWordStrings = [itos_total[x] for x in nextWord.cpu().numpy()[0]]
-          for j in range(args.batchSize):
-             result[j] += " "+nextWordStrings[j]
-          embeddedLast = word_embeddings(nextWord)
-          print(embeddedLast.size())
-      for r in result:
-         print(r)
-      resultNums = {}
-      resultNums["nounRecovered"] = (float(len([x for x in result if NOUN in x]))/len(result))
-      resultNums["nounThatRecovered"] = (float(len([x for x in result if NOUN+" that" in x]))/len(result))
-      nextWords = []
-      for res in result:
-        try:
-          start = res.index(NOUN)
-          end = res.index(" ", start+len(NOUN)+2)
-          nextWords.append(res[start+len(NOUN)+1:end])
-        except ValueError:
-          _ = 0
-      nextWordsDict = {posDictMax.get(x, x) : 0 for x in nextWords}
-      for x in nextWords:
-        nextWordsDict[posDictMax.get(x, x)] += 1
-      nextWords = sorted(list(nextWordsDict.items()), key=lambda x:-x[1])
-
-      resultNums["NextWords"] = nextWords
-      return resultNums
-
-
-nounsAndVerbs = []
-nounsAndVerbs.append(["the school principal",       "the teacher",        "had an affair with",                     "had been fired",                     "was quoted in the newspaper"])
-nounsAndVerbs.append(["the famous sculptor",        "the painter",        "admired more than anyone",            "wasn't talented",                    "was completely untrue"])
-nounsAndVerbs.append(["the marketing whiz",  "the artist",         "had hired",                  "was a fraud",                        "shocked everyone"])
-nounsAndVerbs.append(["the marathon runner",         "the psychiatrist",       "treated for his illness",                "was actually doping",            "was ridiculous"])
-nounsAndVerbs.append(["the frightened child",           "the medic",          "rescued from the flood",    "was completely unharmed",            "relieved everyone"])
-nounsAndVerbs.append(["the alleged criminal",        "the officer",        "arrested after the murder",                  "was not in fact guilty",             "was bogus"])
-nounsAndVerbs.append(["the college student",         "the professor",      "accused of cheating",                     "was dropping the class",             "made the professor happy"])
-nounsAndVerbs.append(["the suspected mobster",         "the media",          "portrayed in detail",               "was on the run",                     "turned out to be true"])
-nounsAndVerbs.append(["the leading man",           "the starlet",        "fell in love with",                    "would miss the show",                "almost made her cry"])
-nounsAndVerbs.append(["the old preacher",        "the parishioners",   "fired yesterday",                     "stole money from the church",        "proved to be true"])
-nounsAndVerbs.append(["the young violinist",      "the sponsors",       "backed financially",                    "abused drugs",                       "is likely true"])
-nounsAndVerbs.append(["the conservative senator",        "the diplomat",       "opposed in the election",                   "won in the run-off",                   "really made him angry"])
-#nounsAndVerbs = _.shuffle(nounsAndVerbs)
-
-topNouns = []
-topNouns.append("report")
-topNouns.append("story")       
-#topNouns.append("disclosure")
-topNouns.append("proof")
-topNouns.append("confirmation")  
-topNouns.append("information")
-topNouns.append("evidence")
-topNouns.append("reminder")
-topNouns.append("rumor")
-#topNouns.append("thought")
-topNouns.append("suggestion")
-topNouns.append( "revelation")  
-topNouns.append( "belief")
-topNouns.append( "fact")
-topNouns.append( "realization")
-topNouns.append( "suspicion")
-topNouns.append( "certainty")
-topNouns.append( "idea")
-topNouns.append( "admission") 
-topNouns.append( "confirmation")
-topNouns.append( "complaint"    )
-topNouns.append( "certainty"   )
-topNouns.append( "prediction"  )
-topNouns.append( "declaration")
-topNouns.append( "proof"   )
-topNouns.append( "suspicion")    
-topNouns.append( "allegation"   )
-topNouns.append( "revelation"   )
-topNouns.append( "realization")
-topNouns.append( "news")
-topNouns.append( "opinion" )
-topNouns.append( "idea")
-topNouns.append("myth")
-
-with open("../forgetting/fromCorpus_counts.csv", "r") as inFile:
-   counts = [x.split("\t") for x in inFile.read().strip().split("\n")]
-   header = counts[0]
-   header = dict(list(zip(header, range(len(header)))))
-   counts = {line[0] : line[1:] for line in counts}
-
-topNouns = sorted(list(set(topNouns)), key=lambda x:float(counts[x][header["True_False"]])-float(counts[x][header["False_False"]]))
-
-results = []
-for NOUN in topNouns:
-   sentence = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . the "+NOUN+" that the janitor who the doctor admired"
-   numerified = [stoi[char]+3 if char in stoi else 2 for char in sentence.split(" ")]
-   print(len(numerified))
-   assert len(numerified) == args.sequence_length
-   numerified=torch.LongTensor([numerified for _ in range(args.batchSize)]).t().cuda()
-   result = forward(numerified, train=False)
-   results.append((NOUN, result))
-with open("autoencoder-output/"+__file__+".tsv", "w") as outFile:
-   print("\t".join(["Noun", "NounRecovered", "NounThatRecovered", "True_False", "False_False", "ThatCount", "VerbCount", "PrepCount", "NextWords"]), file=outFile)
-   for r in results:
-      noun = r[0]
-      byPOSCounts = dict(r[1]["NextWords"])
-      verbCount = sum([y for x, y in byPOSCounts.items() if x.startswith("v")])
-      prepCount = byPOSCounts.get("in", 0) - r[1]["nounThatRecovered"] * args.batchSize
-      thatCount = r[1]["nounThatRecovered"] * args.batchSize
-      print("\t".join([str(x) for x in [r[0], r[1]["nounRecovered"], r[1]["nounThatRecovered"], counts[noun][header["True_False"]], counts[noun][header["False_False"]], thatCount, verbCount, prepCount, r[1]["NextWords"]]]), file=outFile)
-
+   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
+   optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.9
 
 

@@ -3,17 +3,10 @@ library(tidyr)
 library(dplyr)
 library(lme4)
 
-models = c(
-905843526,
-655887140,
-766978233,
-502504068,
-697117799,
-860606598
-)
+models_data = read.csv("results/models_vanillaLSTM_english.tsv", sep="\t")
 
 modelData = data.frame()
-for(model in models) {
+for(model in models_data$Model) {
    modelData2 = read.csv(paste("output/SCRC_default_english_", model, sep=""), sep="\t")
    modelData2$Model = model
    modelData = rbind(modelData, modelData2)
@@ -27,13 +20,10 @@ modelData = modelData %>% filter(!grepl("OOV", RegionLSTM))
 
 mean(as.character(data$Word) == as.character(data$RegionLSTM))
 
-
-
 data = data %>% mutate("Grammatical" = (Condition == 0))
 data = data %>% mutate("DroppedMiddleVerb" = (Condition == 2))
 
-
-
+data = merge(data, models_data, by=c("Model"), all.x=TRUE)
 
 
 nounFreqs = read.csv("../forgetting/corpus/results/results_counts4.py.tsv", sep="\t")
@@ -47,18 +37,20 @@ data = merge(data, nounFreqs %>% rename(Noun=noun), by=c("Noun"), all.x=TRUE)
 
 data$True_Minus_False = data$True_False_False - data$False_False_False
 
-
 data = data %>% mutate(True_False_False.C = True_False_False - mean(True_False_False, na.rm=TRUE))
 data = data %>% mutate(True_Minus_False.C = True_Minus_False - mean(True_Minus_False, na.rm=TRUE))
 data = data %>% mutate(Grammatical.C = Grammatical - mean(Grammatical, na.rm=TRUE))
-
 
 summary(lmer(Surprisal ~ True_Minus_False.C * Grammatical.C + (1+True_Minus_False.C + Grammatical.C + True_Minus_False.C * Grammatical.C|Model) + (1+Grammatical.C|Noun) + (1 +True_Minus_False.C + Grammatical.C + True_Minus_False.C * Grammatical.C|Remainder), data=data %>% filter(Region == "EOS")))
 
 summary(lmer(Surprisal ~ True_False_False.C * Grammatical.C + (1+True_False_False.C + Grammatical.C + True_False_False.C * Grammatical.C|Model) + (1+Grammatical.C|Noun) + (1 +True_False_False.C + Grammatical.C + True_False_False.C * Grammatical.C|Remainder), data=data %>% filter(Region == "EOS")))
 
 library(brms)
-summary(brm(Surprisal ~ True_False_False.C * Grammatical.C + (1+True_False_False.C + Grammatical.C + True_False_False.C * Grammatical.C|Model) + (1+Grammatical.C|Noun) + (1 +True_False_False.C + Grammatical.C + True_False_False.C * Grammatical.C|Remainder), data=data %>% filter(Region == "EOS")))
+
+model_TM = (brm(Surprisal ~ True_Minus_False.C * Grammatical.C + (1+True_Minus_False.C + Grammatical.C + True_Minus_False.C * Grammatical.C|Model) + (1+Grammatical.C|Noun) + (1 +True_Minus_False.C + Grammatical.C + True_Minus_False.C * Grammatical.C|Remainder), data=data %>% filter(Region == "EOS")))
+
+
+model_TF = (brm(Surprisal ~ True_False_False.C * Grammatical.C + (1+True_False_False.C + Grammatical.C + True_False_False.C * Grammatical.C|Model) + (1+Grammatical.C|Noun) + (1 +True_False_False.C + Grammatical.C + True_False_False.C * Grammatical.C|Remainder), data=data %>% filter(Region == "EOS")))
 
 
 

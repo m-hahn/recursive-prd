@@ -11,7 +11,7 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-parser.add_argument("--load-from", dest="load_from", type=str, default="264073608")
+parser.add_argument("--load-from", dest="load_from", type=str, default=247340595)
 #parser.add_argument("--save-to", dest="save_to", type=str)
 
 import random
@@ -154,7 +154,10 @@ optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.
 #  for name, module in named_modules.items():
  #     module.load_state_dict(checkpoint[name])
 if args.load_from is not None:
-  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_sample_stimuli", "")+"_code_"+str(args.load_from)+".txt")
+  try:
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_sample_stimuli", "")+"_code_"+str(args.load_from)+".txt")
+  except FileNotFoundError:
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_sample_stimuli", "")+"_code_"+str(args.load_from)+".txt")
   for i in range(len(checkpoint["components"])):
       modules[i].load_state_dict(checkpoint["components"][i])
 
@@ -219,16 +222,19 @@ def forward(numeric, train=True, printHere=True):
           beginning_chars = zeroBeginning_chars
 
 
-      numeric_noised = [[x for x in y if random.random() > args.deletion_rate or itos_total[int(x)] == "."] for y in numeric.cpu().t()]
-#      numeric_noised = [[x for x in y if itos_total[int(x)] not in ["that"]] for y in numeric.cpu().t()]
+      numeric_noised = [[x if random.random() > args.deletion_rate else 0 for x in y] for y in numeric.cpu().t()]
+
 
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
 
       numeric = torch.cat([beginning, numeric], dim=0)
       numeric_noised = torch.cat([beginning, numeric_noised], dim=0)
 
+      numeric_onlyNoisedOnes = torch.where(numeric_noised == 0, numeric, 0*numeric) # target is 0 in those places where no noise has happened
+
       input_tensor = Variable(numeric[:-1], requires_grad=False)
-      target_tensor = Variable(numeric[1:], requires_grad=False)
+      target_tensor = Variable(numeric_onlyNoisedOnes[1:], requires_grad=False)
+
 
       input_tensor_noised = Variable(numeric_noised, requires_grad=False)
 
@@ -297,7 +303,7 @@ def forward(numeric, train=True, printHere=True):
 
           dist = torch.distributions.Categorical(probs=probs)
        
-          nextWord = (dist.sample())
+          nextWord = torch.where(numeric_noised[i] == 0, (dist.sample()), numeric[i:i+1])
           print(nextWord.size())
           nextWordStrings = [itos_total[x] for x in nextWord.cpu().numpy()[0]]
           for j in range(args.batchSize):
@@ -376,12 +382,55 @@ topNouns.append( "opinion" )
 topNouns.append( "idea")
 topNouns.append("myth")
 
+topNouns.append("announcement")
+topNouns.append("suspicion")
+topNouns.append("allegation")
+topNouns.append("realization")
+topNouns.append("indication")
+topNouns.append("remark")
+topNouns.append("speculation")
+topNouns.append("assurance")
+topNouns.append("presumption")
+topNouns.append("concern")
+topNouns.append("finding")
+topNouns.append("assertion")
+topNouns.append("feeling")
+topNouns.append("perception")
+topNouns.append("statement")
+topNouns.append("assumption")
+topNouns.append("conclusion")
+
+
+topNouns.append("report")
+topNouns.append("story")
+#topNouns.append("disclosure")
+topNouns.append("confirmation")   
+topNouns.append("information")
+topNouns.append("evidence")
+topNouns.append("reminder")
+topNouns.append("rumor")
+topNouns.append("thought")
+topNouns.append("suggestion")
+topNouns.append("revelation")    
+topNouns.append("belief")
+#topNouns.append("inkling") # this is OOV for the model
+topNouns.append("suspicion")
+topNouns.append("idea")
+topNouns.append("claim")
+topNouns.append("news")
+topNouns.append("proof")
+topNouns.append("admission")
+topNouns.append("declaration")
+
+
+
 with open("../forgetting/fromCorpus_counts.csv", "r") as inFile:
    counts = [x.split("\t") for x in inFile.read().strip().split("\n")]
    header = counts[0]
    header = dict(list(zip(header, range(len(header)))))
    counts = {line[0] : line[1:] for line in counts}
 
+topNouns = [x for x in topNouns if x in counts]
 topNouns = sorted(list(set(topNouns)), key=lambda x:float(counts[x][header["True_False"]])-float(counts[x][header["False_False"]]))
 
 results = []

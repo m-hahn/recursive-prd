@@ -23,7 +23,7 @@ parser.add_argument("--load-from-lm", dest="load_from_lm", type=str, default=456
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([8]))
+parser.add_argument("--batchSize", type=int, default=random.choice([4]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_autoencoder", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_lm", type=int, default=random.choice([1024]))
@@ -44,6 +44,8 @@ parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
+parser.add_argument("--surpsFile", type=str)
+
 
 model = "REAL_REAL"
 
@@ -52,8 +54,8 @@ import math
 args=parser.parse_args()
 
 #################################
-SAMPLES_PER_BATCH = 100
-NUMBER_OF_RUNS = 20
+SAMPLES_PER_BATCH = 200
+NUMBER_OF_RUNS = 50
 #################################
 
 #if "MYID" in args.save_to:
@@ -348,7 +350,7 @@ class Autoencoder(torch.nn.Module):
           from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
           out_full = torch.cat([out_decoder, from_encoder], dim=2)
 
-          print(input_tensor.size())
+ #         print(input_tensor.size())
 
 
           logits = self.output(self.relu(self.output_mlp(out_full) )) 
@@ -360,14 +362,14 @@ class Autoencoder(torch.nn.Module):
           dist = torch.distributions.Categorical(probs=probs)
        
           nextWord = (dist.sample())
-          print(nextWord.size())
+  #        print(nextWord.size())
           nextWordDistCPU = nextWord.cpu().numpy()[0]
           nextWordStrings = [itos_total[x] for x in nextWordDistCPU]
           for i in range(args.batchSize*SAMPLES_PER_BATCH):
              result[i] += " "+nextWordStrings[i]
              result_numeric[i].append( nextWordDistCPU[i] )
           embeddedLast = self.word_embeddings(nextWord)
-          print(embeddedLast.size())
+#          print(embeddedLast.size())
       for r in result:
          print(r)
       nounFraction = (float(len([x for x in result if NOUN in x]))/len(result))
@@ -505,7 +507,7 @@ topNouns.append("thought")
 topNouns.append("suggestion")
 topNouns.append("revelation")    
 topNouns.append("belief")
-topNouns.append("inkling")
+#topNouns.append("inkling") # this is OOV for the model
 topNouns.append("suspicion")
 topNouns.append("idea")
 topNouns.append("claim")
@@ -535,13 +537,22 @@ results = []
 with torch.no_grad():
   with open("temporary-stimuli/stimuli2.txt", "w") as outFile:
 
-   # surprisals4.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.1 --load-from-autoencoder=922930056
+   # surprisals4.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.1 --load-from-autoencoder=922930056 --surpsFile=surprisals4.txt
 
-   # surprisals5.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.0 --load-from-autoencoder=922930056
+   # surprisals5.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.0 --load-from-autoencoder=922930056 --surpsFile=surprisals5.txt
 
-   # surprisals6.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.05 --load-from-autoencoder=922930056
+   # surprisals6.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.05 --load-from-autoencoder=922930056 --surpsFile=surprisals6.txt
 
-   with open("temporary-stimuli/surprisals6.txt", "w") as outFileSurps:
+   # surprisals7.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --surpsFile=surprisals7.txt
+
+   # surprisals7b.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --load-from-lm=935649231 --surpsFile=surprisals7b.txt
+
+
+#~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --load-from-lm=935649231 --surpsFile=surprisals7b.txt      ; ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.1 --load-from-autoencoder=922930056 --surpsFile=surprisals4.txt   ;               ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.0 --load-from-autoencoder=922930056 --surpsFile=surprisals5.txt    ;              ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.05 --load-from-autoencoder=922930056 --surpsFile=surprisals6.txt         ;              ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --surpsFile=surprisals7.txt          
+                                                                                                                                                                                                            
+                                                             
+
+   with open(f"temporary-stimuli/{args.surpsFile}", "w") as outFileSurps:
     for NOUN in topNouns:
      for sentenceList in nounsAndVerbs:
        print(sentenceList)
@@ -580,7 +591,10 @@ with torch.no_grad():
              print(NOUN,  topNouns.index(NOUN), RUN)
              lastTokenSurprisal = lm.forward(resultNumeric.t(), train=False, printHere=True)
              lastTokenSurprisal = lastTokenSurprisal.view(-1, SAMPLES_PER_BATCH)
-             print(lastTokenSurprisal)
+             #print(lastTokenSurprisal.mean(dim=1))
+             #print(lastTokenSurprisal.view(SAMPLES_PER_BATCH, -1).mean(dim=0))
+
+             #quit()
              probabilityOfEOS = torch.exp(-lastTokenSurprisal)
              print(probabilityOfEOS)
              averageProbabilityOfEOS = probabilityOfEOS.mean(dim=1)
