@@ -539,22 +539,14 @@ results = []
 with torch.no_grad():
   with open("temporary-stimuli/stimuli2.txt", "w") as outFile:
 
-   # surprisals4.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.1 --load-from-autoencoder=922930056 --surpsFile=surprisals4.txt
-
-   # surprisals5.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.0 --load-from-autoencoder=922930056 --surpsFile=surprisals5.txt
-
-   # surprisals6.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.05 --load-from-autoencoder=922930056 --surpsFile=surprisals6.txt
-
-   # surprisals7.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --surpsFile=surprisals7.txt
-
-   # surprisals7b.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --load-from-lm=935649231 --surpsFile=surprisals7b.txt
-#  ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel2.py --SAMPLES_PER_BATCH=1 --batchSize=800 --NUMBER_OF_RUNS=2 --surpsFile=surprisalsB1.txt
-#  ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel2.py --SAMPLES_PER_BATCH=1 --batchSize=10 --NUMBER_OF_RUNS=1 --surpsFile=surprisalsB2.txt --deletion_rate=0.0
+   #  ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel2.py --deletion_rate=0.1 --load-from-autoencoder=922930056 --surpsFile=surprisals8u.txt --batchSize=800 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1
 
 
-#~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --load-from-lm=935649231 --surpsFile=surprisals7b.txt      ; ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.1 --load-from-autoencoder=922930056 --surpsFile=surprisals4.txt   ;               ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.0 --load-from-autoencoder=922930056 --surpsFile=surprisals5.txt    ;              ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.05 --load-from-autoencoder=922930056 --surpsFile=surprisals6.txt         ;              ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --surpsFile=surprisals7.txt          
-                                                                                                                                                                                                            
-                                                             
+   # surprisals7u.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel2.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --surpsFile=surprisals7u.txt --batchSize=800 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1
+
+
+# ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel2.py --load-from-autoencoder=922930056 --surpsFile=surprisals10u.txt --batchSize=800 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1 --deletion_rate=0.3	                                                                                                                                                                                                           
+# ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel2.py --load-from-autoencoder=777726352 --batchSize=800 --surpsFile=surprisals20a.txt --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1 --hidden_dim_autoencoder=1024 # the reconstructins by this autoencoder don't look great at all
 
    with open(f"temporary-stimuli/{args.surpsFile}", "w") as outFileSurps:
     for NOUN in topNouns:
@@ -590,7 +582,7 @@ with torch.no_grad():
              lm.beginning = None
            
              resultNumeric = torch.cat([resultNumeric, torch.LongTensor([stoi_total["."] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1)], dim=1)
-             print(resultNumeric.size())
+      #       print(resultNumeric.size())
       #       quit()
        #      quit()
              print(NOUN,  topNouns.index(NOUN), RUN)
@@ -601,11 +593,11 @@ with torch.no_grad():
 
              #quit()
              probabilityOfEOS = torch.exp(-lastTokenSurprisal)
-             print(probabilityOfEOS)
+    #         print(probabilityOfEOS)
              averageProbabilityOfEOS = probabilityOfEOS.mean(dim=1)
-             print(averageProbabilityOfEOS)
+   #          print(averageProbabilityOfEOS)
              surprisalPerBatch = -torch.log(averageProbabilityOfEOS)
-             print(surprisalPerBatch)
+  #           print(surprisalPerBatch)
              surprisalsPerRun.append(surprisalPerBatch)
              for index, imputed in enumerate(result):
                 print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{int(index / args.SAMPLES_PER_BATCH)}\t{condition}\t{imputed}', file=outFile)
@@ -615,7 +607,7 @@ with torch.no_grad():
           #for i in range(args.batchSize*args.SAMPLES_PER_BATCH):
           #   print(denoised[i]+" ### "+samples[i])
   #        results.append((NOUN, sentenceList[0], condition, result))
-          print(surprisalsPerRun)
+          #print(surprisalsPerRun)
           surprisalsPerRun = torch.stack(surprisalsPerRun, dim=0)
           meanSurprisal = surprisalsPerRun.mean()
           varianceSurprisal = (surprisalsPerRun.pow(2)).mean() - (meanSurprisal**2)

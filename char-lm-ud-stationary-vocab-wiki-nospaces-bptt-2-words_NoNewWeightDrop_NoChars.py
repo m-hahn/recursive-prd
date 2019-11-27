@@ -141,8 +141,8 @@ if args.load_from is not None:
   checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.load_from)+".txt")
   for i in range(len(checkpoint["components"])):
       modules[i].load_state_dict(checkpoint["components"][i])
-else:
-  assert False
+#else:
+#  assert False
 
 from torch.autograd import Variable
 

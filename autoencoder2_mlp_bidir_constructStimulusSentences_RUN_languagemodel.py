@@ -544,6 +544,9 @@ with torch.no_grad():
 
    # surprisals7.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --surpsFile=surprisals7.txt
 
+
+
+
    # surprisals7b.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --load-from-lm=935649231 --surpsFile=surprisals7b.txt
 
 

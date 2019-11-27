@@ -202,9 +202,9 @@ class LanguageModel(torch.nn.Module):
           losses = lossTensor.data.cpu()
           numericCPU = numeric.cpu().data
           print(("NONE", itos_total[numericCPU[0][0]]))
-          for i in range((args.sequence_length+1)):
+          for i in range(losses.size()[0]):
              print((float(losses[i][0]), itos_total[numericCPU[i+1][0]]))
-       lastTokenSurprisal = losses[args.sequence_length, :]
+       lastTokenSurprisal = losses[-1, :]
        return lastTokenSurprisal
     
 from torch.autograd import Variable
@@ -549,7 +549,16 @@ with torch.no_grad():
   with open("temporary-stimuli/stimuli2.txt", "w") as outFile:
 
                                                                                                                                                                                                            
+
+
 # ~/python-py37-mhahn autoencoder2_mlp_bidir_Erasure_constructStimulusSentences_RUN_languagemodel2.py --batchSize=800 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1 --surpsFile=surpsErasure1.txt                                                             
+# IMPORTANT SANITY CHECK
+# ~/python-py37-mhahn autoencoder2_mlp_bidir_Erasure_constructStimulusSentences_RUN_languagemodel2.py --batchSize=1 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1 --surpsFile=surpsErasure1b_00.txt --load-from-autoencoder=878921872 --deletion_rate=0.0
+
+# ~/python-py37-mhahn autoencoder2_mlp_bidir_Erasure_constructStimulusSentences_RUN_languagemodel2.py --batchSize=800 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1 --surpsFile=surpsErasure1b.txt --load-from-autoencoder=878921872
+# ~/python-py37-mhahn autoencoder2_mlp_bidir_Erasure_constructStimulusSentences_RUN_languagemodel2.py --batchSize=800 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1 --surpsFile=surpsErasure1c.txt --load-from-autoencoder=49986904
+# ~/python-py37-mhahn autoencoder2_mlp_bidir_Erasure_constructStimulusSentences_RUN_languagemodel2.py --batchSize=800 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1 --surpsFile=surpsErasure1d.txt --load-from-autoencoder=69900543
+
 
    with open(f"temporary-stimuli/{args.surpsFile}", "w") as outFileSurps:
     for NOUN in topNouns:
@@ -616,3 +625,6 @@ with torch.no_grad():
           varianceSurprisal = (surprisalsPerRun.pow(2)).mean() - (meanSurprisal**2)
           print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{condition}\t{meanSurprisal}\t{varianceSurprisal/math.sqrt(args.NUMBER_OF_RUNS*args.batchSize)}\t{sum(thatFractions)/len(thatFractions)}', file=outFileSurps)
           print("NOUNS SO FAR", topNouns.index(NOUN))
+
+import sys
+print(sys.argv)
