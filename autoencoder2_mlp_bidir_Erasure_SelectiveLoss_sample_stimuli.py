@@ -11,12 +11,14 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-parser.add_argument("--load-from", dest="load_from", type=str, default=247340595)
+parser.add_argument("--load-from", dest="load_from", type=str, default=878921872)
+#CAN ALSO TAKE myID=878921872,
+# OTHER MODEL: 247340595
 #parser.add_argument("--save-to", dest="save_to", type=str)
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([128]))
+parser.add_argument("--batchSize", type=int, default=random.choice([500]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([512]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))

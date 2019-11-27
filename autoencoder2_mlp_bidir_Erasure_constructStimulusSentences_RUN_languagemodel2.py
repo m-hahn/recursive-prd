@@ -17,7 +17,7 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default="264073608") # 449431785) #
+parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=878921872)
 parser.add_argument("--load-from-lm", dest="load_from_lm", type=str, default=45661490)
 #parser.add_argument("--save-to", dest="save_to", type=str)
 
@@ -47,6 +47,11 @@ parser.add_argument("--deletion_rate", type=float, default=0.2)
 parser.add_argument("--surpsFile", type=str)
 
 
+parser.add_argument("--SAMPLES_PER_BATCH", type=int,default=200)
+parser.add_argument("--NUMBER_OF_RUNS", type=int, default=50)
+
+
+
 model = "REAL_REAL"
 
 import math
@@ -54,8 +59,6 @@ import math
 args=parser.parse_args()
 
 #################################
-SAMPLES_PER_BATCH = 200
-NUMBER_OF_RUNS = 50
 #################################
 
 #if "MYID" in args.save_to:
@@ -121,13 +124,13 @@ class LanguageModel(torch.nn.Module):
       self.modules = [self.rnn, self.output, self.word_embeddings]
       self.learning_rate = args.learning_rate
       self.optim = torch.optim.SGD(self.parameters(), lr=self.learning_rate, momentum=0.0) # 0.02, 0.9
-      self.zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize*SAMPLES_PER_BATCH)]).cuda().view(1,args.batchSize*SAMPLES_PER_BATCH)
+      self.zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(1,args.batchSize*args.SAMPLES_PER_BATCH)
       self.beginning = None
-      self.zeroBeginning_chars = torch.zeros(1, args.batchSize*SAMPLES_PER_BATCH, 16).long().cuda()
-      self.zeroHidden = torch.zeros((args.layer_num, args.batchSize*SAMPLES_PER_BATCH, args.hidden_dim_lm)).cuda()
-      self.bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize*SAMPLES_PER_BATCH)]).cuda())
-      self.bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize*SAMPLES_PER_BATCH * 2 * args.word_embedding_size)]).cuda())
-      self.bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize*SAMPLES_PER_BATCH * args.hidden_dim_lm)]).cuda())
+      self.zeroBeginning_chars = torch.zeros(1, args.batchSize*args.SAMPLES_PER_BATCH, 16).long().cuda()
+      self.zeroHidden = torch.zeros((args.layer_num, args.batchSize*args.SAMPLES_PER_BATCH, args.hidden_dim_lm)).cuda()
+      self.bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda())
+      self.bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize*args.SAMPLES_PER_BATCH * 2 * args.word_embedding_size)]).cuda())
+      self.bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize*args.SAMPLES_PER_BATCH * args.hidden_dim_lm)]).cuda())
 
       self.hidden = None
 
@@ -139,7 +142,7 @@ class LanguageModel(torch.nn.Module):
   def sample(self, numeric):
   #   print(numeric.size())
      embedded = self.word_embeddings(numeric.unsqueeze(0))
-     results = ["" for _ in range(args.batchSize*SAMPLES_PER_BATCH)]     
+     results = ["" for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]     
      for _ in range(10): 
         out, self.hidden = self.rnn(embedded, self.hidden)
         logits = self.output(out) 
@@ -148,8 +151,12 @@ class LanguageModel(torch.nn.Module):
         dist = torch.distributions.Categorical(probs=probs)
          
         nextWord = (dist.sample())
+
+          
+
+
         nextWordStrings = [itos_total[x] for x in nextWord.cpu().numpy()[0]]
-        for i in range(args.batchSize*SAMPLES_PER_BATCH):
+        for i in range(args.batchSize*args.SAMPLES_PER_BATCH):
             results[i] += " "+nextWordStrings[i]
         embedded = self.word_embeddings(nextWord)
      return results
@@ -168,21 +175,21 @@ class LanguageModel(torch.nn.Module):
            self.hidden = (hidden1, hidden2)
            self.beginning = torch.where(forRestart.unsqueeze(0) == 1, zeroBeginning, self.beginning)
        numeric = torch.cat([self.beginning, numeric], dim=0)
-       self.beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize*SAMPLES_PER_BATCH)
+       self.beginning = numeric[numeric.size()[0]-1].view(1, args.batchSize*args.SAMPLES_PER_BATCH)
        input_tensor = Variable(numeric[:-1], requires_grad=False)
        target_tensor = Variable(numeric[1:], requires_grad=False)
        embedded = self.word_embeddings(input_tensor)
        if train:
           embedded = self.char_dropout(embedded)
           mask = self.bernoulli_input.sample()
-          mask = mask.view(1, args.batchSize*SAMPLES_PER_BATCH, 2*args.word_embedding_size)
+          mask = mask.view(1, args.batchSize*args.SAMPLES_PER_BATCH, 2*args.word_embedding_size)
           embedded = embedded * mask
   
        out, self.hidden = self.rnn(embedded, self.hidden)
    
        if train:
          mask = self.bernoulli_output.sample()
-         mask = mask.view(1, args.batchSize*SAMPLES_PER_BATCH, args.hidden_dim_lm)
+         mask = mask.view(1, args.batchSize*args.SAMPLES_PER_BATCH, args.hidden_dim_lm)
          out = out * mask
    
        logits = self.output(out) 
@@ -191,7 +198,7 @@ class LanguageModel(torch.nn.Module):
        loss = self.train_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1))
   
        if True or printHere:
-          lossTensor = self.print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize*SAMPLES_PER_BATCH)
+          lossTensor = self.print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize*args.SAMPLES_PER_BATCH)
           losses = lossTensor.data.cpu()
           numericCPU = numeric.cpu().data
           print(("NONE", itos_total[numericCPU[0][0]]))
@@ -237,18 +244,18 @@ class Autoencoder(torch.nn.Module):
       
       self.hidden = None
       
-      self.zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize*SAMPLES_PER_BATCH)]).cuda().view(1,args.batchSize*SAMPLES_PER_BATCH)
+      self.zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(1,args.batchSize*args.SAMPLES_PER_BATCH)
       self.beginning = None
       
-      self.zeroBeginning_chars = torch.zeros(1, args.batchSize*SAMPLES_PER_BATCH, 16).long().cuda()
+      self.zeroBeginning_chars = torch.zeros(1, args.batchSize*args.SAMPLES_PER_BATCH, 16).long().cuda()
       
       
-      self.zeroHidden = torch.zeros((args.layer_num, args.batchSize*SAMPLES_PER_BATCH, args.hidden_dim_autoencoder)).cuda()
+      self.zeroHidden = torch.zeros((args.layer_num, args.batchSize*args.SAMPLES_PER_BATCH, args.hidden_dim_autoencoder)).cuda()
       
-      self.bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize*SAMPLES_PER_BATCH)]).cuda())
+      self.bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda())
       
-      self.bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize*SAMPLES_PER_BATCH * 2 * args.word_embedding_size)]).cuda())
-      self.bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize*SAMPLES_PER_BATCH * 2 * args.hidden_dim_autoencoder)]).cuda())
+      self.bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize*args.SAMPLES_PER_BATCH * 2 * args.word_embedding_size)]).cuda())
+      self.bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize*args.SAMPLES_PER_BATCH * 2 * args.hidden_dim_autoencoder)]).cuda())
       
       
       
@@ -266,7 +273,7 @@ class Autoencoder(torch.nn.Module):
           self.beginning = self.zeroBeginning
 
 
-      numeric_noised = [[x for x in y if random.random() > args.deletion_rate or itos_total[int(x)] == "."] for y in numeric.cpu().t()]
+      numeric_noised = [[x if random.random() > args.deletion_rate or itos_total[x] == "." else 0 for x in y] for y in numeric.cpu().t()]
 
 
       numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
@@ -274,14 +281,14 @@ class Autoencoder(torch.nn.Module):
  #     print(numeric_noised[:,0])
   #    print(numeric_noised[:,1])
    #   print(numeric_noised.size())
-      numeric_noised = numeric_noised.unsqueeze(2).expand(-1, -1, SAMPLES_PER_BATCH).contiguous().view(-1, args.batchSize*SAMPLES_PER_BATCH)
+      numeric_noised = numeric_noised.unsqueeze(2).expand(-1, -1, args.SAMPLES_PER_BATCH).contiguous().view(-1, args.batchSize*args.SAMPLES_PER_BATCH)
 #      print("AFTER")
  #     print(numeric_noised.size())
   #    print(numeric_noised[:,0])
    #   print(numeric_noised[:,1])
     #  print(numeric_noised[:,2])
 
-      numeric = numeric.unsqueeze(2).expand(-1, -1, SAMPLES_PER_BATCH).contiguous().view(-1, args.batchSize*SAMPLES_PER_BATCH)
+      numeric = numeric.unsqueeze(2).expand(-1, -1, args.SAMPLES_PER_BATCH).contiguous().view(-1, args.batchSize*args.SAMPLES_PER_BATCH)
 #      print(numeric[:,0])
  #     print(numeric[:,1])
   #    print(numeric[:,2])
@@ -289,6 +296,10 @@ class Autoencoder(torch.nn.Module):
 
       numeric = torch.cat([self.beginning, numeric], dim=0)
       numeric_noised = torch.cat([self.beginning, numeric_noised], dim=0)
+
+      numeric_onlyNoisedOnes = torch.where(numeric_noised == 0, numeric, 0*numeric) # target is 0 in those places where no noise has happened
+
+
 
       input_tensor = Variable(numeric[:-1], requires_grad=False)
       target_tensor = Variable(numeric[1:], requires_grad=False)
@@ -339,10 +350,10 @@ class Autoencoder(torch.nn.Module):
 
 
       hidden = None
-      result  = ["" for _ in range(args.batchSize*SAMPLES_PER_BATCH)]
-      result_numeric = [[] for _ in range(args.batchSize*SAMPLES_PER_BATCH)]
+      result  = ["" for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]
+      result_numeric = [[] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]
       embeddedLast = embedded[0].unsqueeze(0)
-      for i in range(args.sequence_length):
+      for i in range(args.sequence_length+1):
           out_decoder, hidden = self.rnn_decoder(embeddedLast, hidden)
     
           attention = torch.bmm(self.attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
@@ -361,11 +372,12 @@ class Autoencoder(torch.nn.Module):
 
           dist = torch.distributions.Categorical(probs=probs)
        
-          nextWord = (dist.sample())
+#          nextWord = (dist.sample())
+          nextWord = torch.where(numeric_noised[i] == 0, (dist.sample()), numeric[i:i+1])
   #        print(nextWord.size())
           nextWordDistCPU = nextWord.cpu().numpy()[0]
           nextWordStrings = [itos_total[x] for x in nextWordDistCPU]
-          for i in range(args.batchSize*SAMPLES_PER_BATCH):
+          for i in range(args.batchSize*args.SAMPLES_PER_BATCH):
              result[i] += " "+nextWordStrings[i]
              result_numeric[i].append( nextWordDistCPU[i] )
           embeddedLast = self.word_embeddings(nextWord)
@@ -401,7 +413,7 @@ if args.load_from_lm is not None:
 
 
 
-autoencoderFileName = "autoencoder2_mlp_bidir.py"
+autoencoderFileName = "autoencoder2_mlp_bidir_Erasure_SelectiveLoss.py"
 
 if args.load_from_autoencoder is not None:
   checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+autoencoderFileName+"_code_"+str(args.load_from_autoencoder)+".txt")
@@ -536,23 +548,12 @@ results = []
 with torch.no_grad():
   with open("temporary-stimuli/stimuli2.txt", "w") as outFile:
 
-   # surprisals4.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.1 --load-from-autoencoder=922930056 --surpsFile=surprisals4.txt
-
-   # surprisals5.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.0 --load-from-autoencoder=922930056 --surpsFile=surprisals5.txt
-
-   # surprisals6.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.05 --load-from-autoencoder=922930056 --surpsFile=surprisals6.txt
-
-   # surprisals7.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --surpsFile=surprisals7.txt
-
-   # surprisals7b.txt ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --load-from-lm=935649231 --surpsFile=surprisals7b.txt
-
-
-#~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --load-from-lm=935649231 --surpsFile=surprisals7b.txt      ; ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.1 --load-from-autoencoder=922930056 --surpsFile=surprisals4.txt   ;               ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.0 --load-from-autoencoder=922930056 --surpsFile=surprisals5.txt    ;              ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.05 --load-from-autoencoder=922930056 --surpsFile=surprisals6.txt         ;              ~/python-py37-mhahn autoencoder2_mlp_bidir_constructStimulusSentences_RUN_languagemodel.py --deletion_rate=0.15 --load-from-autoencoder=922930056 --surpsFile=surprisals7.txt          
-                                                                                                                                                                                                            
-                                                             
+                                                                                                                                                                                                           
+# ~/python-py37-mhahn autoencoder2_mlp_bidir_Erasure_constructStimulusSentences_RUN_languagemodel2.py --batchSize=800 --SAMPLES_PER_BATCH=1 --NUMBER_OF_RUNS=1 --surpsFile=surpsErasure1.txt                                                             
 
    with open(f"temporary-stimuli/{args.surpsFile}", "w") as outFileSurps:
     for NOUN in topNouns:
+#     NOUN = "belief"
      for sentenceList in nounsAndVerbs:
        print(sentenceList)
        context = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . "
@@ -574,7 +575,7 @@ with torch.no_grad():
           print("===========")
           surprisalsPerRun = []
           thatFractions = []
-          for RUN in range(NUMBER_OF_RUNS):
+          for RUN in range(args.NUMBER_OF_RUNS):
              result, resultNumeric, fractions = autoencoder.forward(numerified, train=False)
              (nounFraction, thatFraction) = fractions
              thatFractions.append(thatFraction)
@@ -583,35 +584,35 @@ with torch.no_grad():
              lm.hidden = None
              lm.beginning = None
            
-             resultNumeric = torch.cat([resultNumeric, torch.LongTensor([stoi_total["."] for _ in range(args.batchSize*SAMPLES_PER_BATCH)]).cuda().view(-1, 1)], dim=1)
+             resultNumeric = torch.cat([resultNumeric, torch.LongTensor([stoi_total["."] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1)], dim=1)
              print(resultNumeric.size())
       #       quit()
        #      quit()
              print(NOUN,  topNouns.index(NOUN), RUN)
              lastTokenSurprisal = lm.forward(resultNumeric.t(), train=False, printHere=True)
-             lastTokenSurprisal = lastTokenSurprisal.view(-1, SAMPLES_PER_BATCH)
+             lastTokenSurprisal = lastTokenSurprisal.view(-1, args.SAMPLES_PER_BATCH)
              #print(lastTokenSurprisal.mean(dim=1))
-             #print(lastTokenSurprisal.view(SAMPLES_PER_BATCH, -1).mean(dim=0))
+             #print(lastTokenSurprisal.view(args.SAMPLES_PER_BATCH, -1).mean(dim=0))
 
              #quit()
              probabilityOfEOS = torch.exp(-lastTokenSurprisal)
-             print(probabilityOfEOS)
+             #print(probabilityOfEOS)
              averageProbabilityOfEOS = probabilityOfEOS.mean(dim=1)
-             print(averageProbabilityOfEOS)
+             #print(averageProbabilityOfEOS)
              surprisalPerBatch = -torch.log(averageProbabilityOfEOS)
-             print(surprisalPerBatch)
+             #print(surprisalPerBatch)
              surprisalsPerRun.append(surprisalPerBatch)
              for index, imputed in enumerate(result):
-                print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{int(index / SAMPLES_PER_BATCH)}\t{condition}\t{imputed}', file=outFile)
+                print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{int(index / args.SAMPLES_PER_BATCH)}\t{condition}\t{imputed}', file=outFile)
 
-   #       print(lastTokenSurprisal.view(SAMPLES_PER_BATCH, -1))
+   #       print(lastTokenSurprisal.view(args.SAMPLES_PER_BATCH, -1))
     #      quit()
-          #for i in range(args.batchSize*SAMPLES_PER_BATCH):
+          #for i in range(args.batchSize*args.SAMPLES_PER_BATCH):
           #   print(denoised[i]+" ### "+samples[i])
   #        results.append((NOUN, sentenceList[0], condition, result))
           print(surprisalsPerRun)
           surprisalsPerRun = torch.stack(surprisalsPerRun, dim=0)
           meanSurprisal = surprisalsPerRun.mean()
           varianceSurprisal = (surprisalsPerRun.pow(2)).mean() - (meanSurprisal**2)
-          print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{condition}\t{meanSurprisal}\t{varianceSurprisal/math.sqrt(NUMBER_OF_RUNS*args.batchSize)}\t{sum(thatFractions)/len(thatFractions)}', file=outFileSurps)
+          print(f'{NOUN}\t{sentenceList[0].replace(" ","_")}\t{condition}\t{meanSurprisal}\t{varianceSurprisal/math.sqrt(args.NUMBER_OF_RUNS*args.batchSize)}\t{sum(thatFractions)/len(thatFractions)}', file=outFileSurps)
           print("NOUNS SO FAR", topNouns.index(NOUN))

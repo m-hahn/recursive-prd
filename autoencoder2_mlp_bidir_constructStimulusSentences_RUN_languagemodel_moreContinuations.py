@@ -55,7 +55,7 @@ args=parser.parse_args()
 
 #################################
 SAMPLES_PER_BATCH = 200
-NUMBER_OF_RUNS = 50
+NUMBER_OF_RUNS = 100
 #################################
 
 #if "MYID" in args.save_to:
@@ -137,14 +137,14 @@ class LanguageModel(torch.nn.Module):
               yield param
 
   def sample(self, numeric):
-  #   print(numeric.size())
+     print(numeric.size())
      embedded = self.word_embeddings(numeric.unsqueeze(0))
      results = ["" for _ in range(args.batchSize*SAMPLES_PER_BATCH)]     
      for _ in range(10): 
         out, self.hidden = self.rnn(embedded, self.hidden)
         logits = self.output(out) 
         probs = self.softmax(logits)
-        #print(probs.size())
+        print(probs.size())
         dist = torch.distributions.Categorical(probs=probs)
          
         nextWord = (dist.sample())
@@ -370,7 +370,7 @@ class Autoencoder(torch.nn.Module):
              result_numeric[i].append( nextWordDistCPU[i] )
           embeddedLast = self.word_embeddings(nextWord)
 #          print(embeddedLast.size())
-      for r in result[:10]:
+      for r in result:
          print(r)
       nounFraction = (float(len([x for x in result if NOUN in x]))/len(result))
 
@@ -437,6 +437,14 @@ nounsAndVerbs = []
 #nounsAndVerbs.append(["the conservative senator",        "the diplomat",       "opposed in the election",                   "won in the run-off",                   "really made him angry"])
 
 nounsAndVerbs.append(["the senator",        "the diplomat",       "opposed",                   "won",                   "was true"])
+
+# ADDITIONAL NOUNS AND VERBS
+nounsAndVerbs.append(["the janitor",        "the doctor",       "treated",                   "won",                   "was false"])
+nounsAndVerbs.append(["the child",        "the woman",       "admired",                   "won",                   "was true"])
+nounsAndVerbs.append(["the student",        "the teacher",       "knew",                   "won",                   "was false"])
+nounsAndVerbs.append(["the senator",        "the artist",       "loved",                   "won",                   "was true"])
+nounsAndVerbs.append(["the diplomat",        "the sponsor",       "rescued",                   "won",                   "was false"])
+nounsAndVerbs.append(["the man",        "the officer",       "admired",                   "won",                   "was true"])
 
 #nounsAndVerbs = nounsAndVerbs[:1]
 
