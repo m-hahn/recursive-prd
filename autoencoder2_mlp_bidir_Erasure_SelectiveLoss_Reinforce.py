@@ -12,7 +12,6 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
 parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=878921872)
-#parser.add_argument("--save-to", dest="save_to", type=str)
 
 import random
 
@@ -43,10 +42,6 @@ import math
 
 args=parser.parse_args()
 
-#if "MYID" in args.save_to:
-#   args.save_to = args.save_to.replace("MYID", str(args.myID))
-
-#assert "word" in args.save_to, args.save_to
 
 print(args)
 
@@ -246,7 +241,7 @@ bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.w
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * 2 * args.hidden_dim)]).cuda())
 
 
-
+runningAveragePredictionLoss = 1.0
 
 def forward(numeric, train=True, printHere=False):
       global beginning
@@ -298,14 +293,14 @@ def forward(numeric, train=True, printHere=False):
 
 
       embedded = word_embeddings(input_tensor)
-      if train:
+      if False and train:
          embedded = char_dropout(embedded)
          mask = bernoulli_input.sample()
          mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
          embedded = embedded * mask
 
       embedded_noised = word_embeddings(input_tensor_noised)
-      if train:
+      if False and train:
          embedded_noised = char_dropout(embedded_noised)
          mask = bernoulli_input.sample()
          mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
@@ -326,7 +321,7 @@ def forward(numeric, train=True, printHere=False):
       out_full = torch.cat([out_decoder, from_encoder], dim=2)
 
 
-      if train:
+      if False and train:
         mask = bernoulli_output.sample()
         mask = mask.view(1, args.batchSize, 2*args.hidden_dim)
         out_full = out_full * mask
@@ -366,8 +361,10 @@ def forward(numeric, train=True, printHere=False):
 #            print(memory_hidden_CPU[i+1])
 
             print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
-      print("PREDICTION_LOSS", float(negativeRewards.mean()), "TERM2", float(reinforceObjectiveTerm2), "AVERAGE_RETENTION", float(expectedRetentionRate))
+      global runningAveragePredictionLoss
 
+      print(runningAveragePredictionLoss, "PREDICTION_LOSS", float(negativeRewards.mean()), "\tTERM2", float(reinforceObjectiveTerm2), "\tAVERAGE_RETENTION", float(expectedRetentionRate))
+      runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewards.mean())
       return loss, target_tensor.view(-1).size()[0]
 
 def backward(loss, printHere):
@@ -430,11 +427,10 @@ for epoch in range(10000):
           print(lastSaved)
           print(__file__)
           print(args)
-      if counter % 2000 == 0: # and epoch == 0:
-     #   if args.save_to is not None:
-        state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_autoencoder]}
-        torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-        lastSaved = (epoch, counter)
+#      if counter % 2000 == 0: # and epoch == 0:
+#        state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_memory]}
+#        torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+#        lastSaved = (epoch, counter)
       if (time.time() - totalStartTime)/60 > 4000:
           print("Breaking early to get some result within 72 hours")
           totalStartTime = time.time()
@@ -468,8 +464,6 @@ for epoch in range(10000):
    devLosses.append(dev_loss/dev_char_count)
    print(devLosses)
 #   quit()
-   #if args.save_to is not None:
- #     torch.save(dict([(name, module.state_dict()) for name, module in named_modules_autoencoder.items()]), MODELS_HOME+"/"+args.save_to+".pth.tar")
 
    with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
        print(str(args), file=outFile)
@@ -478,9 +472,9 @@ for epoch in range(10000):
    if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
       break
 
-   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_autoencoder]}
-   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-   lastSaved = (epoch, counter)
+#   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_memory]}
+#   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+#   lastSaved = (epoch, counter)
 
 
 
