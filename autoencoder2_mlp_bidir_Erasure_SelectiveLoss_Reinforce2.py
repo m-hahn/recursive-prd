@@ -164,9 +164,9 @@ optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=0.0) # 0
  #     module.load_state_dict(checkpoint[name])
 if args.load_from_autoencoder is not None:
   try:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce2", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
   except FileNotFoundError:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce2", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
       modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
 
@@ -242,6 +242,7 @@ bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.
 
 
 runningAveragePredictionLoss = 1.0
+runningAverageReward = 1.0
 
 def forward(numeric, train=True, printHere=False):
       global beginning
@@ -331,47 +332,37 @@ def forward(numeric, train=True, printHere=False):
       logits = output(relu(output_mlp(out_full) ))
       log_probs = logsoftmax(logits)
 
-      
+      # Prediction Loss 
       lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
-      negativeRewards = lossTensor.mean(dim=0)
+      negativeRewardsTerm1 = lossTensor.mean(dim=0)
+
+      # Regularization towards lower retention rates
+      negativeRewardsTerm2 = memory_filter.mean(dim=0)
+
+      # Overall Reward
+      RATE_WEIGHT = 0.1
+      negativeRewardsTerm = negativeRewardsTerm1 + RATE_WEIGHT * negativeRewardsTerm2
 
       global runningAveragePredictionLoss
+      global runningAverageReward
 
-      reinforceObjectiveTerm1 = ((negativeRewards.detach()-runningAveragePredictionLoss) * bernoulli_logprob_perBatch).mean()
+      loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
       
       expectedRetentionRate = memory_hidden.mean()
-#      print(expectedRetentionRate)
 
-      if True: # no clamping
-         RATE_WEIGHT = 0.01
-         reinforceObjectiveTerm2 = RATE_WEIGHT * expectedRetentionRate
-      else:
-         RATE_WEIGHT = 1.0
-         reinforceObjectiveTerm2 = RATE_WEIGHT * torch.clamp(expectedRetentionRate-(1-args.deletion_rate), min=0)
-
-      loss = reinforceObjectiveTerm1 + reinforceObjectiveTerm2
-#      print(reinforceObjective)
-#      print(negativeRewards)
- #     print(lossTensor, lossTensor.size())
- #     print(memory_hidden.size())
-#      quit()
       if printHere:
-#         lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
          losses = lossTensor.data.cpu().numpy()
          numericCPU = numeric.cpu().data.numpy()
          numeric_noisedCPU = numeric_noised.cpu().data.numpy()
          memory_hidden_CPU = memory_hidden[:,0,0].cpu().data.numpy()
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-#            print(losses[i][0])
-#            print(itos_total[numericCPU[i+1][0]])
-#            print(itos_total[numeric_noisedCPU[i+1][0])
-#            print(memory_hidden_CPU[i+1])
-
             print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
 
-      print(runningAveragePredictionLoss, "PREDICTION_LOSS", float(negativeRewards.mean()), "\tTERM2", float(reinforceObjectiveTerm2), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewards.detach()-runningAveragePredictionLoss).abs().mean()))
-      runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewards.mean())
+      print(runningAveragePredictionLoss, "PREDICTION_LOSS", float(negativeRewardsTerm1.mean()), "\tTERM2", float(negativeRewardsTerm2.mean()), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward)
+      runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
+      runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float(negativeRewardsTerm.mean())
+
       return loss, target_tensor.view(-1).size()[0]
 
 def backward(loss, printHere):
