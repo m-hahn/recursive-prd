@@ -17,3 +17,5 @@ output/
 *.swl
 *.swm
 *.swn
+temporary-stimuli/
+slurm*.out
