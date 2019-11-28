@@ -127,6 +127,8 @@ word_embeddings_memory = torch.nn.Embedding(num_embeddings=len(itos)+3, embeddin
 word_embeddings_memory.weight.data.fill_(0)
 
 
+perTypeBaseline = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=1).cuda()
+perTypeBaseline.weight.data.fill_(2.0)
 
 sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
@@ -142,7 +144,7 @@ relu = torch.nn.ReLU()
 #
 #modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
-modules_memory = [word_embeddings_memory]
+modules_memory = [word_embeddings_memory, perTypeBaseline]
 
 def parameters_memory():
    for module in modules_memory:
@@ -170,9 +172,9 @@ optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.mom
  #     module.load_state_dict(checkpoint[name])
 if args.load_from_autoencoder is not None:
   try:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce5_Debug", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure_SelectiveLoss.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
   except FileNotFoundError:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce5_Debug", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
       modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
 
@@ -262,6 +264,8 @@ def forward(numeric, train=True, printHere=False):
 
       numeric = torch.cat([beginning, numeric], dim=0)
 
+      
+
       memory_hidden_inner = word_embeddings_memory(numeric)
       memory_hidden = sigmoid(memory_hidden_inner) #memory_mlp_inner(embedded_everything))
 
@@ -285,6 +289,7 @@ def forward(numeric, train=True, printHere=False):
 
       target_tensor = Variable(numeric_onlyNoisedOnes[1:], requires_grad=False)
 
+      baselinePredictions = perTypeBaseline(numeric)[1:].squeeze(2)
 
       embedded = word_embeddings(input_tensor)
 
@@ -305,10 +310,13 @@ def forward(numeric, train=True, printHere=False):
 
       # Prediction Loss 
       lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
-      negativeRewardsTerm1 = lossTensor.mean(dim=0)
+      negativeRewardsTerm1 = (lossTensor - baselinePredictions).mean(dim=0)
 
       # Regularization towards lower retention rates
-      negativeRewardsTerm2 = memory_filter.mean(dim=0)
+      negativeRewardsTerm2 = (memory_filter - memory_hidden.squeeze(2)).mean(dim=0)
+
+      # Baseline Loss
+      baselineLoss = (lossTensor.detach() - baselinePredictions).pow(2).mean()
 
       # Overall Reward
       negativeRewardsTerm = negativeRewardsTerm1 + args.RATE_WEIGHT * negativeRewardsTerm2
@@ -316,9 +324,14 @@ def forward(numeric, train=True, printHere=False):
       global runningAveragePredictionLoss
       global runningAverageReward
 
-      loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
+      # The loss for the main objective
+      loss = ((negativeRewardsTerm.detach()) * bernoulli_logprob_perBatch).mean()
+      # Loss for training the per-type control variate
+      loss += baselineLoss
+      # Loss for entropy regularization
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
+
       expectedRetentionRate = memory_hidden.mean()
 
       if printHere:
@@ -327,14 +340,17 @@ def forward(numeric, train=True, printHere=False):
          numeric_noisedCPU = numeric_noised.cpu().data.numpy()
          memory_hidden_CPU = memory_hidden[:,0,0].cpu().data.numpy()
          memory_hidden_inner_CPU = memory_hidden_inner[:,0,0].cpu().data.numpy()
-
+         print(baselinePredictions.size())
+         baselinePredictions_CPU = baselinePredictions[:,0].cpu().data.numpy()
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], memory_hidden_inner_CPU[i+1]))
+            print((losses[i][0], baselinePredictions_CPU[i], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1])) #, memory_hidden_inner_CPU[i+1]))
 
-      print(round(runningAveragePredictionLoss,3), "PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
-      runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
-      runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float(negativeRewardsTerm.mean())
+      print(round(runningAveragePredictionLoss,3), "PREDICTION_LOSS", round(float(lossTensor.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float(negativeRewardsTerm.abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+
+      runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(lossTensor.mean())
+
+      runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float((lossTensor.mean() + args.RATE_WEIGHT * memory_filter.mean()))
 
       return loss, target_tensor.view(-1).size()[0]
 
@@ -344,7 +360,7 @@ def backward(loss, printHere):
          print(loss)
       loss.backward()
       print("MAXIMUM GRADIENT", word_embeddings_memory.weight.grad.abs().max())
-      torch.nn.utils.clip_grad_value_(parameters_memory_cached, 5.0) #, norm_type="inf")
+#      torch.nn.utils.clip_grad_value_(parameters_memory_cached, 5.0) #, norm_type="inf")
       optim.step()
 
 

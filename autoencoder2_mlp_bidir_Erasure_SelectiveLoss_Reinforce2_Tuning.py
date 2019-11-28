@@ -15,7 +15,7 @@ parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", typ
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([1]))
+parser.add_argument("--batchSize", type=int, default=random.choice([128, 128, 128, 256]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([512]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
@@ -23,7 +23,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.2]))
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]))  # 0.1, 0.2, 0.4, 0.6, 
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -35,9 +35,9 @@ parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
-parser.add_argument("--RATE_WEIGHT", type=float, default=0.4)
-parser.add_argument("--momentum", type=float, default=0.0)
-parser.add_argument("--entropy_weight", type=float, default=0.0)
+parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([1.25, 1.5, 2.0, 2.25])) # 0.5, 0.75, 1.0, 
+parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.0, 0.0, 0.3]))
+parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0, 0.0001, 0.001, 0.005])) #, 0.01, 0.1, 0.4]))
 
 
 model = "REAL_REAL"
@@ -46,6 +46,10 @@ import math
 
 args=parser.parse_args()
 
+
+print(args.myID)
+import sys
+sys.stdout = open("/u/scr/mhahn/reinforce-logs/full-logs/"+__file__+"_"+str(args.myID), "w")
 
 print(args)
 
@@ -123,10 +127,8 @@ output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
 modules_autoencoder = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj, output_mlp]
 
 
-word_embeddings_memory = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=1).cuda()
-word_embeddings_memory.weight.data.fill_(0)
-
-
+memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
+memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
 
 sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
@@ -142,7 +144,7 @@ relu = torch.nn.ReLU()
 #
 #modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
-modules_memory = [word_embeddings_memory]
+modules_memory = [memory_mlp_inner, memory_mlp_outer]
 
 def parameters_memory():
    for module in modules_memory:
@@ -170,9 +172,9 @@ optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.mom
  #     module.load_state_dict(checkpoint[name])
 if args.load_from_autoencoder is not None:
   try:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce5_Debug", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure_SelectiveLoss.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
   except FileNotFoundError:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce5_Debug", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
       modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
 
@@ -250,6 +252,9 @@ bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.
 runningAveragePredictionLoss = 1.0
 runningAverageReward = 1.0
 
+
+expectedRetentionRate = 0.5
+
 def forward(numeric, train=True, printHere=False):
       global beginning
       global beginning_chars
@@ -262,22 +267,39 @@ def forward(numeric, train=True, printHere=False):
 
       numeric = torch.cat([beginning, numeric], dim=0)
 
-      memory_hidden_inner = word_embeddings_memory(numeric)
-      memory_hidden = sigmoid(memory_hidden_inner) #memory_mlp_inner(embedded_everything))
+      embedded_everything = word_embeddings(numeric)
+
+
+      memory_hidden = sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything))))
+     # print(memory_hidden)
+    #  print(memory_hidden.size())
 
       bernoulli_memory = torch.distributions.bernoulli.Bernoulli(memory_hidden)
       memory_filter = bernoulli_memory.sample()
 
       bernoulli_logprob = torch.where(memory_filter == 1, torch.log(memory_hidden), torch.log(1-memory_hidden))
 
-      bernoulli_logprob_perBatch = bernoulli_logprob.sum(dim=0)
+      bernoulli_logprob_perBatch = bernoulli_logprob.mean(dim=0)
       if args.entropy_weight > 0:
          entropy = -(memory_hidden * torch.log(memory_hidden) + (1-memory_hidden) * torch.log(1-memory_hidden)).mean()
       else:
          entropy=-1.0
+ #     print(bernoulli_logprob)
+  #    print(bernoulli_logprob.size())
+   #   print(bernoulli_logprob_perBatch)
+
+#      quit()
+#memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500)
+#memory_mlp_outer = torch.nn.Linear(500, 1)
+#
+#sigmoid = torch.nn.Sigmoid()
+#relu = torch.nn.ReLU()
 
       memory_filter = memory_filter.squeeze(2)
+ #     print(memory_filter.size(), numeric.size())
+#      quit()
       numeric_noised = torch.where(memory_filter==1, numeric, 0*numeric) #[[x if random.random() > args.deletion_rate else 0 for x in y] for y in numeric.cpu().t()]
+#      numeric_noised = torch.LongTensor([[0 for _ in range(args.sequence_length-len(y))] + y for y in numeric_noised]).cuda().t()
       numeric_onlyNoisedOnes = torch.where(memory_filter == 0, numeric, 0*numeric) # target is 0 in those places where no noise has happened
 
       input_tensor = Variable(numeric[:-1], requires_grad=False)
@@ -287,17 +309,39 @@ def forward(numeric, train=True, printHere=False):
 
 
       embedded = word_embeddings(input_tensor)
+      if False and train:
+         embedded = char_dropout(embedded)
+         mask = bernoulli_input.sample()
+         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         embedded = embedded * mask
 
       embedded_noised = word_embeddings(input_tensor_noised)
-     
-      with torch.no_grad():
-          out_encoder, _ = rnn_encoder(embedded_noised, None)
-          out_decoder, _ = rnn_decoder(embedded, None)
+      if False and train:
+         embedded_noised = char_dropout(embedded_noised)
+         mask = bernoulli_input.sample()
+         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         embedded_noised = embedded_noised * mask
+#      print(input_tensor_noised)
+ #     print("NOISED", embedded_noised[1,1,])
+  #    print("NOISED", embedded_noised[1,2,])
+   #   print("NOISED", embedded_noised[2,2,])
+
+    #  print(embedded_noised.size())
+      
+      out_encoder, _ = rnn_encoder(embedded_noised, None)
+      out_decoder, _ = rnn_decoder(embedded, None)
 
       attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
       attention = attention_softmax(attention).transpose(0,1)
       from_encoder = (out_encoder.unsqueeze(2) * attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
       out_full = torch.cat([out_decoder, from_encoder], dim=2)
+
+
+      if False and train:
+        mask = bernoulli_output.sample()
+        mask = mask.view(1, args.batchSize, 2*args.hidden_dim)
+        out_full = out_full * mask
+
 
 
       logits = output(relu(output_mlp(out_full) ))
@@ -319,6 +363,7 @@ def forward(numeric, train=True, printHere=False):
       loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
+      global expectedRetentionRate
       expectedRetentionRate = memory_hidden.mean()
 
       if printHere:
@@ -326,13 +371,11 @@ def forward(numeric, train=True, printHere=False):
          numericCPU = numeric.cpu().data.numpy()
          numeric_noisedCPU = numeric_noised.cpu().data.numpy()
          memory_hidden_CPU = memory_hidden[:,0,0].cpu().data.numpy()
-         memory_hidden_inner_CPU = memory_hidden_inner[:,0,0].cpu().data.numpy()
-
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], memory_hidden_inner_CPU[i+1]))
+            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
 
-      print(round(runningAveragePredictionLoss,3), "PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+         print(round(runningAveragePredictionLoss,3), "PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
       runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
       runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float(negativeRewardsTerm.mean())
 
@@ -343,7 +386,6 @@ def backward(loss, printHere):
       if printHere:
          print(loss)
       loss.backward()
-      print("MAXIMUM GRADIENT", word_embeddings_memory.weight.grad.abs().max())
       torch.nn.utils.clip_grad_value_(parameters_memory_cached, 5.0) #, norm_type="inf")
       optim.step()
 
@@ -356,6 +398,7 @@ totalStartTime = time.time()
 
 lastSaved = (None, None)
 devLosses = []
+updatesCount = 0
 for epoch in range(10000):
    print(epoch)
    training_data = corpusIteratorWikiWords.training(args.language)
@@ -371,8 +414,11 @@ for epoch in range(10000):
    trainChars = 0
    counter = 0
    hidden, beginning = None, None
-   while True:
+   if updatesCount >= 20000:
+     break
+   while updatesCount <= 20000:
       counter += 1
+      updatesCount += 1
       try:
          numeric = next(training_chars)
       except StopIteration:
@@ -408,52 +454,55 @@ for epoch in range(10000):
           totalStartTime = time.time()
           break
 
- #     break
-   rnn_encoder.train(False)
-   rnn_decoder.train(False)
+# #     break
+#   rnn_encoder.train(False)
+#   rnn_decoder.train(False)
+#
+#
+#   dev_data = corpusIteratorWikiWords.dev(args.language)
+#   print("Got data")
+#   dev_chars = prepareDatasetChunks(dev_data, train=False)
+#
+#
+#     
+#   dev_loss = 0
+#   dev_char_count = 0
+#   counter = 0
+#   hidden, beginning = None, None
+#   while True:
+#       counter += 1
+#       try:
+#          numeric = next(dev_chars)
+#       except StopIteration:
+#          break
+#       printHere = (counter % 50 == 0)
+#       loss, numberOfCharacters = forward(numeric, printHere=printHere, train=False)
+#       dev_loss += numberOfCharacters * loss.cpu().data.numpy()
+#       dev_char_count += numberOfCharacters
+#   devLosses.append(dev_loss/dev_char_count)
+#   print(devLosses)
+##   quit()
+#
+##   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
+##       print(str(args), file=outFile)
+##       print(" ".join([str(x) for x in devLosses]), file=outFile)
+#
+#   if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
+#      break
+#
+##   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_memory]}
+##   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+##   lastSaved = (epoch, counter)
+#
+#
+#
+#
+#
+#
+#   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
+#   optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
-
-   dev_data = corpusIteratorWikiWords.dev(args.language)
-   print("Got data")
-   dev_chars = prepareDatasetChunks(dev_data, train=False)
-
-
-     
-   dev_loss = 0
-   dev_char_count = 0
-   counter = 0
-   hidden, beginning = None, None
-   while True:
-       counter += 1
-       try:
-          numeric = next(dev_chars)
-       except StopIteration:
-          break
-       printHere = (counter % 50 == 0)
-       loss, numberOfCharacters = forward(numeric, printHere=printHere, train=False)
-       dev_loss += numberOfCharacters * loss.cpu().data.numpy()
-       dev_char_count += numberOfCharacters
-   devLosses.append(dev_loss/dev_char_count)
-   print(devLosses)
-#   quit()
-
-   with open("/u/scr/mhahn/recursive-prd/memory-upper-neural-pos-only_recursive_words/estimates-"+args.language+"_"+__file__+"_model_"+str(args.myID)+"_"+model+".txt", "w") as outFile:
-       print(str(args), file=outFile)
-       print(" ".join([str(x) for x in devLosses]), file=outFile)
-
-   if len(devLosses) > 1 and devLosses[-1] > devLosses[-2]:
-      break
-
-#   state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_memory]}
-#   torch.save(state, "/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
-#   lastSaved = (epoch, counter)
-
-
-
-
-
-
-   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
-   optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
-
-
+with open("/u/scr/mhahn/reinforce-logs/results/"+__file__+"_"+str(args.myID), "w") as outFile:
+   print(args, file=outFile)
+   print(runningAverageReward, file=outFile)
+   print(expectedRetentionRate, file=outFile)

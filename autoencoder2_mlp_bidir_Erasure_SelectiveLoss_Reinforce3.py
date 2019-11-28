@@ -274,7 +274,7 @@ def forward(numeric, train=True, printHere=False):
 
       bernoulli_logprob_perBatch = bernoulli_logprob.mean(dim=0)
       if args.entropy_weight > 0:
-         entropy = -(memory_hidden * torch.log(memory_hidden) + (1-memory_hidden) * torch.log(1-memory_hidden)).mean()
+         entropy = -(memory_hidden * torch.log(memory_hidden+1e-10) + (1-memory_hidden) * torch.log(1-memory_hidden+1e-10)).mean()
       else:
          entropy=-1.0
  #     print(bernoulli_logprob)

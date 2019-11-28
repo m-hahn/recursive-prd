@@ -261,10 +261,15 @@ def forward(numeric, train=True, printHere=False):
 
       numeric = torch.cat([beginning, numeric], dim=0)
 
+#      print(264, numeric.max(), len(itos)+3)
       embedded_everything = word_embeddings(numeric)
+ #     print(266, embedded_everything.mean())
 
-
-      memory_hidden = sigmoid(memory_mlp_inner(embedded_everything))
+      memory_hidden_inner = memory_mlp_inner(embedded_everything)
+  #    print(memory_mlp_inner.weight)
+   #   print(269, memory_hidden_inner.mean())
+      memory_hidden = sigmoid(memory_hidden_inner)
+    #  print(271, memory_hidden.mean())
      # print(memory_hidden)
     #  print(memory_hidden.size())
 
@@ -275,7 +280,8 @@ def forward(numeric, train=True, printHere=False):
 
       bernoulli_logprob_perBatch = bernoulli_logprob.mean(dim=0)
       if args.entropy_weight > 0:
-         entropy = -(memory_hidden * torch.log(memory_hidden) + (1-memory_hidden) * torch.log(1-memory_hidden)).mean()
+         entropy = -(memory_hidden * torch.log(memory_hidden+1e-10) + (1-memory_hidden) * torch.log(1-memory_hidden+1e-10)).mean()
+     #    print("MEMORY min and max", memory_hidden.min(), memory_hidden.max())
       else:
          entropy=-1.0
  #     print(bernoulli_logprob)
@@ -342,6 +348,7 @@ def forward(numeric, train=True, printHere=False):
       log_probs = logsoftmax(logits)
 
       # Prediction Loss 
+#      print(log_probs.size(), len(itos)+3, target_tensor.max(), target_tensor.min())
       lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
       negativeRewardsTerm1 = lossTensor.mean(dim=0)
 
@@ -378,6 +385,7 @@ def backward(loss, printHere):
       optim.zero_grad()
       if printHere:
          print(loss)
+#      print("LOSS", loss)
       loss.backward()
       torch.nn.utils.clip_grad_value_(parameters_memory_cached, 5.0) #, norm_type="inf")
       optim.step()
