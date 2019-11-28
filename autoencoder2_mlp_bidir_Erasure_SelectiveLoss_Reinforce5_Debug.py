@@ -123,8 +123,10 @@ output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
 modules_autoencoder = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj, output_mlp]
 
 
-memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
-memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
+word_embeddings_memory = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=1).cuda()
+word_embeddings_memory.weight.data.fill_(0)
+
+
 
 sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
@@ -140,7 +142,7 @@ relu = torch.nn.ReLU()
 #
 #modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
-modules_memory = [memory_mlp_inner, memory_mlp_outer]
+modules_memory = [word_embeddings_memory]
 
 def parameters_memory():
    for module in modules_memory:
@@ -168,9 +170,9 @@ optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.mom
  #     module.load_state_dict(checkpoint[name])
 if args.load_from_autoencoder is not None:
   try:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce2", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce5", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
   except FileNotFoundError:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce2", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce5", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
       modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
 
@@ -260,10 +262,10 @@ def forward(numeric, train=True, printHere=False):
 
       numeric = torch.cat([beginning, numeric], dim=0)
 
-      embedded_everything = word_embeddings(numeric)
+      #embedded_everything = word_embeddings(numeric)
 
 
-      memory_hidden = sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything))))
+      memory_hidden = sigmoid(word_embeddings_memory(numeric)) #memory_mlp_inner(embedded_everything))
      # print(memory_hidden)
     #  print(memory_hidden.size())
 
@@ -320,9 +322,10 @@ def forward(numeric, train=True, printHere=False):
    #   print("NOISED", embedded_noised[2,2,])
 
     #  print(embedded_noised.size())
-      
-      out_encoder, _ = rnn_encoder(embedded_noised, None)
-      out_decoder, _ = rnn_decoder(embedded, None)
+     
+      with torch.no_grad():
+          out_encoder, _ = rnn_encoder(embedded_noised, None)
+          out_decoder, _ = rnn_decoder(embedded, None)
 
       attention = torch.bmm(attention_proj(out_encoder).transpose(0,1), out_decoder.transpose(0,1).transpose(1,2))
       attention = attention_softmax(attention).transpose(0,1)
@@ -378,6 +381,7 @@ def backward(loss, printHere):
       if printHere:
          print(loss)
       loss.backward()
+      print(word_embeddings_memory.weight.grad.abs().max())
       torch.nn.utils.clip_grad_value_(parameters_memory_cached, 5.0) #, norm_type="inf")
       optim.step()
 

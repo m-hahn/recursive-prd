@@ -15,7 +15,7 @@ parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", typ
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([128]))
+parser.add_argument("--batchSize", type=int, default=random.choice([1]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([512]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
@@ -23,7 +23,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.2]))
+parser.add_argument("--learning_rate", type = float, default= random.choice([1.0]))
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -37,8 +37,9 @@ parser.add_argument("--deletion_rate", type=float, default=0.2)
 
 parser.add_argument("--RATE_WEIGHT", type=float, default=0.4)
 parser.add_argument("--momentum", type=float, default=0.0)
-parser.add_argument("--entropy_weight", type=float, default=0.0)
+parser.add_argument("--entropy_weight", type=float, default=0.01)
 
+#--learning_rate=1.0 --entropy_weight=0.01 --batchSize=1
 
 model = "REAL_REAL"
 
@@ -123,8 +124,8 @@ output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
 modules_autoencoder = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj, output_mlp]
 
 
-memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
-memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
+memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 1, bias=False).cuda()
+memory_mlp_inner.weight.data.fill_(0)
 
 sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
@@ -140,7 +141,7 @@ relu = torch.nn.ReLU()
 #
 #modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
-modules_memory = [memory_mlp_inner, memory_mlp_outer]
+modules_memory = [memory_mlp_inner]
 
 def parameters_memory():
    for module in modules_memory:
@@ -168,9 +169,9 @@ optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.mom
  #     module.load_state_dict(checkpoint[name])
 if args.load_from_autoencoder is not None:
   try:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce2", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce3_Debug", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
   except FileNotFoundError:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce2", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce3_Debug", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
       modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
 
@@ -263,7 +264,7 @@ def forward(numeric, train=True, printHere=False):
       embedded_everything = word_embeddings(numeric)
 
 
-      memory_hidden = sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything))))
+      memory_hidden = sigmoid(memory_mlp_inner(embedded_everything))
      # print(memory_hidden)
     #  print(memory_hidden.size())
 

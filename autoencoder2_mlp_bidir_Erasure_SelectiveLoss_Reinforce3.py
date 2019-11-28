@@ -123,8 +123,8 @@ output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
 modules_autoencoder = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj, output_mlp]
 
 
-memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
-memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
+memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 1, bias=False).cuda()
+memory_mlp_inner.weight.data.fill_(0)
 
 sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
@@ -140,7 +140,7 @@ relu = torch.nn.ReLU()
 #
 #modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
-modules_memory = [memory_mlp_inner, memory_mlp_outer]
+modules_memory = [memory_mlp_inner]
 
 def parameters_memory():
    for module in modules_memory:
@@ -168,9 +168,9 @@ optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.mom
  #     module.load_state_dict(checkpoint[name])
 if args.load_from_autoencoder is not None:
   try:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce2", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_Reinforce3", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
   except FileNotFoundError:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce2", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+__file__.replace("_SelectiveLoss_Reinforce3", "")+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
       modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
 
@@ -263,7 +263,7 @@ def forward(numeric, train=True, printHere=False):
       embedded_everything = word_embeddings(numeric)
 
 
-      memory_hidden = sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything))))
+      memory_hidden = sigmoid(memory_mlp_inner(embedded_everything))
      # print(memory_hidden)
     #  print(memory_hidden.size())
 
