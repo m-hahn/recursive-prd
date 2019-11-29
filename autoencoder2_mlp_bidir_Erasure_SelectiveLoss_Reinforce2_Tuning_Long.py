@@ -15,7 +15,7 @@ parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", typ
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([128])) # , 128, 128, 256
+parser.add_argument("--batchSize", type=int, default=random.choice([128, 128, 128, 256]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([512]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
@@ -23,7 +23,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])) #, 2.4, 2.6, 2.8]))  # 0.1, 0.2, 0.4, 0.6, 
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2, 2.4, 2.6, 2.8]))  # 0.1, 0.2, 0.4, 0.6, 
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -129,8 +129,6 @@ modules_autoencoder = [rnn_decoder, rnn_encoder, output, word_embeddings, attent
 
 memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
 memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
-perTypeBaseline = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=1).cuda()
-perTypeBaseline.weight.data.fill_(2.0)
 
 sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
@@ -146,7 +144,7 @@ relu = torch.nn.ReLU()
 #
 #modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
-modules_memory = [memory_mlp_inner, memory_mlp_outer, perTypeBaseline]
+modules_memory = [memory_mlp_inner, memory_mlp_outer]
 
 def parameters_memory():
    for module in modules_memory:
@@ -310,12 +308,26 @@ def forward(numeric, train=True, printHere=False):
 
       target_tensor = Variable(numeric_onlyNoisedOnes[1:], requires_grad=False)
 
-      baselinePredictions = perTypeBaseline(numeric)[1:].squeeze(2)
 
       embedded = word_embeddings(input_tensor)
+      if False and train:
+         embedded = char_dropout(embedded)
+         mask = bernoulli_input.sample()
+         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         embedded = embedded * mask
 
       embedded_noised = word_embeddings(input_tensor_noised)
+      if False and train:
+         embedded_noised = char_dropout(embedded_noised)
+         mask = bernoulli_input.sample()
+         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         embedded_noised = embedded_noised * mask
+#      print(input_tensor_noised)
+ #     print("NOISED", embedded_noised[1,1,])
+  #    print("NOISED", embedded_noised[1,2,])
+   #   print("NOISED", embedded_noised[2,2,])
 
+    #  print(embedded_noised.size())
       
       out_encoder, _ = rnn_encoder(embedded_noised, None)
       out_decoder, _ = rnn_decoder(embedded, None)
@@ -326,18 +338,22 @@ def forward(numeric, train=True, printHere=False):
       out_full = torch.cat([out_decoder, from_encoder], dim=2)
 
 
+      if False and train:
+        mask = bernoulli_output.sample()
+        mask = mask.view(1, args.batchSize, 2*args.hidden_dim)
+        out_full = out_full * mask
+
+
+
       logits = output(relu(output_mlp(out_full) ))
       log_probs = logsoftmax(logits)
 
       # Prediction Loss 
       lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
-      negativeRewardsTerm1 = (lossTensor - baselinePredictions).mean(dim=0)
+      negativeRewardsTerm1 = lossTensor.mean(dim=0)
 
       # Regularization towards lower retention rates
-      negativeRewardsTerm2 = (memory_filter - memory_hidden.squeeze(2)).mean(dim=0)
-
-      # Baseline Loss
-      baselineLoss = (lossTensor.detach() - baselinePredictions).pow(2).mean()
+      negativeRewardsTerm2 = memory_filter.mean(dim=0)
 
       # Overall Reward
       negativeRewardsTerm = negativeRewardsTerm1 + args.RATE_WEIGHT * negativeRewardsTerm2
@@ -345,11 +361,7 @@ def forward(numeric, train=True, printHere=False):
 #      global runningAveragePredictionLoss
       global runningAverageReward
 
-      # The loss for the main objective
-      loss = ((negativeRewardsTerm.detach()) * bernoulli_logprob_perBatch).mean()
-      # Loss for training the per-type control variate
-      loss += baselineLoss
-      # Loss for entropy regularization
+      loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
       global expectedRetentionRate
@@ -360,16 +372,13 @@ def forward(numeric, train=True, printHere=False):
          numericCPU = numeric.cpu().data.numpy()
          numeric_noisedCPU = numeric_noised.cpu().data.numpy()
          memory_hidden_CPU = memory_hidden[:,0,0].cpu().data.numpy()
-         #memory_hidden_inner_CPU = memory_hidden_inner[:,0,0].cpu().data.numpy()
-         print(baselinePredictions.size())
-         baselinePredictions_CPU = baselinePredictions[:,0].cpu().data.numpy()
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-            print((losses[i][0], baselinePredictions_CPU[i], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1])) #, memory_hidden_inner_CPU[i+1]))
+            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
 
-         print("PREDICTION_LOSS", round(float(lossTensor.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float(negativeRewardsTerm.abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
-
-      runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float((lossTensor.mean() + args.RATE_WEIGHT * memory_filter.mean()))
+         print("PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+      #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
+      runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float(negativeRewardsTerm.mean())
 
       return loss, target_tensor.view(-1).size()[0]
 
@@ -406,9 +415,9 @@ for epoch in range(10000):
    trainChars = 0
    counter = 0
    hidden, beginning = None, None
-   if updatesCount >= 20000:
+   if updatesCount >= 50000:
      break
-   while updatesCount <= 20000:
+   while updatesCount <= 50000:
       counter += 1
       updatesCount += 1
       try:

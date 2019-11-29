@@ -15,7 +15,7 @@ parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", typ
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([128, 128, 128, 256]))
+parser.add_argument("--batchSize", type=int, default=random.choice([128])) # , 128, 128, 256
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([512]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
@@ -23,7 +23,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0]))  # 0.1, 0.2, 0.4, 0.6, 
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])) #, 2.4, 2.6, 2.8]))  # 0.1, 0.2, 0.4, 0.6, 
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -249,7 +249,7 @@ bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.w
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * 2 * args.hidden_dim)]).cuda())
 
 
-runningAveragePredictionLoss = 1.0
+#runningAveragePredictionLoss = 1.0
 runningAverageReward = 1.0
 
 
@@ -273,15 +273,16 @@ def forward(numeric, train=True, printHere=False):
       memory_hidden = sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything))))
      # print(memory_hidden)
     #  print(memory_hidden.size())
+#      bernoulli_memory = torch.distributions.bernoulli.Bernoulli(memory_hidden)
 
-      bernoulli_memory = torch.distributions.bernoulli.Bernoulli(memory_hidden)
-      memory_filter = bernoulli_memory.sample()
+   #   memory_filter = bernoulli_memory.sample()
+      memory_filter = torch.bernoulli(input=memory_hidden)
 
-      bernoulli_logprob = torch.where(memory_filter == 1, torch.log(memory_hidden), torch.log(1-memory_hidden))
+      bernoulli_logprob = torch.where(memory_filter == 1, torch.log(memory_hidden+1e-10), torch.log(1-memory_hidden+1e-10))
 
       bernoulli_logprob_perBatch = bernoulli_logprob.mean(dim=0)
       if args.entropy_weight > 0:
-         entropy = -(memory_hidden * torch.log(memory_hidden) + (1-memory_hidden) * torch.log(1-memory_hidden)).mean()
+         entropy = -(memory_hidden * torch.log(memory_hidden+1e-10) + (1-memory_hidden) * torch.log(1-memory_hidden+1e-10)).mean()
       else:
          entropy=-1.0
  #     print(bernoulli_logprob)
@@ -357,7 +358,7 @@ def forward(numeric, train=True, printHere=False):
       # Overall Reward
       negativeRewardsTerm = negativeRewardsTerm1 + args.RATE_WEIGHT * negativeRewardsTerm2
 
-      global runningAveragePredictionLoss
+#      global runningAveragePredictionLoss
       global runningAverageReward
 
       loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
@@ -375,8 +376,8 @@ def forward(numeric, train=True, printHere=False):
          for i in range((args.sequence_length)):
             print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
 
-         print(round(runningAveragePredictionLoss,3), "PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
-      runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
+         print("PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+      #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
       runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float(negativeRewardsTerm.mean())
 
       return loss, target_tensor.view(-1).size()[0]

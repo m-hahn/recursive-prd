@@ -66,4 +66,9 @@ plot = ggplot(data %>% filter(Region == c("EOS")) %>% group_by(Round, Model, Ite
 ###################################
 
 
+surprisals = data %>% group_by(Model, True_Minus_False, Condition) %>% summarise(Surprisal=mean(Surprisal))
+
+
+
+
 
