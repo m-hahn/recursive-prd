@@ -160,12 +160,14 @@ def parameters_autoencoder():
        for param in module.parameters():
             yield param
 
+
+
 parameters_memory_cached = [x for x in parameters_memory()]
 
 
 learning_rate = args.learning_rate
 
-optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+optim = torch.optim.SGD(plus(parameters_autoencoder(), parameters_memory()), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
 #named_modules_autoencoder = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
 
