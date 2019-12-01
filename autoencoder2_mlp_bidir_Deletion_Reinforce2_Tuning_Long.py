@@ -24,7 +24,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.02, 0.05, 0.1, 0.2])) #0.01, 0.02, 0.05, 0.1, 0.2, 0.4, 0.6])) #, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])) #, 2.4, 2.6, 2.8]))  # 0.1, 0.2, 0.4, 0.6, 
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.001, 0.01, 0.02, 0.05])) #0.01, 0.02, 0.05, 0.1, 0.2, 0.4, 0.6])) #, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])) #, 2.4, 2.6, 2.8]))  # 0.1, 0.2, 0.4, 0.6,  , 0.2
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -36,7 +36,7 @@ parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
-parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5, 8.0]))
+parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0])) #, 7.5, 8.0]))
  # 1.5, 2.0, 2.5,  3.0, 3.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing

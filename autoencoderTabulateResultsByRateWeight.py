@@ -5,7 +5,7 @@ PATH = "/u/scr/mhahn/reinforce-logs/results/"
 
 logs = os.listdir(PATH)
 
-for lossType in ["Erasure", "Deletion"]:
+for lossType in ["Deletion", "Erasure"]:
    print("###############")
    results = []
    for filen in logs:

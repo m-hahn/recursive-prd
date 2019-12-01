@@ -23,7 +23,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.1, 0.1, 0.2, 1.0])) #, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])) #, 2.4, 2.6, 2.8]))  # 0.1, 0.2, 0.4, 0.6, 
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.1, 0.2, 0.4, 1.0])) #, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])) #, 2.4, 2.6, 2.8]))  # 0.1, 0.2, 0.4, 0.6, 
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -160,12 +160,14 @@ def parameters_autoencoder():
        for param in module.parameters():
             yield param
 
+
+
 parameters_memory_cached = [x for x in parameters_memory()]
 
 
 learning_rate = args.learning_rate
 
-optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+optim = torch.optim.SGD(plus(parameters_autoencoder(), parameters_memory()), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
 #named_modules_autoencoder = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
 
@@ -367,6 +369,7 @@ def forward(numeric, train=True, printHere=False):
       loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
+      loss += negativeRewardsTerm1.mean()
       global expectedRetentionRate
       expectedRetentionRate = memory_hidden.mean()
 
@@ -418,9 +421,9 @@ for epoch in range(10000):
    trainChars = 0
    counter = 0
    hidden, beginning = None, None
-   if updatesCount >= 50000:
+   if updatesCount >= 20000:
      break
-   while updatesCount <= 50000:
+   while updatesCount <= 20000:
       counter += 1
       updatesCount += 1
       try:
