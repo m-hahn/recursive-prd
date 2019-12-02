@@ -165,7 +165,7 @@ parameters_memory_cached = [x for x in parameters_memory()]
 
 learning_rate = args.learning_rate
 
-optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+optim = torch.optim.SGD(plus(parameters_autoencoder(), parameters_memory()), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
 #named_modules_autoencoder = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
 
@@ -367,6 +367,7 @@ def forward(numeric, train=True, printHere=False):
       loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
+      loss += negativeRewardsTerm1.mean()
       global expectedRetentionRate
       expectedRetentionRate = memory_hidden.mean()
 
@@ -506,10 +507,10 @@ for epoch in range(10000):
 #   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
 #   optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
-
+modules_memory_and_autoencoder = modules_memory + modules_autoencoder
 if True:
-  state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_memory]}
-  torch.save(state, "/u/scr/mhahn/CODEBOOKS_memoryPolicy/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+  state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_memory_and_autoencoder]}
+  torch.save(state, "/u/scr/mhahn/CODEBOOKS_memoryPolicy_both/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
   lastSaved = (epoch, counter)
 
 
