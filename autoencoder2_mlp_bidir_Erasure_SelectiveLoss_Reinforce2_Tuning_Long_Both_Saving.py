@@ -35,11 +35,11 @@ parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
-parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([4.0, 5.0, 5.5, 6.0])) #1.5, 2.0, 2.5, 3.0, 3.5, , 4.5, 5.0 , 5.5, 6.0, 6.5, 7.0
+parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([6.5, 7.0])) #1.5, 2.0, 2.5, 3.0, 3.5, , 4.5, 5.0 , 5.5, 6.0, 6.5, 7.0
  # 1.5, 2.0, 2.5,  3.0, 3.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
-parser.add_argument("--momentum", type=float, default=random.choice([0.5]))
+parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.5]))
 parser.add_argument("--entropy_weight", type=float, default=0.0) #random.choice([0.00001, 0.00005, 0.0001, 0.0002, 0.0003, 0.0005, 0.0007, 0.0008, 0.001])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
 
 
