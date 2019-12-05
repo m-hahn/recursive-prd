@@ -23,7 +23,7 @@ parser.add_argument("--load-from-lm", dest="load_from_lm", type=str, default=456
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([4]))
+parser.add_argument("--batchSize", type=int, default=random.choice([16]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_autoencoder", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim_lm", type=int, default=random.choice([1024]))
@@ -47,8 +47,8 @@ parser.add_argument("--deletion_rate", type=float, default=0.2)
 parser.add_argument("--surpsFile", type=str)
 
 
-parser.add_argument("--SAMPLES_PER_BATCH", type=int,default=200)
-parser.add_argument("--NUMBER_OF_RUNS", type=int, default=50)
+parser.add_argument("--SAMPLES_PER_BATCH", type=int,default=32)
+parser.add_argument("--NUMBER_OF_RUNS", type=int, default=2)
 
 
 

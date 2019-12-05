@@ -40,7 +40,10 @@
 -----------
 7.0	4.6476	0.3001	RATE_WEIGHT=7.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_522424331
 7.0	4.4295	0.3621	RATE_WEIGHT=7.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_610933624
+7.0	4.2947	0.292	RATE_WEIGHT=7.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_661477480
 7.0	4.2712	0.3846	RATE_WEIGHT=7.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py_376294331
+7.0	4.0503	0.3499	RATE_WEIGHT=7.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_272507911
+7.0	4.0439	0.3654	RATE_WEIGHT=7.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_918224455
 -----------
 6.5	4.4574	0.3479	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_953032317
 6.5	4.0743	0.423	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py_392443452
