@@ -1,0 +1,7 @@
+Weight	Reward	Retention	Parameters	Script	ID
+7.0	4.2712	0.3846	RATE_WEIGHT=7.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py	376294331
+6.5	4.0743	0.423	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py	392443452
+4.5	3.158	0.5282	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py	183268635
+4.5	3.1515	0.5272	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py	977575696
+4.5	3.1475	0.5249	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py	968347198
+3.0	2.3888	0.6296	RATE_WEIGHT=3.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py	135564556

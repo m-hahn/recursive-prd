@@ -11,11 +11,12 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=878921872)
+parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=264073608)
+
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([128])) # , 128, 128, 256
+parser.add_argument("--batchSize", type=int, default=random.choice([128]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([512]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
@@ -23,7 +24,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.02, 0.05, 0.1])) #0.01, 0.02, 0.05, 0.1, 0.2, 0.4, 0.6])) #, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.2])) #, 2.4, 2.6, 2.8]))  # 0.1, 0.2, 0.4, 0.6, 
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.4, 0.6, 1.0, 1.2]))
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -35,11 +36,11 @@ parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
-parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([5.0, 5.25, 5.5])) #, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]))
+parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0]))
  # 1.5, 2.0, 2.5,  3.0, 3.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
-parser.add_argument("--momentum", type=float, default=random.choice([0.0]))
+parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.0, 0.0, 0.3, 0.5, 0.7, 0.9]))
 parser.add_argument("--entropy_weight", type=float, default=0.0) #random.choice([0.00001, 0.00005, 0.0001, 0.0002, 0.0003, 0.0005, 0.0007, 0.0008, 0.001])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
 
 
@@ -167,7 +168,7 @@ parameters_memory_cached = [x for x in parameters_memory()]
 
 learning_rate = args.learning_rate
 
-optim = torch.optim.SGD(plus(parameters_autoencoder(), parameters_memory()), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
 #named_modules_autoencoder = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
 
@@ -177,9 +178,9 @@ optim = torch.optim.SGD(plus(parameters_autoencoder(), parameters_memory()), lr=
  #     module.load_state_dict(checkpoint[name])
 if args.load_from_autoencoder is not None:
   try:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure_SelectiveLoss.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
   except FileNotFoundError:
-     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidirISTHEREANOTHEROPTION?.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
       modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
 
@@ -362,7 +363,6 @@ def forward(numeric, train=True, printHere=False):
       loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
-      loss += negativeRewardsTerm1.mean()
       global expectedRetentionRate
       expectedRetentionRate = memory_hidden.mean()
 
@@ -414,9 +414,9 @@ for epoch in range(10000):
    trainChars = 0
    counter = 0
    hidden, beginning = None, None
-   if updatesCount >= 20000:
+   if updatesCount >= 50000:
      break
-   while updatesCount <= 20000:
+   while updatesCount <= 50000:
       counter += 1
       updatesCount += 1
       try:
@@ -501,6 +501,13 @@ for epoch in range(10000):
 #
 #   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
 #   optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+
+
+if True:
+  state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_memory]}
+  torch.save(state, "/u/scr/mhahn/CODEBOOKS_memoryPolicy/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+  lastSaved = (epoch, counter)
+
 
 with open("/u/scr/mhahn/reinforce-logs/results/"+__file__+"_"+str(args.myID), "w") as outFile:
    print(args, file=outFile)

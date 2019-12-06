@@ -1,0 +1,4 @@
+                          
+actr4_var8_ptb_Att4.py: attention in hidden state (effectively no control buffer) -- so far perplexity not good. has only one layer
+actr4_var8_ptb_Att3.py: attention in input
+

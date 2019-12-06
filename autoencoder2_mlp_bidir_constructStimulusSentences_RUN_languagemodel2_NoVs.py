@@ -198,9 +198,9 @@ class LanguageModel(torch.nn.Module):
           losses = lossTensor.data.cpu()
           numericCPU = numeric.cpu().data
           print(("NONE", itos_total[numericCPU[0][0]]))
-          for i in range((args.sequence_length+1)):
+          for i in range(losses.size()[0]):
              print((float(losses[i][0]), itos_total[numericCPU[i+1][0]]))
-       lastTokenSurprisal = losses[args.sequence_length, :]
+       lastTokenSurprisal = losses[-1, :]
        return lastTokenSurprisal
     
 from torch.autograd import Variable
@@ -439,7 +439,7 @@ nounsAndVerbs = []
 #nounsAndVerbs.append(["the young violinist",      "the sponsors",       "backed financially",                    "abused drugs",                       "is likely true"])
 #nounsAndVerbs.append(["the conservative senator",        "the diplomat",       "opposed in the election",                   "won in the run-off",                   "really made him angry"])
 
-nounsAndVerbs.append(["the senator",        "the diplomat",       "opposed",                   "won",                   "was true"])
+nounsAndVerbs.append(["the senator",        "the diplomat",       "opposed"])
 
 #nounsAndVerbs = nounsAndVerbs[:1]
 
@@ -556,9 +556,9 @@ with torch.no_grad():
        context = ", the nurse suggested to treat the patient with an antibiotic, but in the end , this did not happen . "
        for condition in [0,2]:
           if condition == 0:
-             sentence = context + f"the {NOUN} that {sentenceList[0]} who {sentenceList[1]} {sentenceList[2]} {sentenceList[3]} {sentenceList[4]}"
+             sentence = context + f"the {NOUN} that {sentenceList[0]} who {sentenceList[1]} {sentenceList[2]}"
           elif condition == 2:
-             sentence = context + f"the {NOUN} that {sentenceList[0]} who {sentenceList[1]} {sentenceList[2]} {sentenceList[4]}"
+             sentence = context + f"the {NOUN} that {sentenceList[0]} who {sentenceList[1]} {sentenceList[2]}"
           else:
              assert False
      #     print(sentence)
@@ -580,9 +580,11 @@ with torch.no_grad():
 
              lm.hidden = None
              lm.beginning = None
-           
-             resultNumeric = torch.cat([resultNumeric, torch.LongTensor([stoi_total["."] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1)], dim=1)
-      #       print(resultNumeric.size())
+             if condition == 0:           
+                resultNumeric = torch.cat([resultNumeric, torch.LongTensor([stoi_total["won"] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1), torch.LongTensor([stoi_total["shocked"] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1), torch.LongTensor([stoi_total["people"] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1), torch.LongTensor([stoi_total["."] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1)], dim=1)
+             else:
+                resultNumeric = torch.cat([resultNumeric, torch.LongTensor([stoi_total["shocked"] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1), torch.LongTensor([stoi_total["people"] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1), torch.LongTensor([stoi_total["."] for _ in range(args.batchSize*args.SAMPLES_PER_BATCH)]).cuda().view(-1, 1)], dim=1)
+             print(resultNumeric.size())
       #       quit()
        #      quit()
              print(NOUN,  topNouns.index(NOUN), RUN)
