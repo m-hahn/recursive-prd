@@ -1,4 +1,5 @@
 print("Character aware!")
+import random
 
 
 # Derived from autoencoder.py, uses noise
@@ -11,7 +12,9 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=264073608)
+parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=random.choice([449431785,777726352,264073608,138249079]))
+
+
 
 
 import random
@@ -24,7 +27,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.001, 0.01, 0.02, 0.04, 0.06, 0.1]))
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.01, 0.02, 0.04, 0.06, 0.1, 0.1, 0.1, 0.2, 0.2, 0.2, 0.2, 0.4, 0.4, 0.6]))
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -36,7 +39,7 @@ parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
-parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([4.5, 5.0, 5.5, 6.0, 6.5])) #, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]))
+parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([4.5, 5.0, 5.5, 6.0, 6.5, 7.0])) #, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]))
  # 1.5, 2.0, 2.5,  3.0, 3.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
