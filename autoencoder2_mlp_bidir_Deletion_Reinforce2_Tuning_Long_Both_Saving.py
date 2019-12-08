@@ -39,12 +39,12 @@ parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
-parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([5.25, 5.5, 5.75, 6.0])) #6.0, 6.5])) #, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]))
+parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([4.75, 5.0, 5.25, 5.5, 5.75, 6.0])) #6.0, 6.5])) #, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]))
  # 1.5, 2.0, 2.5,  3.0, 3.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
 parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.5]))
-parser.add_argument("--entropy_weight", type=float, default=random.choice([0.00002, 0.00005, 0.0001]))
+parser.add_argument("--entropy_weight", type=float, default=random.choice([0.00005, 0.0001, 0.0001, 0.0001])) # 0.00002, 
 
 
 model = "REAL_REAL"
@@ -53,9 +53,11 @@ import math
 
 args=parser.parse_args()
 
-
 print(args.myID)
 import sys
+print(args, file=sys.stderr)
+
+
 sys.stdout = open("/u/scr/mhahn/reinforce-logs/full-logs/"+__file__+"_"+str(args.myID), "w")
 
 print(args)
@@ -378,6 +380,9 @@ def forward(numeric, train=True, printHere=False):
             print((losses[i][0], itos_total[numericCPU[i+1][0]], memory_hidden_CPU[i+1], itos_total[numeric_noisedCPU[i+1][0]]))
 
          print("PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+         sys.stderr.write(" ".join([str(x) for x in ["\r", "PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy)]]))
+         sys.stderr.flush()
+
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
       runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float(negativeRewardsTerm.mean())
 
@@ -416,9 +421,15 @@ for epoch in range(10000):
    trainChars = 0
    counter = 0
    hidden, beginning = None, None
-   if updatesCount >= 20000:
+   if updatesCount >= 50000:
      break
-   while updatesCount <= 20000:
+   if expectedRetentionRate < 0.15:
+      print(("retention rate has fallen", expectedRetentionRate), file=sys.stderr)
+      break
+   while updatesCount <= 50000:
+      if expectedRetentionRate < 0.15:
+         print(("retention rate has fallen", expectedRetentionRate), file=sys.stderr)
+         break
       counter += 1
       updatesCount += 1
       try:
@@ -504,7 +515,15 @@ for epoch in range(10000):
 #   learning_rate = args.learning_rate * math.pow(args.lr_decay, len(devLosses))
 #   optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
+modules_memory_and_autoencoder = modules_memory + modules_autoencoder
+if expectedRetentionRate > 0.2:
+  state = {"arguments" : str(args), "words" : itos, "components" : [c.state_dict() for c in modules_memory_and_autoencoder]}
+  torch.save(state, "/u/scr/mhahn/CODEBOOKS_memoryPolicy_both/"+args.language+"_"+__file__+"_code_"+str(args.myID)+".txt")
+  lastSaved = (epoch, counter)
+
+
 with open("/u/scr/mhahn/reinforce-logs/results/"+__file__+"_"+str(args.myID), "w") as outFile:
    print(args, file=outFile)
    print(runningAverageReward, file=outFile)
    print(expectedRetentionRate, file=outFile)
+
