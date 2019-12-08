@@ -7,6 +7,8 @@
 -----------
 6.5	5.5796	0.4412	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.7	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_807385616
 6.5	4.9345	0.0001	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.9	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_576596812
+6.5	4.6756	0.0052	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.01 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both_SumNotMean.py_622949674
+6.5	4.5597	0.0005	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=1.0 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_791011122
 -----------
 6.0	5.5569	0.4886	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_428075714
 6.0	5.4148	0.4877	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_859532790
@@ -14,32 +16,38 @@
 6.0	5.0266	0.5111	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.7	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_731417564
 6.0	4.8411	0.5211	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_235965996
 6.0	4.8369	0.5128	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_289221660
+6.0	4.5608	0.0005	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=1.0 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_270972277
 -----------
-5.5	5.5005	0.1885	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_463553278
 5.5	5.3067	0.5303	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.001 momentum=0.9	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_649410231
 5.5	5.3012	0.5153	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_395263893
 5.5	5.1471	0.5379	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_336249203
-5.5	4.9693	0.0647	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_64649488
-5.5	4.8263	0.0398	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_42844514
-5.5	4.8143	0.0374	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_387164687
-5.5	4.8058	0.0365	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_852260441
+5.5	5.0491	0.4089	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_365651046
 5.5	4.7228	0.5405	RATE_WEIGHT=5.5 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.7	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_130671615
 -----------
-5.25	5.0159	0.0803	RATE_WEIGHT=5.25 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_838728507
-5.25	4.807	0.0378	RATE_WEIGHT=5.25 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_352022005
+5.25	4.8648	0.469	RATE_WEIGHT=5.25 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_891609114
+5.25	4.6901	0.4126	RATE_WEIGHT=5.25 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_35771105
+5.25	4.67	0.5059	RATE_WEIGHT=5.25 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_552343134
 -----------
-5.0	5.4176	0.1898	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_574473713
-5.0	5.4133	0.1841	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_41777741
 5.0	5.1943	0.482	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.001 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_705625441
 5.0	5.0673	0.5758	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.01 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_657848088
 5.0	5.0198	0.5671	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.01 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_286390252
-5.0	5.0099	0.0835	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_328445840
 5.0	5.0047	0.5837	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_167966748
-5.0	4.9975	0.9662	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.9	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_996244727
+5.0	4.8173	0.5298	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_723570367
+5.0	4.7788	0.5622	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.001 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both_SumNotMean.py_473854878
 5.0	4.6397	0.6128	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.01 momentum=0.9	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_221800608
 5.0	4.3002	0.5785	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_719930225
+5.0	4.2833	0.736	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both_SumNotMean.py_703407913
+5.0	4.2436	0.7269	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.4 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_426708599
+5.0	4.1812	0.5698	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_792005183
 5.0	4.1807	0.6149	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.7	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_751454226
+5.0	3.905	0.5715	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.6 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_969065149
 -----------
+4.75	4.4387	0.6196	RATE_WEIGHT=4.75 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_958646322
+4.75	3.8287	0.588	RATE_WEIGHT=4.75 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_673681827
+-----------
+4.5	4.1942	0.6184	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_870769881
+4.5	3.8574	0.6932	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both_SumNotMean.py_753800235
+4.5	3.8434	0.6309	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.01 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both_SumNotMean.py_690926289
 4.5	3.7746	0.5821	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.7	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_507926945
 -----------
 4.0	4.5458	0.5582	RATE_WEIGHT=4.0 batchSize=128 entropy_weight=0.0 learning_rate=0.001 momentum=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_657139100
@@ -59,12 +67,15 @@
 7.0	4.0232	0.3501	RATE_WEIGHT=7.0 batchSize=128 entropy_weight=0.0 learning_rate=0.6 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_399230095
 -----------
 6.5	4.4574	0.3479	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_953032317
+6.5	4.2391	0.399	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Saving.py_730052631
 6.5	4.0787	0.4042	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Saving.py_289754717
 6.5	4.0743	0.423	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py_392443452
 6.5	3.8709	0.3555	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_503142162
 6.5	3.8538	0.3866	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_601026644
 6.5	3.8266	0.3986	RATE_WEIGHT=6.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_312534073
 -----------
+6.0	4.6276	0.6302	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.3	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Slim.py_800856287
+6.0	4.5188	0.6483	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Slim.py_21019054
 6.0	4.0148	0.4281	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_692869981
 6.0	4.0097	0.4357	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_189886800
 6.0	3.8199	0.4244	RATE_WEIGHT=6.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_261699034
@@ -84,6 +95,7 @@
 5.0	4.2797	0.5204	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.02 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_160510030
 5.0	3.7771	0.5057	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_177501174
 5.0	3.7473	0.5976	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=1e-05 learning_rate=2.0 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning.py_178393161
+5.0	3.5322	0.5556	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.6 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Saving.py_602905215
 5.0	3.5286	0.5017	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_758442736
 5.0	3.5253	0.5169	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong.py_440694586
 5.0	3.4024	0.4906	RATE_WEIGHT=5.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Saving.py_70551088
@@ -113,6 +125,7 @@
 4.5	2.8939	0.5353	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_821456445
 4.5	2.8392	0.5195	RATE_WEIGHT=4.5 batchSize=128 entropy_weight=0.0 learning_rate=0.6 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_246930351
 -----------
+4.0	3.4308	0.7936	RATE_WEIGHT=4.0 batchSize=128 entropy_weight=0.0 learning_rate=0.05 momentum=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Slim.py_719749209
 4.0	3.2799	0.6261	RATE_WEIGHT=4.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_852390354
 4.0	3.235	0.5966	RATE_WEIGHT=4.0 batchSize=128 entropy_weight=0.0 learning_rate=0.1 momentum=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_838944755
 4.0	2.953	0.5459	RATE_WEIGHT=4.0 batchSize=128 entropy_weight=0.0 learning_rate=0.2 momentum=0.3	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_512885850
