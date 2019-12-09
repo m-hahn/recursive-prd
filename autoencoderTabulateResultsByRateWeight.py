@@ -17,14 +17,17 @@ for lossType in ["Deletion", "Erasure"]:
          data.append("-1")
       params, perform, memRate,  = data
       params = params.replace("Namespace(", "")[:-1].split(", ")
+      load_from_autoencoder = [x.split("=")[1] for x in params if x.startswith("load_from_autoencoder")][0]
       params = [x for x in params if x.split("=")[0] in ["RATE_WEIGHT", "batchSize", "entropy_weight", "learning_rate", "momentum"]]
+      params = [x.replace("learning", "learn").replace("entropy", "ent").replace("momentum", "mom").replace("batchSize", "batch") for x in params]
+
       memRate = memRate.replace("tensor(", "").replace(", device='cuda:0', grad_fn=<MeanBackward0>)", "")
       rate = float(params[0].split("=")[1])
       performance = round(float(perform),4)
       memRate = round(float(memRate),4)
       if memRate < 0.15 and "autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py" in filen:
             performance = 10
-      results.append((rate, performance, memRate, " ".join(params), filen))
+      results.append((rate, performance, memRate, " ".join(params), filen, load_from_autoencoder))
    results = sorted(results, reverse=True)
    lastR = None
    for r in results:

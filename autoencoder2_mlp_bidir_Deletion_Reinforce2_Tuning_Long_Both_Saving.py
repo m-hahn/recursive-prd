@@ -12,7 +12,8 @@ import sys
 import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
-parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=random.choice([449431785,777726352,264073608,138249079]))
+parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=random.choice([449431785,264073608,138249079]))
+# 777726352, doesn't have the right parameter matrix sizes
 
 
 
@@ -39,12 +40,15 @@ parser.add_argument("--char_dec_hidden_dim", type=int, default=128)
 
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
-parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([4.75, 5.0, 5.25, 5.5, 5.75, 6.0])) #6.0, 6.5])) #, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]))
+parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([5.5, 5.75, 6.0, 6.25, 6.5]))
+# 4.75, 5.0, 5.25, 
+
+#6.0, 6.5])) #, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0]))
  # 1.5, 2.0, 2.5,  3.0, 3.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
-parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.5]))
-parser.add_argument("--entropy_weight", type=float, default=random.choice([0.00005, 0.0001, 0.0001, 0.0001])) # 0.00002, 
+parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.0, 0.0, 0.5]))
+parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0001, 0.0001,  0.0002, 0.0002, 0.0003, 0.0004])) # 0.00002, 0.00005, 
 
 
 model = "REAL_REAL"
@@ -381,6 +385,8 @@ def forward(numeric, train=True, printHere=False):
 
          print("PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
          sys.stderr.write(" ".join([str(x) for x in ["\r", "PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy), counter]]))
+         if counter % 5000 == 0:
+            print("", file=sys.stderr)
          sys.stderr.flush()
 
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
