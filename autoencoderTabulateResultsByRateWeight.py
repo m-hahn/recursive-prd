@@ -15,6 +15,8 @@ for lossType in ["Deletion", "Erasure"]:
       if len(data) == 2:
          continue
          data.append("-1")
+      if len(data) == 1:
+         continue
       params, perform, memRate,  = data
       params = params.replace("Namespace(", "")[:-1].split(", ")
       load_from_autoencoder = [x.split("=")[1] for x in params if x.startswith("load_from_autoencoder")][0]

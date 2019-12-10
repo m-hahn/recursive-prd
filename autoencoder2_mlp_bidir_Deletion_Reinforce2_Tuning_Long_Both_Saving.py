@@ -48,7 +48,7 @@ parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([5.5, 5.7
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
 parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.0, 0.0, 0.5]))
-parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0001, 0.0001,  0.0002, 0.0002, 0.0003, 0.0004])) # 0.00002, 0.00005, 
+parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0001, 0.0001,  0.0002, 0.0002, 0.0003, 0.0004, 0.0005])) # 0.00002, 0.00005, 
 
 
 model = "REAL_REAL"
