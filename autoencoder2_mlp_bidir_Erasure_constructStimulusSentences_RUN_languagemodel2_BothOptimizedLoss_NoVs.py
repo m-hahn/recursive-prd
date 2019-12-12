@@ -388,7 +388,10 @@ modules_memory_and_autoencoder = modules_memory + autoencoder.modules
 
 
 if args.load_from_autoencoder is not None:
-  checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS_memoryPolicy_both/"+args.language+"_"+memoryFileName+"_code_"+str(args.load_from_autoencoder)+".txt")
+  try:
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS_memoryPolicy_both/"+args.language+"_"+memoryFileName+"_code_"+str(args.load_from_autoencoder)+".txt")
+  except FileNotFoundError:
+     checkpoint = torch.load("/sailhome/mhahn/CODEBOOKS_memoryPolicy_both/"+args.language+"_"+memoryFileName+"_code_"+str(args.load_from_autoencoder)+".txt")
   assert len(checkpoint["components"]) == len(modules_memory_and_autoencoder)
   for i in range(len(checkpoint["components"])):
       modules_memory_and_autoencoder[i].load_state_dict(checkpoint["components"][i])

@@ -3,12 +3,12 @@ print(models)
 import subprocess
 evScript = "autoencoder2_mlp_bidir_Erasure_constructStimulusSentences_RUN_languagemodel2_BothOptimizedLoss_NoVs.py"
 with open("autoencoder-output/perModelData1.tsv", "w") as outFile:
- print("\t".join(["Weight", "Reward", "Retention", "Parameters", "Script", "ID"]), file=outFile)
+ print("\t".join(["Weight", "Reward", "Retention", "Parameters", "Script", "ID", "BasedOnAutoencoder"]), file=outFile)
  for line in models:
    ind = line[4].rfind("_")
    script = line[4][:ind]
    id_ = line[4][ind+1:]
-   line = [line[0], line[1], line[2], line[3], line[4][:ind], line[4][ind+1:]]
+   line = [line[0], line[1], line[2], line[3], line[4][:ind], line[4][ind+1:], line[5]]
    print("\t".join(line), file=outFile)
    print(id_)
    print(evScript)
