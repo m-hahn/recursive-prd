@@ -32,8 +32,7 @@ parser.add_argument("--deletion_rate", type=float, default=0.2)
 
 
 
-TRAIN_LM = False
-assert not TRAIN_LM
+TRAIN_LM = True
 
 parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([2.0])) #[3.0, 3.5, 4.0, 4.5, 5.0]))
 # 1.5, 2.0, 2.5, 
@@ -103,8 +102,6 @@ output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
 
 word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
 
-
-
 logsoftmax = torch.nn.LogSoftmax(dim=2)
 
 train_loss = torch.nn.NLLLoss(ignore_index=0)
@@ -120,7 +117,6 @@ modules_lm = [rnn, output, word_embeddings]
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
 
 memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
-memory_mlp_inner_from_pos = torch.nn.Linear(256, 500).cuda()
 memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
 
 sigmoid = torch.nn.Sigmoid()
@@ -137,13 +133,7 @@ relu = torch.nn.ReLU()
 #
 #modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
-positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=256).cuda()
-
-perword_baseline = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=1).cuda()
-perword_baseline.weight.data.fill_(6.0)
-
-
-modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline]
+modules_memory = [memory_mlp_inner, memory_mlp_outer]
 
 def parameters_memory():
    for module in modules_memory:
@@ -164,8 +154,7 @@ parameters_lm_cached = [x for x in parameters_lm()]
 
 learning_rate = args.learning_rate
 
-assert not TRAIN_LM
-optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+optim = torch.optim.SGD(plus(parameters_lm(), parameters_memory()), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
 #named_modules = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
 
@@ -272,13 +261,7 @@ def forward(numeric, train=True, printHere=False):
       numeric, numeric_chars = numeric
       numeric = torch.cat([beginning, numeric], dim=0)
       embedded_everything = word_embeddings(numeric)
-
-      numeric_positions = torch.LongTensor(range(args.sequence_length+1)).cuda().unsqueeze(1)
-      numeric_embedded = positional_embeddings(numeric_positions)
-#      print(numeric_embedded.size())
-      numeric_transformed = memory_mlp_inner_from_pos(numeric_embedded)
-#      print(numeric_transformed.size(), embedded_everything.size())
-      memory_hidden = sigmoid(memory_mlp_outer(relu(numeric_transformed + memory_mlp_inner(embedded_everything))))
+      memory_hidden = sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything))))
       memory_filter = torch.bernoulli(input=memory_hidden)
       bernoulli_logprob = torch.where(memory_filter == 1, torch.log(memory_hidden+1e-10), torch.log(1-memory_hidden+1e-10))
       bernoulli_logprob_perBatch = bernoulli_logprob.mean(dim=0)
@@ -292,7 +275,7 @@ def forward(numeric, train=True, printHere=False):
       target_tensor = Variable(numeric[1:], requires_grad=False)
 
 
-      baselineValues = perword_baseline(target_tensor[-1]).squeeze(1)
+
 
 
 
@@ -307,8 +290,6 @@ def forward(numeric, train=True, printHere=False):
       out, hidden = rnn_drop(embedded, hidden)
 
 
-      out = out[-1:]
-
       if TRAIN_LM:
         mask = bernoulli_output.sample()
         mask = mask.view(1, args.batchSize, args.hidden_dim)
@@ -320,8 +301,7 @@ def forward(numeric, train=True, printHere=False):
       log_probs = logsoftmax(logits)
 
       # Prediction Loss 
-#      print(log_probs.size(), target_tensor.size())
-      lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor[-1].view(-1)).view(-1, args.batchSize)
+      lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor.view(-1)).view(-1, args.batchSize)
       negativeRewardsTerm1 = lossTensor.mean(dim=0)
 
       # Regularization towards lower retention rates
@@ -332,17 +312,13 @@ def forward(numeric, train=True, printHere=False):
 
 #      global runningAveragePredictionLoss
       global runningAverageReward
-      global expectedRetentionRate
-     
-      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - expectedRetentionRate)
 
-      
-      loss = (rewardMinusBaseline * bernoulli_logprob_perBatch).mean()
+      loss = ((negativeRewardsTerm.detach()-runningAverageReward) * bernoulli_logprob_perBatch).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
-      expectedRetentionRate = 0.95 * expectedRetentionRate + (1-0.95) * float(memory_hidden.mean())
-
-      loss += rewardMinusBaseline.pow(2).mean()
+      loss += negativeRewardsTerm1.mean()
+      global expectedRetentionRate
+      expectedRetentionRate = memory_hidden.mean()
 
       if printHere:
          losses = lossTensor.data.cpu().numpy()
@@ -351,9 +327,9 @@ def forward(numeric, train=True, printHere=False):
          memory_hidden_CPU = memory_hidden[:,0,0].cpu().data.numpy()
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-            print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else ""))
+            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
 
-         print("PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((rewardMinusBaseline).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+         print("PREDICTION_LOSS", round(float(negativeRewardsTerm1.mean()),3), "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", float(expectedRetentionRate), "\tDEVIATION FROM BASELINE", float((negativeRewardsTerm.detach()-runningAverageReward).abs().mean()), "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
       runningAverageReward = 0.95 * runningAverageReward + (1-0.95) * float(negativeRewardsTerm.mean())
 
@@ -392,9 +368,9 @@ for epoch in range(10000):
    trainChars = 0
    counter = 0
    hidden, beginning = None, None
-   if updatesCount >= 200000:
+   if updatesCount >= 20000:
      break
-   while updatesCount <= 200000:
+   while updatesCount <= 20000:
       counter += 1
       updatesCount += 1
       try:
@@ -411,7 +387,7 @@ for epoch in range(10000):
       if lossHasBeenBad > 100:
           print("Loss exploding, has been bad for a while")
           print(loss)
-          quit()
+          assert False
       trainChars += charCounts 
       if printHere:
           print(("Loss here", loss))
@@ -478,3 +454,7 @@ for epoch in range(10000):
 #   optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.9
 
 
+with open("/u/scr/mhahn/reinforce-logs/results/"+__file__+"_"+str(args.myID), "w") as outFile:
+   print(args, file=outFile)
+   print(runningAverageReward, file=outFile)
+   print(expectedRetentionRate, file=outFile)
