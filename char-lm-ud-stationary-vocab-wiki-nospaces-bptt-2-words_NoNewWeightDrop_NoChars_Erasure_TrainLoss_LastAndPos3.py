@@ -1,6 +1,7 @@
-# Broadly  seems to work (though takes a lot of time, looks OK after 4,420,750 updates):
-#char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos2.py
-#Namespace(RATE_WEIGHT=0.45, batchSize=1, char_dropout_prob=0.01, deletion_rate=0.2, entropy_weight=0.02, hidden_dim=1024, language='english', layer_num=2, learning_rate=0.0001, load_from_lm='964163553', lr_decay=1.0, momentum=0.3, myID=68657274, reward_multiplier_baseline=0.1, sequence_length=20, verbose=False, weight_dropout_in=0.05, weight_dropout_out=0.05, word_embedding_size=512)
+# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos3.py
+# Derived from 2
+# Uses Lagrangian (for now, lambda gets really large and appears to derail training. Look into what's happening)
+
 
 
 print("Character aware!")
@@ -37,7 +38,7 @@ parser.add_argument("--deletion_rate", type=float, default=0.2)
 
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
 
-
+parser.add_argument("--dual_learning_rate", type=float, default=0.0001)
 TRAIN_LM = False
 assert not TRAIN_LM
 
@@ -148,13 +149,16 @@ positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2
 perword_baseline_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
 perword_baseline_outer = torch.nn.Linear(500, 1).cuda()
 
-
 modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer]
 
 def parameters_memory():
    for module in modules_memory:
        for param in module.parameters():
             yield param
+
+dual_weight = torch.cuda.FloatTensor([1.0])
+dual_weight.requires_grad=True
+
 
 parameters_memory_cached = [x for x in parameters_memory()]
 
@@ -344,20 +348,22 @@ def forward(numeric, train=True, printHere=False):
       # Reward, term 2
       # Regularization towards lower retention rates
       negativeRewardsTerm2 = memory_filter.mean(dim=0)
-
+      retentionTarget = 0.6
+      loss = 0
       # Overall Reward
-      negativeRewardsTerm = negativeRewardsTerm1 + args.RATE_WEIGHT * negativeRewardsTerm2
-
+      negativeRewardsTerm = negativeRewardsTerm1 + dual_weight * (negativeRewardsTerm2-retentionTarget)
+      # for the dual weight
+      loss += (dual_weight * (negativeRewardsTerm2-retentionTarget).detach()).mean()
       global runningAverageReward
       global expectedRetentionRate
 
       # baselineValues: the baselines for the prediction loss (term 1)
       # memory_hidden: baseline for term 2
       # Important to detach all but the baseline values
-      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - args.RATE_WEIGHT * memory_hidden.mean(dim=0).squeeze(dim=1).detach())
+      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - (dual_weight * (memory_hidden.mean(dim=0).squeeze(dim=1) - retentionTarget)).detach())
 
       # Important to detach from the baseline!!! 
-      loss = (rewardMinusBaseline.detach() * bernoulli_logprob_perBatch).mean()
+      loss += (rewardMinusBaseline.detach() * bernoulli_logprob_perBatch).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
 
@@ -382,6 +388,7 @@ def forward(numeric, train=True, printHere=False):
             print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else ""))
 
          print("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+         print(dual_weight)
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
       runningAverageReward = factor * runningAverageReward + (1-factor) * float(negativeRewardsTerm.mean())
 
@@ -396,7 +403,11 @@ def backward(loss, printHere):
       if TRAIN_LM:
          torch.nn.utils.clip_grad_value_(parameters_lm_cached, 5.0) #, norm_type="inf")
       optim.step()
-
+#      print(dual_weight.grad)
+      dual_weight.data.add_(args.dual_learning_rate*dual_weight.grad.data)
+ #     print("W", dual_weight)
+      dual_weight.data.clamp_(min=0)
+  #    print("W", dual_weight)
 
 lossHasBeenBad = 0
 

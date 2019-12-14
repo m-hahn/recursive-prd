@@ -1,7 +1,6 @@
-# Broadly  seems to work (though takes a lot of time, looks OK after 4,420,750 updates):
-#char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos2.py
-#Namespace(RATE_WEIGHT=0.45, batchSize=1, char_dropout_prob=0.01, deletion_rate=0.2, entropy_weight=0.02, hidden_dim=1024, language='english', layer_num=2, learning_rate=0.0001, load_from_lm='964163553', lr_decay=1.0, momentum=0.3, myID=68657274, reward_multiplier_baseline=0.1, sequence_length=20, verbose=False, weight_dropout_in=0.05, weight_dropout_out=0.05, word_embedding_size=512)
-
+# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos4.py
+# Based on 2
+# Uses multiple replicates of each sample
 
 print("Character aware!")
 
@@ -36,7 +35,7 @@ parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 parser.add_argument("--deletion_rate", type=float, default=0.2)
 
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
-
+parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=12)
 
 TRAIN_LM = False
 assert not TRAIN_LM
@@ -55,6 +54,7 @@ import math
 
 args=parser.parse_args()
 
+assert args.batchSize == 1
 
 print(args)
 
@@ -234,11 +234,11 @@ def prepareDatasetChunks(data, train=True):
 
 
 
-
+NUMBER_OF_REPLICATES=12
 
 hidden = None
 
-zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
+zeroBeginning = torch.LongTensor([0 for _ in range(args.NUMBER_OF_REPLICATES*args.batchSize)]).cuda().view(1,args.NUMBER_OF_REPLICATES*args.batchSize)
 beginning = None
 
 zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
@@ -276,6 +276,9 @@ def forward(numeric, train=True, printHere=False):
   #        beginning_chars = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroBeginning_chars, beginning_chars)
 
       numeric, numeric_chars = numeric
+
+#      print(numeric.size())
+      numeric = numeric.expand(-1, args.NUMBER_OF_REPLICATES)
       numeric = torch.cat([beginning, numeric], dim=0)
       embedded_everything = word_embeddings(numeric)
 
@@ -336,7 +339,7 @@ def forward(numeric, train=True, printHere=False):
       log_probs = logsoftmax(logits)
 
       # Prediction Loss 
-      lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor[-1].view(-1)).view(-1, args.batchSize)
+      lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor[-1].view(-1)).view(-1, args.NUMBER_OF_REPLICATES) # , args.batchSize is 1
 
       # Reward, term 1
       negativeRewardsTerm1 = lossTensor.mean(dim=0)
@@ -380,7 +383,9 @@ def forward(numeric, train=True, printHere=False):
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
             print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else ""))
+         print(losses)
 
+               
          print("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
       runningAverageReward = factor * runningAverageReward + (1-factor) * float(negativeRewardsTerm.mean())
