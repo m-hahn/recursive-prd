@@ -235,7 +235,6 @@ def prepareDatasetChunks(data, train=True):
 
 
 
-
 hidden = None
 
 zeroBeginning = torch.LongTensor([0 for _ in range(args.batchSize)]).cuda().view(1,args.batchSize)
@@ -252,7 +251,7 @@ bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.w
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 
 #runningAveragePredictionLoss = 1.0
-runningAverageReward = 1.0
+runningAverageReward = 5.0
 runningAverageBaselineDeviation = 2.0
 runningAveragePredictionLoss = 5.0
 expectedRetentionRate = 0.5
@@ -380,6 +379,8 @@ def forward(numeric, train=True, printHere=False):
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
             print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else ""))
+         print(losses)
+
 
          print("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())

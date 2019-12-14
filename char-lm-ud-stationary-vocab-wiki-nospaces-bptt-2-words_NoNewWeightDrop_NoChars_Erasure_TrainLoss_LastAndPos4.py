@@ -1,6 +1,8 @@
 # char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos4.py
 # Based on 2
 # Uses multiple replicates of each sample
+# Worse than 2 ==> there must be some bug or similar
+
 
 print("Character aware!")
 
@@ -234,7 +236,6 @@ def prepareDatasetChunks(data, train=True):
 
 
 
-NUMBER_OF_REPLICATES=12
 
 hidden = None
 
@@ -252,7 +253,7 @@ bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.w
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 
 #runningAveragePredictionLoss = 1.0
-runningAverageReward = 1.0
+runningAverageReward = 5.0
 runningAverageBaselineDeviation = 2.0
 runningAveragePredictionLoss = 5.0
 expectedRetentionRate = 0.5
@@ -292,7 +293,9 @@ def forward(numeric, train=True, printHere=False):
       memory_hidden = sigmoid(memory_mlp_outer(relu(numeric_transformed + memory_mlp_inner(embedded_everything.detach()))))
 
       # Baseline predictions for prediction loss
-      baselineValues = 10*sigmoid(perword_baseline_outer(relu(perword_baseline_inner(embedded_everything[-1].detach()))))
+      baselineValues = 10*sigmoid(perword_baseline_outer(relu(perword_baseline_inner(embedded_everything[-1].detach())))).squeeze(1)
+      assert tuple(baselineValues.size()) == (args.NUMBER_OF_REPLICATES,)
+
 
       # Noise decisions
       memory_filter = torch.bernoulli(input=memory_hidden)
@@ -351,30 +354,39 @@ def forward(numeric, train=True, printHere=False):
       # Overall Reward
       negativeRewardsTerm = negativeRewardsTerm1 + args.RATE_WEIGHT * negativeRewardsTerm2
 
-      global runningAverageReward
-      global expectedRetentionRate
 
       # baselineValues: the baselines for the prediction loss (term 1)
       # memory_hidden: baseline for term 2
       # Important to detach all but the baseline values
-      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - args.RATE_WEIGHT * memory_hidden.mean(dim=0).squeeze(dim=1).detach())
 
+      # Reward Minus Baseline
+      # Detached surprisal and mean retention
+      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - args.RATE_WEIGHT * memory_hidden.mean(dim=0).squeeze(dim=1).detach())
       # Important to detach from the baseline!!! 
-      loss = (rewardMinusBaseline.detach() * bernoulli_logprob_perBatch).mean()
+      loss = (rewardMinusBaseline.detach() * bernoulli_logprob_perBatch.squeeze(1)).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
 
+      # Loss for trained baseline
+      loss += args.reward_multiplier_baseline * rewardMinusBaseline.pow(2).mean()
+
+
+      ############################
       # Construct running averages
       factor = 0.9996 ** args.batchSize
 
-      expectedRetentionRate = factor * expectedRetentionRate + (1-factor) * float(memory_hidden.mean())
-
-      loss += args.reward_multiplier_baseline * rewardMinusBaseline.pow(2).mean()
-
+      # Update running averages
       global runningAverageBaselineDeviation
       global runningAveragePredictionLoss
+      global runningAverageReward
+      global expectedRetentionRate
+
+      expectedRetentionRate = factor * expectedRetentionRate + (1-factor) * float(memory_hidden.mean())
       runningAverageBaselineDeviation = factor * runningAverageBaselineDeviation + (1-factor) * float((rewardMinusBaseline).abs().mean())
       runningAveragePredictionLoss = factor * runningAveragePredictionLoss + (1-factor) * round(float(negativeRewardsTerm1.mean()),3)
+      runningAverageReward = factor * runningAverageReward + (1-factor) * float(negativeRewardsTerm.mean())
+      ############################
+
       if printHere:
          losses = lossTensor.data.cpu().numpy()
          numericCPU = numeric.cpu().data.numpy()
@@ -383,12 +395,12 @@ def forward(numeric, train=True, printHere=False):
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
             print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else ""))
-         print(losses)
-
+         print(lossTensor.view(-1))
+         print(baselineValues.view(-1))
+         print("EMPIRICAL DEVIATION FROM BASELINE", (lossTensor-baselineValues).abs().mean())
                
          print("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
-      runningAverageReward = factor * runningAverageReward + (1-factor) * float(negativeRewardsTerm.mean())
 
       return loss, target_tensor.view(-1).size()[0]
 
