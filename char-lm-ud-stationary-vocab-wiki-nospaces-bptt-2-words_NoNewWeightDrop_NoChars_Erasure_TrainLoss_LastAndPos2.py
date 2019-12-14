@@ -140,11 +140,11 @@ relu = torch.nn.ReLU()
 
 positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=256).cuda()
 
-perword_baseline = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=1).cuda()
-perword_baseline.weight.data.fill_(6.0)
+perword_baseline_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
+perword_baseline_outer = torch.nn.Linear(500, 1).cuda()
 
 
-modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline]
+modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer]
 
 def parameters_memory():
    for module in modules_memory:
@@ -282,6 +282,10 @@ def forward(numeric, train=True, printHere=False):
 
       # Retention probabilities
       memory_hidden = sigmoid(memory_mlp_outer(relu(numeric_transformed + memory_mlp_inner(embedded_everything.detach()))))
+
+      # Baseline predictions for prediction loss
+      baselineValues = 10*sigmoid(perword_baseline_outer(relu(perword_baseline_inner(embedded_everything[-1].detach()))))
+
       # Noise decisions
       memory_filter = torch.bernoulli(input=memory_hidden)
       bernoulli_logprob = torch.where(memory_filter == 1, torch.log(memory_hidden+1e-10), torch.log(1-memory_hidden+1e-10))
@@ -299,7 +303,7 @@ def forward(numeric, train=True, printHere=False):
       target_tensor = Variable(numeric[1:], requires_grad=False)
 
 
-      baselineValues = perword_baseline(target_tensor[-1]).squeeze(1)
+#      baselineValues = perword_baseline(target_tensor[-1]).squeeze(1)
 
 
 
@@ -497,3 +501,8 @@ for epoch in range(1000):
 #   optim = torch.optim.SGD(parameters(), lr=learning_rate, momentum=0.0) # 0.02, 0.9
 
 
+
+
+#      global runningAverageBaselineDeviation
+#      global runningAveragePredictionLoss
+#

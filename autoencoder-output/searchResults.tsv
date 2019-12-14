@@ -5,6 +5,8 @@
 7.0	5.8787	0.3688	RATE_WEIGHT=7.0 batch=128 ent_weight=0.0 learn_rate=0.02 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_94267580	264073608
 7.0	5.8256	0.3672	RATE_WEIGHT=7.0 batch=128 ent_weight=0.0 learn_rate=0.05 mom=0.3	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_137037492	264073608
 -----------
+6.5	10	0.1498	RATE_WEIGHT=6.5 batch=128 ent_weight=0.0001 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_596604098	449431785
+6.5	10	0.1497	RATE_WEIGHT=6.5 batch=128 ent_weight=0.0002 learn_rate=0.4 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_223022795	449431785
 6.5	5.5796	0.4412	RATE_WEIGHT=6.5 batch=128 ent_weight=0.0 learn_rate=0.02 mom=0.7	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_807385616	264073608
 6.5	4.9345	0.0001	RATE_WEIGHT=6.5 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.9	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_576596812	264073608
 6.5	4.6756	0.0052	RATE_WEIGHT=6.5 batch=128 ent_weight=0.0 learn_rate=0.01 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both_SumNotMean.py_622949674	264073608
@@ -12,12 +14,14 @@
 -----------
 6.25	10	0.1498	RATE_WEIGHT=6.25 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_181015385	449431785
 6.25	10	0.1473	RATE_WEIGHT=6.25 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_263511944	264073608
+6.25	4.759	0.4004	RATE_WEIGHT=6.25 batch=128 ent_weight=0.0003 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_87896851	264073608
 6.25	4.6685	0.5504	RATE_WEIGHT=6.25 batch=128 ent_weight=0.0002 learn_rate=0.4 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_419353150	138249079
 6.25	4.3888	0.4992	RATE_WEIGHT=6.25 batch=128 ent_weight=0.0001 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_508932156	264073608
 -----------
 6.0	5.5569	0.4886	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0 learn_rate=0.02 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_428075714	264073608
 6.0	5.4148	0.4877	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0 learn_rate=0.05 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_859532790	264073608
 6.0	5.259	0.7113	RATE_WEIGHT=6.0 batch=128 ent_weight=5e-05 learn_rate=1.0 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_54681147	138249079
+6.0	5.2281	0.7576	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0002 learn_rate=1.0 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_255230824	138249079
 6.0	5.1965	0.4972	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0 learn_rate=0.05 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_139067918	264073608
 6.0	5.0266	0.5111	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0 learn_rate=0.05 mom=0.7	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_731417564	264073608
 6.0	4.8411	0.5211	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0 learn_rate=0.1 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long.py_235965996	264073608
@@ -26,6 +30,7 @@
 6.0	4.5608	0.0005	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0 learn_rate=1.0 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_270972277	264073608
 6.0	4.4027	0.4788	RATE_WEIGHT=6.0 batch=128 ent_weight=5e-05 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_265043757	264073608
 6.0	4.3598	0.4669	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0002 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_732467012	264073608
+6.0	4.2963	0.4698	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0002 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_46841207	264073608
 6.0	4.2648	0.4817	RATE_WEIGHT=6.0 batch=128 ent_weight=0.0002 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_114834378	449431785
 -----------
 5.75	10	0.1497	RATE_WEIGHT=5.75 batch=128 ent_weight=0.0001 learn_rate=0.4 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_580045732	264073608
@@ -36,6 +41,7 @@
 5.75	4.5485	0.657	RATE_WEIGHT=5.75 batch=128 ent_weight=0.0001 learn_rate=1.0 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_212558119	264073608
 5.75	4.5441	0.6333	RATE_WEIGHT=5.75 batch=128 ent_weight=0.0 learn_rate=1.0 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_78623159	264073608
 5.75	4.4933	0.0012	RATE_WEIGHT=5.75 batch=128 ent_weight=1e-05 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_617452113	449431785
+5.75	4.3835	0.4565	RATE_WEIGHT=5.75 batch=128 ent_weight=0.0004 learn_rate=1.0 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_678819047	449431785
 5.75	4.3671	0.4424	RATE_WEIGHT=5.75 batch=128 ent_weight=0.0002 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_540944750	449431785
 5.75	4.3445	0.5006	RATE_WEIGHT=5.75 batch=128 ent_weight=5e-05 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_780528954	264073608
 5.75	4.245	0.521	RATE_WEIGHT=5.75 batch=128 ent_weight=0.0001 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_764744737	449431785
@@ -52,6 +58,7 @@
 5.5	4.7814	0.4747	RATE_WEIGHT=5.5 batch=128 ent_weight=2e-05 learn_rate=0.1 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_208250301	449431785
 5.5	4.7228	0.5405	RATE_WEIGHT=5.5 batch=128 ent_weight=0.0 learn_rate=0.05 mom=0.7	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning.py_130671615	264073608
 5.5	4.656	0.699	RATE_WEIGHT=5.5 batch=128 ent_weight=0.0001 learn_rate=1.0 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_750274998	449431785
+5.5	4.4031	0.5589	RATE_WEIGHT=5.5 batch=128 ent_weight=0.0002 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_899524894	138249079
 5.5	4.3665	0.5946	RATE_WEIGHT=5.5 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_215246490	138249079
 5.5	4.2842	0.6268	RATE_WEIGHT=5.5 batch=128 ent_weight=2e-05 learn_rate=1.0 mom=0.5	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Long_Both_Saving.py_961309116	264073608
 5.5	4.218	0.5475	RATE_WEIGHT=5.5 batch=128 ent_weight=0.0001 learn_rate=1.0 mom=0.0	autoencoder2_mlp_bidir_Deletion_Reinforce2_Tuning_Both.py_155886940	449431785
@@ -153,33 +160,47 @@
 5.0	3.5286	0.5017	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_758442736	878921872
 5.0	3.5253	0.5169	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.1 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong.py_440694586	878921872
 5.0	3.4024	0.4906	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Saving.py_70551088	878921872
+5.0	3.3563	0.4916	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_191188305	'69900543'
+5.0	3.2171	0.5519	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_314726809	'69900543'
+5.0	3.2032	0.4897	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_398543337	'69900543'
 5.0	3.1488	0.5161	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_697251177	'69900543'
 5.0	3.1475	0.5035	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_272136630	878921872
 5.0	3.1406	0.5192	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_652477745	878921872
+5.0	3.1088	0.4912	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0001 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_151007648	878921872
+5.0	3.1086	0.4863	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0001 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_59041979	'69900543'
 5.0	3.0797	0.5019	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_906167090	878921872
 5.0	3.0713	0.4964	RATE_WEIGHT=5.0 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_705455852	878921872
 -----------
 4.5	3.9868	0.5805	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.02 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_131539397	878921872
+4.5	3.7153	0.5075	RATE_WEIGHT=4.5 batch=128 ent_weight=0.001 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_173690032	878921872
+4.5	3.6795	0.4768	RATE_WEIGHT=4.5 batch=128 ent_weight=0.001 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_6084383	'69900543'
+4.5	3.6498	0.7461	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_954574873	'69900543'
 4.5	3.5121	0.5562	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.1 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_226641696	878921872
 4.5	3.4175	0.6959	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_514346145	'69900543'
 4.5	3.3866	0.5566	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.05 mom=0.3	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong.py_119711535	878921872
+4.5	3.2303	0.651	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_427848445	'69900543'
 4.5	3.1821	0.5195	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.1 mom=0.7	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_752208477	878921872
 4.5	3.1625	0.5207	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.4 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_657210408	878921872
 4.5	3.16	0.5273	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Saving.py_112985598	878921872
 4.5	3.158	0.5282	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py_183268635	878921872
 4.5	3.1515	0.5272	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py_977575696	878921872
 4.5	3.1475	0.5249	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Saving.py_968347198	878921872
+4.5	3.1348	0.5231	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_168558110	878921872
+4.5	3.1311	0.5159	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_857213375	878921872
 4.5	3.1278	0.5175	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.05 mom=0.9	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_43962935	878921872
+4.5	3.1197	0.5122	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_328040693	878921872
 4.5	3.1103	0.5105	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Saving.py_594565775	878921872
 4.5	3.0898	0.5086	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=1.0 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_656712704	878921872
 4.5	3.0658	0.5147	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.1 mom=0.9	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong.py_215795985	878921872
 4.5	2.9697	0.5793	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_158789715	878921872
 4.5	2.9521	0.5454	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_792365456	878921872
+4.5	2.9268	0.5054	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_1327881	'69900543'
 4.5	2.9081	0.5478	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_121922451	878921872
 4.5	2.8939	0.5353	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_821456445	'69900543'
 4.5	2.8437	0.5162	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_837712789	878921872
 4.5	2.8392	0.5195	RATE_WEIGHT=4.5 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_246930351	878921872
 -----------
+4.0	3.4812	0.509	RATE_WEIGHT=4.0 batch=128 ent_weight=0.001 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_28002516	878921872
 4.0	3.4308	0.7936	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.05 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Slim.py_719749209	None
 4.0	3.2799	0.6261	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.1 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_852390354	878921872
 4.0	3.235	0.5966	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.1 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_838944755	878921872
@@ -187,6 +208,7 @@
 4.0	2.9033	0.5391	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_428860807	878921872
 4.0	2.8611	0.5331	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.7	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long.py_490786889	878921872
 4.0	2.8288	0.6412	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_700291074	878921872
+4.0	2.6833	0.5248	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0001 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_949769065	878921872
 4.0	2.6561	0.5615	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_562845323	'69900543'
 4.0	2.6502	0.544	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.2 mom=0.5	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_482785608	878921872
 4.0	2.648	0.5725	RATE_WEIGHT=4.0 batch=128 ent_weight=0.0 learn_rate=0.6 mom=0.0	autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_Long_Both_Saving.py_665069039	878921872
