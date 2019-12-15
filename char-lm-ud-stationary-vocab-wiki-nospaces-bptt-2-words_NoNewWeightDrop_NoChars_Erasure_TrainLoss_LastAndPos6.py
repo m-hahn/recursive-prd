@@ -1,7 +1,6 @@
-# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos4.py
-# Based on 2
-# Uses multiple replicates of each sample
-
+# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos6.py
+# Based on 4
+# Uses biaffine paramaterization (unfinished)
 
 print("Character aware!")
 
@@ -129,6 +128,8 @@ modules_lm = [rnn, output, word_embeddings]
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
 
+
+
 memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
 memory_mlp_inner_from_pos = torch.nn.Linear(256, 500).cuda()
 memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
@@ -136,24 +137,23 @@ memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
 sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
 
-#character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
-#
-#char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
-#char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
-#
-#char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
-#char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
-#
-#
-#modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
 positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=256).cuda()
 
+
+memory_word_pos_inter = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
+memory_word_pos_inter.weight.data.fill_(0)
+
+################### 
 perword_baseline_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
 perword_baseline_outer = torch.nn.Linear(500, 1).cuda()
 
 
-modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer]
+
+
+
+
+modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer, memory_word_pos_inter]
 
 def parameters_memory():
    for module in modules_memory:
@@ -292,7 +292,14 @@ def forward(numeric, train=True, printHere=False):
 #      print(numeric_transformed.size(), embedded_everything.size())
 
       # Retention probabilities
-      memory_hidden = sigmoid(memory_mlp_outer(relu(numeric_transformed + memory_mlp_inner(embedded_everything.detach()))))
+      forWords = memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach())))
+      print(numeric_transformed.size(), forWords.size())
+      interaction = torch.bmm(memory_word_pos_inter(forWords).transpose(0,1), numeric_transformed.transpose(0,1).transpose(1,2))
+
+      memory_hidden = sigmoid(memory_linear_position(numeric_embedded) + interaction + memory_linear_word(forWords))
+      quit()
+      
+      #memory_hidden = (numeric_transformed + sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach()))))
 
       # Baseline predictions for prediction loss
       baselineValues = 10*sigmoid(perword_baseline_outer(relu(perword_baseline_inner(embedded_everything[-1].detach())))).squeeze(1)
