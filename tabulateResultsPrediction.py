@@ -18,11 +18,12 @@ if True:
       params, perform, memRate, baselineDeviation, predictionLoss = data
       params = params.replace("Namespace(", "")[:-1].split(", ")
       load_from_lm = [x.split("=")[1] for x in params if x.startswith("load_from_lm")][0]
-      params = [x for x in params if x.split("=")[0] in ["RATE_WEIGHT", "batchSize", "entropy_weight", "learning_rate", "momentum"]]
-      params = [x.replace("learning", "learn").replace("entropy", "ent").replace("momentum", "mom").replace("batchSize", "batch") for x in params]
+      rate = float([x.split("=")[1] for x in params if x.startswith("RATE_WEIGHT")][0]) #params[0].split("=")[1])
+
+      params = [x for x in params if x.split("=")[0] in ["RATE_WEIGHT", "batchSize", "entropy_weight", "learning_rate", "momentum", "NUMBER_OF_REPLICATES", "lr_decay"]]
+      params = [x.replace("learning", "learn").replace("entropy", "ent").replace("momentum", "mom").replace("batchSize", "batch").replace("NUMBER_OF_REPLICATES","NRep").replace("lr_decay", "lrdc") for x in params]
 
       memRate = memRate.replace("tensor(", "").replace(", device='cuda:0', grad_fn=<MeanBackward0>)", "")
-      rate = float(params[0].split("=")[1])
       performance = round(float(perform),4)
       memRate = round(float(memRate),4)
       baselineDeviation = round(float(baselineDeviation),4)
