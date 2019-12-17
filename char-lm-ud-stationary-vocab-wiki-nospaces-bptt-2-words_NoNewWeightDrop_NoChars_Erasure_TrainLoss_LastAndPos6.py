@@ -1,6 +1,6 @@
 # char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos6.py
 # Based on 4
-# Uses biaffine paramaterization (unfinished)
+# Uses linear parameterization
 
 print("Character aware!")
 
@@ -24,14 +24,14 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.0001, 0.0002, 0.0003]))
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.00002, 0.00005, 0.0001, 0.0002, 0.0003]))
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([20]))
 parser.add_argument("--verbose", type=bool, default=False)
-parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
+parser.add_argument("--lr_decay", type=float, default=random.choice([0.9, 0.98, 0.99, 1.0]))
 
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
-parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=12)
+parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=random.choice([12,20]))
 
 TRAIN_LM = False
 assert not TRAIN_LM
@@ -41,7 +41,7 @@ parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([1.1])) #
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
 parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.3, 0.5, 0.7, 0.9]))
-parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0, 0.00001, 0.00005, 0.0001, 0.0002, 0.0005, 0.0008, 0.001, 0.005])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
+parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0, 0.00001, 0.00005, 0.0001, 0.0002, 0.0005, 0.0008, 0.001, 0.002, 0.003, 0.004, 0.005, 0.01])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
 
 parser.add_argument("--tuning", type=int, default=0) #random.choice([0.00001, 0.00005, 0.0001, 0.0002, 0.0003, 0.0005, 0.0007, 0.0008, 0.001])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
 
@@ -128,8 +128,6 @@ modules_lm = [rnn, output, word_embeddings]
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
 
-
-
 memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
 memory_mlp_inner_from_pos = torch.nn.Linear(256, 500).cuda()
 memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
@@ -138,11 +136,11 @@ sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
 
 
-positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=256).cuda()
+positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=1).cuda()
+positional_embeddings.weight.data.fill_(0)
 
-
-memory_word_pos_inter = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
-memory_word_pos_inter.weight.data.fill_(0)
+#memory_word_pos_inter = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
+#memory_word_pos_inter.weight.data.fill_(0)
 
 ################### 
 perword_baseline_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
@@ -153,7 +151,7 @@ perword_baseline_outer = torch.nn.Linear(500, 1).cuda()
 
 
 
-modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer, memory_word_pos_inter]
+modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer] #, memory_word_pos_inter]
 
 def parameters_memory():
    for module in modules_memory:
@@ -288,16 +286,25 @@ def forward(numeric, train=True, printHere=False):
       # Positional embeddings
       numeric_positions = torch.LongTensor(range(args.sequence_length+1)).cuda().unsqueeze(1)
       numeric_embedded = positional_embeddings(numeric_positions)
-      numeric_transformed = memory_mlp_inner_from_pos(numeric_embedded)
+#      numeric_transformed = memory_mlp_inner_from_pos(numeric_embedded)
 #      print(numeric_transformed.size(), embedded_everything.size())
 
       # Retention probabilities
-      forWords = memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach())))
-      print(numeric_transformed.size(), forWords.size())
-      interaction = torch.bmm(memory_word_pos_inter(forWords).transpose(0,1), numeric_transformed.transpose(0,1).transpose(1,2))
+      memory_hidden_logit_per_wordtype = memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach())))
+      memory_hidden_logit = numeric_embedded + memory_hidden_logit_per_wordtype
+ #     print("----")
+#      print(numeric_embedded.size(), memory_hidden_logit_per_wordtype.size())
+#      print(positional_embeddings.weight)
+ #     print(numeric_embedded)
+#      print(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach()))))
+      memory_hidden = sigmoid(memory_hidden_logit)
 
-      memory_hidden = sigmoid(memory_linear_position(numeric_embedded) + interaction + memory_linear_word(forWords))
-      quit()
+ #     forWords = memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach())))
+  #    print(numeric_transformed.size(), forWords.size())
+   #   interaction = torch.bmm(memory_word_pos_inter(forWords).transpose(0,1), numeric_transformed.transpose(0,1).transpose(1,2))
+
+    #  memory_hidden = sigmoid(memory_linear_position(numeric_embedded) + interaction + memory_linear_word(forWords))
+     # quit()
       
       #memory_hidden = (numeric_transformed + sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach()))))
 
@@ -401,9 +408,14 @@ def forward(numeric, train=True, printHere=False):
          numericCPU = numeric.cpu().data.numpy()
          numeric_noisedCPU = numeric_noised.cpu().data.numpy()
          memory_hidden_CPU = memory_hidden[:,0,0].cpu().data.numpy()
+         memory_hidden_logit_per_wordtype_cpu = memory_hidden_logit_per_wordtype.cpu().data
+         numeric_embedded_cpu = numeric_embedded.cpu().data
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-            print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else ""))
+            print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else "", float(numeric_embedded_cpu[i+1,0,0]), float(memory_hidden_logit_per_wordtype_cpu[i+1,0,0])))
+
+
+
          print(lossTensor.view(-1))
          print(baselineValues.view(-1))
          print("EMPIRICAL DEVIATION FROM BASELINE", (lossTensor-baselineValues).abs().mean())

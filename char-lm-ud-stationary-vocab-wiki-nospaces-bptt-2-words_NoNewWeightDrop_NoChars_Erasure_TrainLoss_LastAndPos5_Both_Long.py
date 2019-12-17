@@ -34,8 +34,8 @@ parser.add_argument("--lr_decay", type=float, default=random.choice([0.9, 0.98, 
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
 parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=random.choice([12,20]))
 
-TRAIN_LM = False
-assert not TRAIN_LM
+TRAIN_LM = True
+assert TRAIN_LM
 
 parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([1.1])) #[3.0, 3.5, 4.0, 4.5, 5.0]))
 # 1.5, 2.0, 2.5, 
@@ -174,8 +174,9 @@ parameters_lm_cached = [x for x in parameters_lm()]
 
 learning_rate = args.learning_rate
 
-assert not TRAIN_LM
-optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+assert TRAIN_LM
+optim_memory = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+optim_lm = torch.optim.SGD(parameters_lm(), lr=learning_rate, momentum=0.0) # 0.02, 0.9
 
 #named_modules = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
 
@@ -251,8 +252,8 @@ zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda
 
 bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
-bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
-bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
+bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.NUMBER_OF_REPLICATES * 2 * args.word_embedding_size)]).cuda())
+bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.NUMBER_OF_REPLICATES * args.hidden_dim)]).cuda())
 
 #runningAveragePredictionLoss = 1.0
 runningAverageReward = 5.0
@@ -322,10 +323,10 @@ def forward(numeric, train=True, printHere=False):
 
 
       embedded = word_embeddings(input_tensor)
-      if TRAIN_LM:
+      if TRAIN_LM and False:
          embedded = char_dropout(embedded)
          mask = bernoulli_input.sample()
-         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
+         mask = mask.view(1, args.NUMBER_OF_REPLICATES, 2*args.word_embedding_size)
          embedded = embedded * mask
 
       out, hidden = rnn_drop(embedded, hidden)
@@ -333,9 +334,9 @@ def forward(numeric, train=True, printHere=False):
       # Only aim to predict the last word
       out = out[-1:]
 
-      if TRAIN_LM:
+      if TRAIN_LM and False:
         mask = bernoulli_output.sample()
-        mask = mask.view(1, args.batchSize, args.hidden_dim)
+        mask = mask.view(1, args.NUMBER_OF_REPLICATES, args.hidden_dim)
         out = out * mask
 
 
@@ -373,6 +374,9 @@ def forward(numeric, train=True, printHere=False):
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
 
+      if TRAIN_LM:
+         loss += negativeRewardsTerm1.mean()
+
       # Construct running averages
       factor = 0.9996 ** args.batchSize
 
@@ -409,14 +413,17 @@ def forward(numeric, train=True, printHere=False):
       return loss, target_tensor.view(-1).size()[0]
 
 def backward(loss, printHere):
-      optim.zero_grad()
+      optim_memory.zero_grad()
+      optim_lm.zero_grad()
+
       if printHere:
          print(loss)
       loss.backward()
       torch.nn.utils.clip_grad_value_(parameters_memory_cached, 5.0) #, norm_type="inf")
       if TRAIN_LM:
          torch.nn.utils.clip_grad_value_(parameters_lm_cached, 5.0) #, norm_type="inf")
-      optim.step()
+      optim_memory.step()
+      optim_lm.step()
 
 
 lossHasBeenBad = 0
@@ -429,7 +436,7 @@ lastSaved = (None, None)
 devLosses = []
 updatesCount = 0
 
-maxUpdates = 100000 if args.tuning == 1 else 10000000000
+maxUpdates = 500000 if args.tuning == 1 else 10000000000
 
 for epoch in range(1000):
    print(epoch)
@@ -451,7 +458,8 @@ for epoch in range(1000):
       updatesCount += 1
       if updatesCount % 10000 == 0:
          learning_rate = args.learning_rate * math.pow(args.lr_decay, int(updatesCount/10000))
-         optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+         optim_memory = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+         optim_lm     = torch.optim.SGD(parameters_lm(), lr=learning_rate, momentum=0) # 0.02, 0.9
       try:
          numeric = next(training_chars)
       except StopIteration:
@@ -459,10 +467,11 @@ for epoch in range(1000):
       printHere = (counter % 50 == 0)
       loss, charCounts = forward(numeric, printHere=printHere, train=True)
       backward(loss, printHere)
-      if loss.data.cpu().numpy() > 15.0:
-          lossHasBeenBad += 1
-      else:
-          lossHasBeenBad = 0
+   #   print(loss)
+#      if loss.data.cpu().numpy() > 15.0:
+ #         lossHasBeenBad += 1
+  #    else:
+   #       lossHasBeenBad = 0
       if lossHasBeenBad > 100:
           print("Loss exploding, has been bad for a while")
           print(loss)
