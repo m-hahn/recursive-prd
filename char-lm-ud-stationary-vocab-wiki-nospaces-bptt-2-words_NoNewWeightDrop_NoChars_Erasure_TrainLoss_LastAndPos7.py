@@ -1,7 +1,5 @@
-# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos4.py
-# Based on 2
-# Uses multiple replicates of each sample
-
+# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos7.py
+# Based on 6
 
 print("Character aware!")
 
@@ -139,11 +137,15 @@ relu = torch.nn.ReLU()
 
 positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=256).cuda()
 
+memory_word_pos_inter = torch.nn.Linear(256, 1, bias=False).cuda()
+memory_word_pos_inter.weight.data.fill_(0)
+
+################### 
 perword_baseline_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
 perword_baseline_outer = torch.nn.Linear(500, 1).cuda()
 
 
-modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer]
+modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer, memory_word_pos_inter]
 
 def parameters_memory():
    for module in modules_memory:
@@ -277,12 +279,28 @@ def forward(numeric, train=True, printHere=False):
 
       # Positional embeddings
       numeric_positions = torch.LongTensor(range(args.sequence_length+1)).cuda().unsqueeze(1)
-      numeric_embedded = positional_embeddings(numeric_positions)
-      numeric_transformed = memory_mlp_inner_from_pos(numeric_embedded)
+      numeric_embedded = memory_word_pos_inter(positional_embeddings(numeric_positions))
+#      numeric_transformed = memory_mlp_inner_from_pos(numeric_embedded)
 #      print(numeric_transformed.size(), embedded_everything.size())
 
       # Retention probabilities
-      memory_hidden = sigmoid(memory_mlp_outer(relu(numeric_transformed + memory_mlp_inner(embedded_everything.detach()))))
+      memory_hidden_logit_per_wordtype = memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach())))
+      memory_hidden_logit = numeric_embedded + memory_hidden_logit_per_wordtype
+ #     print("----")
+#      print(numeric_embedded.size(), memory_hidden_logit_per_wordtype.size())
+#      print(positional_embeddings.weight)
+ #     print(numeric_embedded)
+#      print(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach()))))
+      memory_hidden = sigmoid(memory_hidden_logit)
+
+ #     forWords = memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach())))
+  #    print(numeric_transformed.size(), forWords.size())
+   #   interaction = torch.bmm(memory_word_pos_inter(forWords).transpose(0,1), numeric_transformed.transpose(0,1).transpose(1,2))
+
+    #  memory_hidden = sigmoid(memory_linear_position(numeric_embedded) + interaction + memory_linear_word(forWords))
+     # quit()
+      
+      #memory_hidden = (numeric_transformed + sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach()))))
 
       # Baseline predictions for prediction loss
       baselineValues = 10*sigmoid(perword_baseline_outer(relu(perword_baseline_inner(embedded_everything[-1].detach())))).squeeze(1)
@@ -384,9 +402,14 @@ def forward(numeric, train=True, printHere=False):
          numericCPU = numeric.cpu().data.numpy()
          numeric_noisedCPU = numeric_noised.cpu().data.numpy()
          memory_hidden_CPU = memory_hidden[:,0,0].cpu().data.numpy()
+         memory_hidden_logit_per_wordtype_cpu = memory_hidden_logit_per_wordtype.cpu().data
+         numeric_embedded_cpu = numeric_embedded.cpu().data
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-            print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else ""))
+            print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else "", float(numeric_embedded_cpu[i+1,0,0]), float(memory_hidden_logit_per_wordtype_cpu[i+1,0,0])))
+
+
+
          print(lossTensor.view(-1))
          print(baselineValues.view(-1))
          print("EMPIRICAL DEVIATION FROM BASELINE", (lossTensor-baselineValues).abs().mean())
