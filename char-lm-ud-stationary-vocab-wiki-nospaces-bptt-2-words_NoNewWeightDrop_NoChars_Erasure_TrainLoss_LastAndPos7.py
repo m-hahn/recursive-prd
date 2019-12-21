@@ -145,6 +145,7 @@ perword_baseline_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
 perword_baseline_outer = torch.nn.Linear(500, 1).cuda()
 
 
+##############
 modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer, memory_word_pos_inter]
 
 def parameters_memory():
@@ -473,10 +474,10 @@ for epoch in range(1000):
       printHere = (counter % 50 == 0)
       loss, charCounts = forward(numeric, printHere=printHere, train=True)
       backward(loss, printHere)
-      if loss.data.cpu().numpy() > 15.0:
-          lossHasBeenBad += 1
-      else:
-          lossHasBeenBad = 0
+#      if loss.data.cpu().numpy() > 15.0:
+#          lossHasBeenBad += 1
+#      else:
+#          lossHasBeenBad = 0
       if lossHasBeenBad > 100:
           print("Loss exploding, has been bad for a while")
           print(loss)

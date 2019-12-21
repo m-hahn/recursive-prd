@@ -136,16 +136,6 @@ memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
 sigmoid = torch.nn.Sigmoid()
 relu = torch.nn.ReLU()
 
-#character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
-#
-#char_composition = torch.nn.LSTM(args.char_emb_dim, args.char_enc_hidden_dim, 1, bidirectional=True).cuda()
-#char_composition_output = torch.nn.Linear(2*args.char_enc_hidden_dim, args.word_embedding_size).cuda()
-#
-#char_decoder_rnn = torch.nn.LSTM(args.char_emb_dim + args.hidden_dim, args.char_dec_hidden_dim, 1).cuda()
-#char_decoder_output = torch.nn.Linear(args.char_dec_hidden_dim, len(itos_chars_total))
-#
-#
-#modules_autoencoder += [character_embeddings, char_composition, char_composition_output, char_decoder_rnn, char_decoder_output]
 
 positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=256).cuda()
 
@@ -467,11 +457,6 @@ for epoch in range(1000):
       printHere = (counter % 50 == 0)
       loss, charCounts = forward(numeric, printHere=printHere, train=True)
       backward(loss, printHere)
-   #   print(loss)
-#      if loss.data.cpu().numpy() > 15.0:
- #         lossHasBeenBad += 1
-  #    else:
-   #       lossHasBeenBad = 0
       if lossHasBeenBad > 100:
           print("Loss exploding, has been bad for a while")
           print(loss)

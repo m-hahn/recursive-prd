@@ -20,7 +20,7 @@ if True:
       load_from_lm = [x.split("=")[1] for x in params if x.startswith("load_from_lm")][0]
       rate = float([x.split("=")[1] for x in params if x.startswith("RATE_WEIGHT")][0]) #params[0].split("=")[1])
 
-      params = [x for x in params if x.split("=")[0] in ["RATE_WEIGHT", "batchSize", "entropy_weight", "learning_rate", "momentum", "NUMBER_OF_REPLICATES", "lr_decay"]]
+      params = [x for x in params if x.split("=")[0] in ["RATE_WEIGHT", "batchSize", "entropy_weight", "learning_rate", "momentum", "NUMBER_OF_REPLICATES", "lr_decay", "bilinear_l2"]]
       params = [x.replace("learning", "learn").replace("entropy", "ent").replace("momentum", "mom").replace("batchSize", "batch").replace("NUMBER_OF_REPLICATES","NRep").replace("lr_decay", "lrdc") for x in params]
 
       memRate = memRate.replace("tensor(", "").replace(", device='cuda:0', grad_fn=<MeanBackward0>)", "")
@@ -28,11 +28,17 @@ if True:
       memRate = round(float(memRate),4)
       baselineDeviation = round(float(baselineDeviation),4)
       predictionLoss = round(float(predictionLoss), 4)
-      results.append((rate, performance, memRate, baselineDeviation, predictionLoss, " ".join(params), filen, load_from_lm))
+      version, filenum = (lambda x:(filen[:x], filen[x+1:]))(filen.rfind("_"))
+      version = version[version.index("LastAndPos")+10:]
+      results.append((rate, performance, memRate, baselineDeviation, predictionLoss, " ".join(params), version, filenum, load_from_lm))
    results = sorted(results, reverse=True)
    lastR = None
-   for r in results:
+   with open("lm_noise/tableSearchResults.tsv", "w") as outFile:
+     print("\t".join(["rate", "performance", "memRate", "baselineDeviation", "predictionLoss", "params", "version", "filenum", "load_from_lm"]), file=outFile)
+     for r in results:
       if lastR is not None and lastR[0] != r[0]:
          print("-----------")
       print("\t".join([str(x) for x in r]))
       lastR = r
+      print("\t".join([str(x) for x in r]), file=outFile)
+     
