@@ -1,5 +1,5 @@
 # char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos10_l.py
-# Based on c (deeper network)
+# Based on c (deeper network for per-word-contribution)
 # Has additional bilinear term
 
 print("Character aware!")

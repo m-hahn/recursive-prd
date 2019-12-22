@@ -1,6 +1,5 @@
 # char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos10_m.py
 # Based on c (entropy decay)
-# Has additional bilinear term
 
 print("Character aware!")
 

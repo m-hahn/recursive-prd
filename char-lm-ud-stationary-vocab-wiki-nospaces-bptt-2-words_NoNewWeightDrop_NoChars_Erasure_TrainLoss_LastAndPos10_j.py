@@ -1,5 +1,6 @@
 # char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos10_h.py
-# Based on 10_d
+# Based on 10_d (deeper network for positional embeddings)
+# 
 
 print("Character aware!")
 
