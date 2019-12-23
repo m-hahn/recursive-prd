@@ -459,7 +459,7 @@ lastSaved = (None, None)
 devLosses = []
 updatesCount = 0
 
-maxUpdates = 100000 if args.tuning == 1 else 10000000000
+maxUpdates = 5000000 if args.tuning == 1 else 10000000000
 
 def showAttention(word):
     attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)

@@ -1,5 +1,5 @@
-# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos10.py
-# Based on 7
+# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos10_l.py
+# Based on c (deeper network for per-word-contribution)
 # Has additional bilinear term
 
 print("Character aware!")
@@ -130,6 +130,7 @@ modules_lm = [rnn, output, word_embeddings]
 
 memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
 memory_mlp_inner_bilinear = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
+memory_mlp_outer_bilinear = torch.nn.Linear(500, 500).cuda()
 memory_mlp_inner_from_pos = torch.nn.Linear(256, 500).cuda()
 memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
 
@@ -152,7 +153,7 @@ memory_bilinear.weight.data.fill_(0)
 
 
 ##############
-modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer, memory_word_pos_inter, memory_bilinear, memory_mlp_inner_bilinear]
+modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer, memory_word_pos_inter, memory_bilinear, memory_mlp_inner_bilinear, memory_mlp_outer_bilinear]
 
 def parameters_memory():
    for module in modules_memory:
@@ -259,7 +260,7 @@ runningAverageBaselineDeviation = 2.0
 runningAveragePredictionLoss = 5.0
 expectedRetentionRate = 0.5
 
-def forward(numeric, train=True, printHere=False, provideAttention=False):
+def forward(numeric, train=True, printHere=False):
       global hidden
       global beginning
       global beginning_chars
@@ -296,7 +297,9 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       memory_hidden_logit_per_wordtype = memory_mlp_outer(relu(memory_byword_inner))
       #print(embedded_positions.size(), embedded_everything.size())
       #print(memory_bilinear(embedded_positions).size(), embedded_everything.size())
-      attention_bilinear_term = torch.bmm(memory_bilinear(embedded_positions), relu(memory_mlp_inner_bilinear(embedded_everything.detach())).transpose(1,2)).transpose(1,2)
+      embedded_for_bilinear = relu(memory_mlp_inner_bilinear(embedded_everything.detach()))
+      embedded_for_bilinear = relu(memory_mlp_outer_bilinear(embedded_for_bilinear) + embedded_for_bilinear)
+      attention_bilinear_term = torch.bmm(memory_bilinear(embedded_positions), embedded_for_bilinear.transpose(1,2)).transpose(1,2)
       #print(
 
       memory_hidden_logit = numeric_embedded + memory_hidden_logit_per_wordtype + attention_bilinear_term
@@ -306,8 +309,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
  #     print(numeric_embedded)
 #      print(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach()))))
       memory_hidden = sigmoid(memory_hidden_logit)
-      if provideAttention:
-         return memory_hidden
+
  #     forWords = memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach())))
   #    print(numeric_transformed.size(), forWords.size())
    #   interaction = torch.bmm(memory_word_pos_inter(forWords).transpose(0,1), numeric_transformed.transpose(0,1).transpose(1,2))
@@ -459,12 +461,7 @@ lastSaved = (None, None)
 devLosses = []
 updatesCount = 0
 
-maxUpdates = 100000 if args.tuning == 1 else 10000000000
-
-def showAttention(word):
-    attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)
-    attention = attention[:,0,0]
-    print(*(["SCORES", word, "\t"]+[round(x,2) for x in list(attention.cpu().data.numpy())]))
+maxUpdates = 500000 if args.tuning == 1 else 10000000000
 
 for epoch in range(1000):
    print(epoch)
@@ -484,18 +481,6 @@ for epoch in range(1000):
    while updatesCount <= maxUpdates:
       counter += 1
       updatesCount += 1
-      if updatesCount % 10000 == 0:
-         print("=========================")
-         showAttention("the")
-         showAttention("that")
-         showAttention("fact")
-         showAttention("information")
-         showAttention("report")
-         showAttention("belief")
-         showAttention("finding")
-         showAttention("prediction")
-
-
       if updatesCount % 10000 == 0:
          learning_rate = args.learning_rate * math.pow(args.lr_decay, int(updatesCount/10000))
          optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
@@ -594,15 +579,5 @@ with open("/u/scr/mhahn/reinforce-logs-predict/results/"+__file__+"_"+str(args.m
    print(runningAverageBaselineDeviation, file=outFile)
    print(runningAveragePredictionLoss, file=outFile)
 
-
-print("=========================")
-showAttention("the")
-showAttention("that")
-showAttention("fact")
-showAttention("information")
-showAttention("report")
-showAttention("belief")
-showAttention("finding")
-showAttention("prediction")
 
 

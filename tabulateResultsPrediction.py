@@ -29,13 +29,15 @@ if True:
       performance = round(float(perform),4)
       memRate = round(float(memRate),4)
       baselineDeviation = round(float(baselineDeviation),4)
-      predictionLoss = round(float(predictionLoss), 4)
+      predictionLoss = float(predictionLoss)
       version, filenum = (lambda x:(filen[:x], filen[x+1:]))(filen.rfind("_"))
       version = version[version.index("LastAndPos")+10:]
-      results.append((rate, performance, memRate, baselineDeviation, predictionLoss, " ".join(params), version, filenum, load_from_lm))
-      results2.append((rate, performance, memRate, baselineDeviation, predictionLoss, " ".join(params), version, filenum, load_from_lm) + tuple([params_here.get(x, "NA") for x in PARAMS]))
+      results.append((rate, performance, memRate, baselineDeviation, round(predictionLoss,4), " ".join(params), version, filenum, load_from_lm))
+      results2.append((rate, float(perform), memRate, baselineDeviation, predictionLoss, " ".join(params), version, filenum, load_from_lm) + tuple([params_here.get(x, "NA") for x in PARAMS]))
 
    results = sorted(results, reverse=True)
+   results2 = sorted(results2, reverse=True)
+
    lastR = None
    with open("lm_noise/tableSearchResults.tsv", "w") as outFile:
      print("\t".join(["rate", "performance", "memRate", "baselineDeviation", "predictionLoss", "params", "version", "filenum", "load_from_lm"] + PARAMS), file=outFile)
