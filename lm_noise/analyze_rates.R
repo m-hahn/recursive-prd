@@ -19,4 +19,5 @@ ggplot(data_, aes(x=position, y=score, group=word, color=word)) + geom_line() + 
 
 #ggplot(data_, aes(x=position, y=score, group=word, color=word)) + geom_smooth() + facet_wrap(~counter)
 
+ggplot(data %>% filter(counter==200), aes(x=position, y=score, group=word, color=word)) + geom_line() + facet_wrap(~rate+performance+version+filenum)
 

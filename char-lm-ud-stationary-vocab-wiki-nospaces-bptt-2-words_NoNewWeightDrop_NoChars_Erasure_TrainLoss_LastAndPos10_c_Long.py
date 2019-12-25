@@ -487,6 +487,7 @@ for epoch in range(1000):
       if updatesCount % 10000 == 0:
          print("=========================")
          showAttention("the")
+         showAttention("was")
          showAttention("that")
          showAttention("fact")
          showAttention("information")
@@ -597,6 +598,7 @@ with open("/u/scr/mhahn/reinforce-logs-predict/results/"+__file__+"_"+str(args.m
 
 print("=========================")
 showAttention("the")
+showAttention("was")
 showAttention("that")
 showAttention("fact")
 showAttention("information")

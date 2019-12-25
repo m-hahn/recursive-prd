@@ -6,7 +6,7 @@ PATH = "/u/scr/mhahn/reinforce-logs-predict/results/"
 logs = os.listdir(PATH)
 PARAMS = ["RATE_WEIGHT", "batchSize", "entropy_weight", "learning_rate", "momentum", "NUMBER_OF_REPLICATES", "lr_decay", "bilinear_l2"]
 with open("lm_noise/perWordRates.tsv", "w") as outFile:
-   print("\t".join(["version", "filenum", "counter", "word", "position", "score"]), file=outFile)
+   print("\t".join(["rate", "version", "filenum", "counter", "word", "position", "score", "performance"]), file=outFile)
    print("###############")
    results = []
    results2 = []
@@ -45,5 +45,5 @@ with open("lm_noise/perWordRates.tsv", "w") as outFile:
                    word = word[7:]
                    scores = scores.strip().split(" ")
                    for j in range(21):
-                      print("\t".join([str(x) for x in [version, filenum, counter, word, j, scores[j]]]), file=outFile)
+                      print("\t".join([str(x) for x in [rate, version, filenum, counter, word, j, scores[j], perform]]), file=outFile)
                    

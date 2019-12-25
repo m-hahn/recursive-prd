@@ -54,6 +54,9 @@ ggplot(data_ %>% filter(grepl("10_i", version)) %>% group_by(learning_rate) %>% 
 
 ggplot(data_ %>% group_by(learning_rate) %>% summarise(performance = mean(performance)), aes(x=log(learning_rate), y=performance)) + geom_line()
 
+ggplot(data %>% group_by(lr_decay) %>% summarise(performance = mean(performance)), aes(x=log(lr_decay), y=performance)) + geom_line()
+
+
 ggplot(data %>% group_by(learning_rate) %>% summarise(performance = mean(performance)), aes(x=log(learning_rate), y=performance)) + geom_line()
 
 ggplot(data %>% filter(version == "10_i.py") %>% group_by(learning_rate) %>% summarise(performance = mean(performance)), aes(x=log(learning_rate), y=performance)) + geom_line()
@@ -68,17 +71,28 @@ plot(data_$learning_rate, data_$performance)
 
 summary(lm(performance ~ momentum + lr_decay + NUMBER_OF_REPLICATES + log(entropy_weight+1) + log(learning_rate) + version, data=data_ %>% filter(log(learning_rate) > -12)))
 
-byPerformance = data %>% filter(rate==0.2, log(learning_rate) > -12) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
+byPerformance = data %>% filter(rate==0.2) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
 print(byPerformance[order(byPerformance$performance),], n=50)
 print(byPerformance[order(byPerformance$pessimistic),], n=50)
 
 
 
-byPerformance = data %>% filter(rate==0.4, log(learning_rate) > -12) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
+byPerformance = data %>% filter(rate==0.4) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
 print(byPerformance[order(byPerformance$performance),], n=50)
 print(byPerformance[order(byPerformance$pessimistic),], n=50)
 
-byPerformance = data %>% filter(rate==0.5, log(learning_rate) > -12) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
+byPerformance = data %>% filter(rate==0.5) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
+print(byPerformance[order(byPerformance$performance),], n=50)
+print(byPerformance[order(byPerformance$pessimistic),], n=50)
+
+
+byPerformance = data %>% filter(rate==0.6) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
+print(byPerformance[order(byPerformance$performance),], n=50)
+print(byPerformance[order(byPerformance$pessimistic),], n=50)
+
+
+
+byPerformance = data %>% filter(rate==0.7) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
 print(byPerformance[order(byPerformance$performance),], n=50)
 print(byPerformance[order(byPerformance$pessimistic),], n=50)
 

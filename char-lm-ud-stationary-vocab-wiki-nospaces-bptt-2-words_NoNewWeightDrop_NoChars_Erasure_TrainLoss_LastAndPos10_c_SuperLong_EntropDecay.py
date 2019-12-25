@@ -1,5 +1,5 @@
 # Entropy term decay also using m
-
+assert False
 print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model
@@ -392,6 +392,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       # Important to detach from the baseline!!! 
       loss = (rewardMinusBaseline.detach() * bernoulli_logprob_perBatch.squeeze(1)).mean()
       if args.entropy_weight > 0:
+         assert False, "BUG"
          loss -= args.entropy_weight  * entropy
 
       # Loss for trained baseline
