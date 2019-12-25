@@ -6,7 +6,7 @@ PATH = "/u/scr/mhahn/reinforce-logs-predict/results/"
 logs = os.listdir(PATH)
 PARAMS = ["RATE_WEIGHT", "batchSize", "entropy_weight", "learning_rate", "momentum", "NUMBER_OF_REPLICATES", "lr_decay", "bilinear_l2"]
 with open("lm_noise/perWordRates.tsv", "w") as outFile:
-   print("\t".join(["rate", "version", "filenum", "counter", "word", "position", "score", "performance"]), file=outFile)
+   print("\t".join(["rate", "version", "filenum", "counter", "word", "position", "score", "performance", "learning_rate", "entropy_weight"]), file=outFile)
    print("###############")
    results = []
    results2 = []
@@ -33,7 +33,7 @@ with open("lm_noise/perWordRates.tsv", "w") as outFile:
       predictionLoss = float(predictionLoss)
       version, filenum = (lambda x:(filen[:x], filen[x+1:]))(filen.rfind("_"))
       version = version[version.index("LastAndPos")+10:]
-      if "10_c_SuperLong" in version:
+      if "10_c_SuperLong" in version or "10_c_Long" in version:
          print(version, filenum)
          with open("/u/scr/mhahn/reinforce-logs-predict/full-logs/"+"char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos"+version+"_"+filenum, "r") as inFile:
            counter = 0
@@ -45,5 +45,5 @@ with open("lm_noise/perWordRates.tsv", "w") as outFile:
                    word = word[7:]
                    scores = scores.strip().split(" ")
                    for j in range(21):
-                      print("\t".join([str(x) for x in [rate, version, filenum, counter, word, j, scores[j], perform]]), file=outFile)
+                      print("\t".join([str(x) for x in [rate, version, filenum, counter, word, j, scores[j], perform, params_here["learning_rate"], params_here["entropy_weight"]]]), file=outFile)
                    

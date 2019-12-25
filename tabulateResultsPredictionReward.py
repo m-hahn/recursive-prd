@@ -33,16 +33,16 @@ with open("lm_noise/rewards.tsv", "w") as outFile:
       predictionLoss = float(predictionLoss)
       version, filenum = (lambda x:(filen[:x], filen[x+1:]))(filen.rfind("_"))
       version = version[version.index("LastAndPos")+10:]
-      if "10_c_SuperLong" in version:
-         print(version, filenum)
+      if "10_c_SuperLong" in version or "10_c_Long" in version:
+#         print()
          with open("/u/scr/mhahn/reinforce-logs-predict/full-logs/"+"char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos"+version+"_"+filenum, "r") as inFile:
            counter = 0
            for line in inFile:
               if line.startswith("PREDICTION_LOSS"):
                 _, _, _, _, reward, _ = line.split("\t")
                 reward = reward.split(" ")[1]
-                print(reward)
+      #          print(reward)
                 counter += 1
                 if counter % 100==0:
                    print("\t".join([str(x) for x in [rate, version, filenum, counter, reward]]), file=outFile)
-                   
+         print(version, filenum, counter)          
