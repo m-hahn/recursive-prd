@@ -1,5 +1,5 @@
-# Has batch size > 1
-assert False, "has bug that comes out whenever trying to get predictions with batch size 1"
+# 12_b
+# Based on char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos12_Long.py
 
 print("Character aware!")
 
@@ -15,7 +15,7 @@ parser.add_argument("--load-from-lm", dest="load_from_lm", type=str, default=964
 
 import random
 
-parser.add_argument("--batchSize", type=int, default=random.choice([4]))
+parser.add_argument("--batchSize", type=int, default=random.choice([1]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
 parser.add_argument("--hidden_dim", type=int, default=random.choice([1024]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
@@ -28,19 +28,21 @@ parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([20]))
 parser.add_argument("--verbose", type=bool, default=False)
 parser.add_argument("--lr_decay", type=float, default=random.choice([0.9, 0.98, 0.99, 1.0]))
+parser.add_argument("--deletion_rate", type=float, default=0.5)
 
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
-parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=random.choice([12]))
+parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=random.choice([12,20]))
 
+parser.add_argument("--dual_learning_rate", type=float, default=random.choice([0.01, 0.02, 0.05, 0.1, 0.2, 0.3]))
 TRAIN_LM = False
 assert not TRAIN_LM
 
-parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([1.1])) #[3.0, 3.5, 4.0, 4.5, 5.0]))
+parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([-1.0])) #[3.0, 3.5, 4.0, 4.5, 5.0]))
 # 1.5, 2.0, 2.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
 parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.3, 0.5, 0.7, 0.9]))
-parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0, 0.00001, 0.00005, 0.0001, 0.0002, 0.0005, 0.0008, 0.001, 0.002, 0.003, 0.004, 0.005, 0.01])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
+parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
 
 parser.add_argument("--tuning", type=int, default=0) #random.choice([0.00001, 0.00005, 0.0001, 0.0002, 0.0003, 0.0005, 0.0007, 0.0008, 0.001])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
 
@@ -51,6 +53,7 @@ import math
 args=parser.parse_args()
 
 assert args.tuning in [0,1]
+assert args.batchSize == 1
 print(args.myID)
 import sys
 if args.tuning == 1:
@@ -157,6 +160,10 @@ def parameters_memory():
        for param in module.parameters():
             yield param
 
+dual_weight = torch.cuda.FloatTensor([1.0])
+dual_weight.requires_grad=True
+
+
 parameters_memory_cached = [x for x in parameters_memory()]
 
 
@@ -241,12 +248,12 @@ hidden = None
 zeroBeginning = torch.LongTensor([0 for _ in range(args.NUMBER_OF_REPLICATES*args.batchSize)]).cuda().view(1,args.NUMBER_OF_REPLICATES*args.batchSize)
 beginning = None
 
-zeroBeginning_chars = torch.zeros(1, args.NUMBER_OF_REPLICATES*args.batchSize, 16).long().cuda()
+zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
 
 
-zeroHidden = torch.zeros((args.layer_num, args.NUMBER_OF_REPLICATES*args.batchSize, args.hidden_dim)).cuda()
+zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda()
 
-bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.NUMBER_OF_REPLICATES*args.batchSize)]).cuda())
+bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
 bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
 bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
@@ -257,7 +264,7 @@ runningAverageBaselineDeviation = 2.0
 runningAveragePredictionLoss = 5.0
 expectedRetentionRate = 0.5
 
-def forward(numeric, train=True, printHere=False, provideAttention=False, batchSizeHere=args.batchSize):
+def forward(numeric, train=True, printHere=False, provideAttention=False):
       global hidden
       global beginning
       global beginning_chars
@@ -269,7 +276,6 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
           hidden1 = Variable(hidden[0]).detach()
           hidden2 = Variable(hidden[1]).detach()
           forRestart = bernoulli.sample()
-      #    print(forRestart.size(), zeroHidden.size(), hidden1.size())
           hidden1 = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroHidden, hidden1)
           hidden2 = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroHidden, hidden2)
           hidden = (hidden1, hidden2)
@@ -277,14 +283,10 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
   #        beginning_chars = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroBeginning_chars, beginning_chars)
 
       numeric, numeric_chars = numeric
-#      print(numeric.size())
-      numeric = numeric.unsqueeze(2).expand(-1, -1, args.NUMBER_OF_REPLICATES).contiguous().view(args.sequence_length, args.NUMBER_OF_REPLICATES*batchSizeHere)
- #     print(numeric.size())
-      if batchSizeHere == args.batchSize:
-         numeric = torch.cat([beginning, numeric], dim=0)
-      else:
-         beginning = torch.LongTensor([0 for _ in range(args.NUMBER_OF_REPLICATES*batchSizeHere)]).cuda().view(1,args.NUMBER_OF_REPLICATES*batchSizeHere)
 
+#      print(numeric.size())
+      numeric = numeric.expand(-1, args.NUMBER_OF_REPLICATES)
+      numeric = torch.cat([beginning, numeric], dim=0)
       embedded_everything = word_embeddings(numeric)
 
       # Positional embeddings
@@ -322,7 +324,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
 
       # Baseline predictions for prediction loss
       baselineValues = 10*sigmoid(perword_baseline_outer(relu(perword_baseline_inner(embedded_everything[-1].detach())))).squeeze(1)
-      assert tuple(baselineValues.size()) == (args.NUMBER_OF_REPLICATES*batchSizeHere,)
+      assert tuple(baselineValues.size()) == (args.NUMBER_OF_REPLICATES,)
 
 
       # Noise decisions
@@ -351,7 +353,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
       if TRAIN_LM:
          embedded = char_dropout(embedded)
          mask = bernoulli_input.sample()
-         mask = mask.view(1, batchSizeHere, 2*args.word_embedding_size)
+         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
          embedded = embedded * mask
 
       out, hidden = rnn_drop(embedded, hidden)
@@ -361,7 +363,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
 
       if TRAIN_LM:
         mask = bernoulli_output.sample()
-        mask = mask.view(1, batchSizeHere, args.hidden_dim)
+        mask = mask.view(1, args.batchSize, args.hidden_dim)
         out = out * mask
 
 
@@ -370,7 +372,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
       log_probs = logsoftmax(logits)
 
       # Prediction Loss 
-      lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor[-1].view(-1)).view(-1, args.NUMBER_OF_REPLICATES*batchSizeHere) # , args.batchSize is 1
+      lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor[-1].view(-1)).view(-1, args.NUMBER_OF_REPLICATES) # , args.batchSize is 1
 
       # Reward, term 1
       negativeRewardsTerm1 = lossTensor.mean(dim=0)
@@ -378,10 +380,18 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
       # Reward, term 2
       # Regularization towards lower retention rates
       negativeRewardsTerm2 = memory_filter.mean(dim=0)
-
+      retentionTarget = 1-args.deletion_rate
+      loss = 0
       # Overall Reward
-      negativeRewardsTerm = negativeRewardsTerm1 + args.RATE_WEIGHT * negativeRewardsTerm2
+      negativeRewardsTerm = negativeRewardsTerm1
 
+      loss += (dual_weight.detach() * (negativeRewardsTerm2-retentionTarget)).mean()
+
+      # for the dual weight
+      loss += (dual_weight * (negativeRewardsTerm2-retentionTarget).detach()).mean()
+      if printHere:
+          print(negativeRewardsTerm1.mean(), dual_weight, negativeRewardsTerm2.mean(), retentionTarget)
+      #print(loss)
 
       # baselineValues: the baselines for the prediction loss (term 1)
       # memory_hidden: baseline for term 2
@@ -389,9 +399,11 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
 
       # Reward Minus Baseline
       # Detached surprisal and mean retention
-      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - args.RATE_WEIGHT * memory_hidden.mean(dim=0).squeeze(dim=1).detach())
+#      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - args.RATE_WEIGHT * memory_hidden.mean(dim=0).squeeze(dim=1).detach())
+      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues)
+
       # Important to detach from the baseline!!! 
-      loss = (rewardMinusBaseline.detach() * bernoulli_logprob_perBatch.squeeze(1)).mean()
+      loss += (rewardMinusBaseline.detach() * bernoulli_logprob_perBatch.squeeze(1)).mean()
       if args.entropy_weight > 0:
          loss -= args.entropy_weight  * entropy
 
@@ -401,7 +413,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
 
       ############################
       # Construct running averages
-      factor = 0.9996 ** batchSizeHere
+      factor = 0.9996 ** args.batchSize
 
       # Update running averages
       global runningAverageBaselineDeviation
@@ -434,6 +446,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
          print("EMPIRICAL DEVIATION FROM BASELINE", (lossTensor-baselineValues).abs().mean())
                
          print("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+         print(dual_weight)
       if updatesCount % 5000 == 0:
          print("\t".join([str(x) for x in ("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))]), file=sys.stderr)
 
@@ -443,6 +456,8 @@ def forward(numeric, train=True, printHere=False, provideAttention=False, batchS
 
 def backward(loss, printHere):
       optim.zero_grad()
+      if dual_weight.grad is not None:
+         dual_weight.grad.data.fill_(0.0)
       if printHere:
          print(loss)
       loss.backward()
@@ -450,7 +465,11 @@ def backward(loss, printHere):
       if TRAIN_LM:
          torch.nn.utils.clip_grad_value_(parameters_lm_cached, 5.0) #, norm_type="inf")
       optim.step()
-
+#      print(dual_weight.grad)
+      dual_weight.data.add_(args.dual_learning_rate*dual_weight.grad.data)
+ #     print("W", dual_weight)
+      dual_weight.data.clamp_(min=0)
+  #    print("W", dual_weight)
 
 lossHasBeenBad = 0
 
@@ -465,7 +484,7 @@ updatesCount = 0
 maxUpdates = 500000 if args.tuning == 1 else 10000000000
 
 def showAttention(word):
-    attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True, batchSizeHere=1)
+    attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)
     attention = attention[:,0,0]
     print(*(["SCORES", word, "\t"]+[round(x,2) for x in list(attention.cpu().data.numpy())]))
 

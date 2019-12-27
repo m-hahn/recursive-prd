@@ -33,14 +33,14 @@ with open("lm_noise/perWordRates.tsv", "w") as outFile:
       predictionLoss = float(predictionLoss)
       version, filenum = (lambda x:(filen[:x], filen[x+1:]))(filen.rfind("_"))
       version = version[version.index("LastAndPos")+10:]
-      if "10_c_SuperLong" in version or "10_c_Long" in version:
+      if "10_c_SuperLong" in version or "10_c_Long" in version or "12" in version:
          print(version, filenum)
          with open("/u/scr/mhahn/reinforce-logs-predict/full-logs/"+"char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos"+version+"_"+filenum, "r") as inFile:
            counter = 0
            for line in inFile:
               if line.startswith("=========="):
                    counter += 1
-              elif line.startswith("SCORES") and counter % 10 == 0:
+              elif line.startswith("SCORES") and counter % 40 == 0:
                    word, scores = line.strip().split("\t")
                    word = word[7:]
                    scores = scores.strip().split(" ")

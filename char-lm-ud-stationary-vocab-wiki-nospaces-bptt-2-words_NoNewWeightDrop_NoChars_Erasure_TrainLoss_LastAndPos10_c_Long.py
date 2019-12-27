@@ -495,6 +495,9 @@ for epoch in range(1000):
          showAttention("belief")
          showAttention("finding")
          showAttention("prediction")
+         showAttention("of")
+         showAttention("by")
+         showAttention("about")
 
 
       if updatesCount % 10000 == 0:
@@ -606,5 +609,8 @@ showAttention("report")
 showAttention("belief")
 showAttention("finding")
 showAttention("prediction")
+showAttention("of")
+showAttention("by")
+showAttention("about")
 
 
