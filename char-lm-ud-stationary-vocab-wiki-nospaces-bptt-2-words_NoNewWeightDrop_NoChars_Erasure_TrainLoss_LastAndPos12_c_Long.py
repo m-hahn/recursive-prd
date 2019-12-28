@@ -1,5 +1,5 @@
-# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos12_Long.py
-# Based on char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos10_c_Long_WSlow_NE.py
+# 12_b
+# Based on char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos12_Long.py
 
 print("Character aware!")
 
@@ -381,11 +381,14 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
 
       # Reward, term 2
       # Regularization towards lower retention rates
-      negativeRewardsTerm2 = memory_filter.mean(dim=0)
+      negativeRewardsTerm2 = memory_hidden.mean()
       retentionTarget = 1-args.deletion_rate
       loss = 0
       # Overall Reward
-      negativeRewardsTerm = negativeRewardsTerm1 + dual_weight * (negativeRewardsTerm2-retentionTarget)
+      negativeRewardsTerm = negativeRewardsTerm1
+
+      loss += (dual_weight.detach() * (negativeRewardsTerm2-retentionTarget)).mean()
+
       # for the dual weight
       loss += (dual_weight * (negativeRewardsTerm2-retentionTarget).detach()).mean()
       if printHere:
@@ -399,7 +402,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       # Reward Minus Baseline
       # Detached surprisal and mean retention
 #      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - args.RATE_WEIGHT * memory_hidden.mean(dim=0).squeeze(dim=1).detach())
-      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues - (dual_weight * (memory_hidden.mean(dim=0).squeeze(dim=1) - retentionTarget)).detach())
+      rewardMinusBaseline = (negativeRewardsTerm.detach() - baselineValues)
 
       # Important to detach from the baseline!!! 
       loss += (rewardMinusBaseline.detach() * bernoulli_logprob_perBatch.squeeze(1)).mean()

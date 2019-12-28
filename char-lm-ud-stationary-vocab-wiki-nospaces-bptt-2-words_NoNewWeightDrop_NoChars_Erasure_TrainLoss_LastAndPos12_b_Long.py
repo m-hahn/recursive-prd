@@ -1,6 +1,8 @@
 # 12_b
 # Based on char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos12_Long.py
 
+assert False
+
 print("Character aware!")
 
 # Character-aware version of the `Tabula Rasa' language model

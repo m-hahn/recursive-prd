@@ -33,7 +33,7 @@ parser.add_argument("--deletion_rate", type=float, default=0.5)
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
 parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=random.choice([12,20]))
 
-parser.add_argument("--dual_learning_rate", type=float, default=random.choice([0.01, 0.02, 0.05, 0.1, 0.2, 0.3]))
+parser.add_argument("--dual_learning_rate", type=float, default=random.choice([0.05, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3]))
 TRAIN_LM = False
 assert not TRAIN_LM
 
@@ -480,7 +480,7 @@ lastSaved = (None, None)
 devLosses = []
 updatesCount = 0
 
-maxUpdates = 500000 if args.tuning == 1 else 10000000000
+maxUpdates = 2000000 if args.tuning == 1 else 10000000000
 
 def showAttention(word):
     attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)
