@@ -17,6 +17,14 @@ output/
 *.swl
 *.swm
 *.swn
+*.swd
+*.swe
+*.swf
+*.swg
+*.swh
+*.swi
+*.swj
+*.swk
 temporary-stimuli/
 slurm*.out
 autoencoder-output/autoencoder2_mlp_bidir_Erasure_SelectiveLoss_sample_stimuli.py.tsv

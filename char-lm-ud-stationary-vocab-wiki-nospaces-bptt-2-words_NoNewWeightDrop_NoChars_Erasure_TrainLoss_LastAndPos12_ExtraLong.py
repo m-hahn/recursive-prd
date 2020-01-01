@@ -23,7 +23,7 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.000001, 0.000002, 0.000003, 0.000004, 0.000005, 0.000001, 0.000002, 0.000005, 0.000007, 0.00001])) #, 0.00002, 0.00005, 0.0001, 0.0002, 0.0003]))
+parser.add_argument("--learning_rate", type = float, default= random.choice([1e-7, 1e-6])) #, 0.00002, 0.00005, 0.0001, 0.0002, 0.0003]))
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([20]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -31,9 +31,9 @@ parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 parser.add_argument("--deletion_rate", type=float, default=0.5)
 
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
-parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=random.choice([12,20]))
+parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=random.choice([12]))
 
-parser.add_argument("--dual_learning_rate", type=float, default=random.choice([0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3]))
+parser.add_argument("--dual_learning_rate", type=float, default=random.choice([0.002]))
 TRAIN_LM = False
 assert not TRAIN_LM
 
@@ -41,7 +41,7 @@ parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([-1.0])) 
 # 1.5, 2.0, 2.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
-parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.3, 0.5, 0.7, 0.9, 0.9, 0.9, 0.9, 0.9]))
+parser.add_argument("--momentum", type=float, default=random.choice([0.9]))
 parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
 
 parser.add_argument("--tuning", type=int, default=0) #random.choice([0.00001, 0.00005, 0.0001, 0.0002, 0.0003, 0.0005, 0.0007, 0.0008, 0.001])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
@@ -480,7 +480,7 @@ lastSaved = (None, None)
 devLosses = []
 updatesCount = 0
 
-maxUpdates = 2000000 if args.tuning == 1 else 10000000000
+maxUpdates = 10000000 if args.tuning == 1 else 10000000000
 
 def showAttention(word):
     attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)
@@ -509,6 +509,7 @@ for epoch in range(1000):
          print("=========================")
          showAttention("the")
          showAttention("was")
+         showAttention("who")
          showAttention("that")
          showAttention("fact")
          showAttention("information")
@@ -623,6 +624,7 @@ with open("/u/scr/mhahn/reinforce-logs-predict/results/"+__file__+"_"+str(args.m
 print("=========================")
 showAttention("the")
 showAttention("was")
+showAttention("who")
 showAttention("that")
 showAttention("fact")
 showAttention("information")

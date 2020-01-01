@@ -10,12 +10,28 @@ ggplot(data, aes(x=memRate, y=predictionLoss, group=version, color=version)) + g
 library(dplyr)
 library(tidyr)
 
+ggplot(data %>% filter(grepl("Long", version)), aes(x=memRate, y=predictionLoss, group=version, color=version)) + geom_smooth(method="loess")
+
+
+ggplot(data %>% filter(grepl("Long", version)), aes(x=memRate, y=predictionLoss, group=version, color=version)) + geom_smooth(method="gam", se=F)
+
+ggplot(data %>% filter(grepl("Long", version)), aes(x=memRate, y=predictionLoss, group=version, color=version)) + geom_point()
+
+ggplot(data %>% filter(grepl("10_c_Long", version) | grepl("12", version)), aes(x=memRate, y=predictionLoss, group=version, color=version)) + geom_point()
+
+
+ggplot(data %>% filter(grepl("12", version)), aes(x=memRate, y=predictionLoss, group=version, color=version)) + geom_point()
+
+
+
 ggplot(data %>% filter(!grepl("Long", version)), aes(x=memRate, y=predictionLoss, group=version, color=version)) + geom_smooth(method="loess")
 
 
 ggplot(data %>% filter(grepl("10", version)), aes(label=version, x=memRate, y=predictionLoss, group=version, color=version)) + geom_smooth(method="loess")
 
 ggplot(data %>% filter(grepl("10", version) | grepl("7", version)), aes(x=memRate, y=predictionLoss, group=version, color=version)) + geom_smooth(method="loess")
+
+ggplot(data %>% filter(grepl("10_c_Long", version)), aes(label=version, x=memRate, y=predictionLoss, group=version, color=version)) + geom_smooth(method="loess")
 
 
 ggplot(data %>% filter(grepl("5", version)), aes(x=memRate, y=predictionLoss, group=version, color=version)) + geom_smooth(method="loess")
@@ -70,6 +86,15 @@ ggplot(data %>% group_by(entropy_weight) %>% summarise(performance = mean(perfor
 plot(data_$learning_rate, data_$performance)
 
 summary(lm(performance ~ momentum + lr_decay + NUMBER_OF_REPLICATES + log(entropy_weight+1) + log(learning_rate) + version, data=data_ %>% filter(log(learning_rate) > -12)))
+
+data__ = data %>% filter(grepl("12_Long", version), memRate > 0.15, memRate < 0.25)
+
+summary(lm(performance ~ momentum + lr_decay + NUMBER_OF_REPLICATES + log(learning_rate), data=data__))
+
+
+data__ = data %>% filter(grepl("10_c_Long", version), entropy_weight == 0)
+
+summary(lm(performance ~ rate + momentum + lr_decay + NUMBER_OF_REPLICATES + log(learning_rate) + version, data=data__))
 
 byPerformance = data %>% filter(rate==0.2) %>% group_by(version) %>% summarise(sd=sd(performance)/sqrt(NROW(performance)), performance=mean(performance), pessimistic=performance+2*sd)
 print(byPerformance[order(byPerformance$performance),], n=50)

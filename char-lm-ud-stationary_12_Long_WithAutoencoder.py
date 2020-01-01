@@ -1,5 +1,6 @@
-# char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos12_Long.py
-# Based on char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos10_c_Long_WSlow_NE.py
+# Based on:
+#  char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure_TrainLoss_LastAndPos12_Long.py (loss model & code for language model)
+# And autoencoder2_mlp_bidir_Erasure_SelectiveLoss_Reinforce2_Tuning_SuperLong_Both_Saving.py (autoencoder)
 
 print("Character aware!")
 
@@ -12,20 +13,22 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--language", dest="language", type=str, default="english")
 parser.add_argument("--load-from-lm", dest="load_from_lm", type=str, default=964163553)
+parser.add_argument("--load-from-autoencoder", dest="load_from_autoencoder", type=str, default=878921872)
 
 import random
 
 parser.add_argument("--batchSize", type=int, default=random.choice([1]))
 parser.add_argument("--word_embedding_size", type=int, default=random.choice([512]))
-parser.add_argument("--hidden_dim", type=int, default=random.choice([1024]))
+parser.add_argument("--hidden_dim_lm", type=int, default=random.choice([1024]))
+parser.add_argument("--hidden_dim_autoencoder", type=int, default=random.choice([512]))
 parser.add_argument("--layer_num", type=int, default=random.choice([2]))
 parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.05]))
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([0.000001, 0.000002, 0.000003, 0.000004, 0.000005, 0.000001, 0.000002, 0.000005, 0.000007, 0.00001])) #, 0.00002, 0.00005, 0.0001, 0.0002, 0.0003]))
+parser.add_argument("--learning_rate", type = float, default= random.choice([0.000001, 0.000002, 0.000005, 0.000007, 0.00001, 0.00002, 0.00005, 0.0001, 0.0002, 0.0003]))
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
-parser.add_argument("--sequence_length", type=int, default=random.choice([20]))
+parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
 parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 parser.add_argument("--deletion_rate", type=float, default=0.5)
@@ -33,7 +36,7 @@ parser.add_argument("--deletion_rate", type=float, default=0.5)
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
 parser.add_argument("--NUMBER_OF_REPLICATES", type=int, default=random.choice([12,20]))
 
-parser.add_argument("--dual_learning_rate", type=float, default=random.choice([0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.3]))
+parser.add_argument("--dual_learning_rate", type=float, default=random.choice([0.01, 0.02, 0.05, 0.1, 0.2, 0.3]))
 TRAIN_LM = False
 assert not TRAIN_LM
 
@@ -41,7 +44,7 @@ parser.add_argument("--RATE_WEIGHT", type=float, default=random.choice([-1.0])) 
 # 1.5, 2.0, 2.5, 
 
 #[1.25, 1.5, 2.0, 2.25, 2.5, 2.75, 3.0, 4.0, 5.0, 6.0])) # 0.5, 0.75, 1.0,  ==> this is essentially the point at which showing is better than guessing
-parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.3, 0.5, 0.7, 0.9, 0.9, 0.9, 0.9, 0.9]))
+parser.add_argument("--momentum", type=float, default=random.choice([0.0, 0.3, 0.5, 0.7, 0.9]))
 parser.add_argument("--entropy_weight", type=float, default=random.choice([0.0])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
 
 parser.add_argument("--tuning", type=int, default=0) #random.choice([0.00001, 0.00005, 0.0001, 0.0002, 0.0003, 0.0005, 0.0007, 0.0008, 0.001])) # 0.0,  0.005, 0.01, 0.1, 0.4]))
@@ -105,57 +108,59 @@ print(torch.__version__)
 #from weight_drop import WeightDrop
 
 
-rnn = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+class Autoencoder:
+  def __init__(self):
+    self.rnn_encoder = torch.nn.LSTM(2*args.word_embedding_size, int(args.hidden_dim/2.0), args.layer_num, bidirectional=True).cuda()
+    self.rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+    self.output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
+    self.word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
+    self.logsoftmax = torch.nn.LogSoftmax(dim=2)
+    self.attention_softmax = torch.nn.Softmax(dim=1)
+    self.train_loss = torch.nn.NLLLoss(ignore_index=0)
+    self.print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
+    self.char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
+    self.attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
+    self.attention_proj.weight.data.fill_(0)
+    self.output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
+    self.modules_autoencoder = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj, output_mlp]
+     
+
+autoencoder = Autoencoder()
+
+class LanguageModel:
+   def __init__(self):
+      self.rnn = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+      self.rnn_drop = self.rnn
+      self.output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
+      self.word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
+      self.logsoftmax = torch.nn.LogSoftmax(dim=2)
+      self.train_loss = torch.nn.NLLLoss(ignore_index=0)
+      self.print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
+      self.char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
+      self.train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
+      self.modules_lm = [self.rnn, self.output, self.word_embeddings]
 
 
-
-rnn_drop = rnn #WeightDrop(rnn, layer_names=[(name, args.weight_dropout_in) for name, _ in rnn.named_parameters() if name.startswith("weight_ih_")] + [ (name, args.weight_dropout_hidden) for name, _ in rnn.named_parameters() if name.startswith("weight_hh_")])
-
-output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
-
-word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
-
-
-
-logsoftmax = torch.nn.LogSoftmax(dim=2)
-
-train_loss = torch.nn.NLLLoss(ignore_index=0)
-print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
-char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
-
-
-train_loss_chars = torch.nn.NLLLoss(ignore_index=0, reduction='sum')
-
-modules_lm = [rnn, output, word_embeddings]
-
+lm = LanguageModel()
 
 #character_embeddings = torch.nn.Embedding(num_embeddings = len(itos_chars_total)+3, embedding_dim=args.char_emb_dim).cuda()
 
-memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
-memory_mlp_inner_bilinear = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
-memory_mlp_inner_from_pos = torch.nn.Linear(256, 500).cuda()
-memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
-
-sigmoid = torch.nn.Sigmoid()
-relu = torch.nn.ReLU()
-
-
-positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=256).cuda()
-
-memory_word_pos_inter = torch.nn.Linear(256, 1, bias=False).cuda()
-memory_word_pos_inter.weight.data.fill_(0)
-
-################### 
-perword_baseline_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
-perword_baseline_outer = torch.nn.Linear(500, 1).cuda()
-
-
-memory_bilinear = torch.nn.Linear(256, 500, bias=False).cuda()
-memory_bilinear.weight.data.fill_(0)
-
-
-##############
-modules_memory = [memory_mlp_inner, memory_mlp_outer, memory_mlp_inner_from_pos, positional_embeddings, perword_baseline_inner, perword_baseline_outer, memory_word_pos_inter, memory_bilinear, memory_mlp_inner_bilinear]
+class MemoryModel():
+  def __init__(self):
+     self.memory_mlp_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
+     self.memory_mlp_inner_bilinear = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
+     self.memory_mlp_inner_from_pos = torch.nn.Linear(256, 500).cuda()
+     self.memory_mlp_outer = torch.nn.Linear(500, 1).cuda()
+     self.sigmoid = torch.nn.Sigmoid()
+     self.relu = torch.nn.ReLU()
+     self.positional_embeddings = torch.nn.Embedding(num_embeddings=args.sequence_length+2, embedding_dim=256).cuda()
+     self.memory_word_pos_inter = torch.nn.Linear(256, 1, bias=False).cuda()
+     self.memory_word_pos_inter.weight.data.fill_(0)
+     self.perword_baseline_inner = torch.nn.Linear(2*args.word_embedding_size, 500).cuda()
+     self.perword_baseline_outer = torch.nn.Linear(500, 1).cuda()
+     self.memory_bilinear = torch.nn.Linear(256, 500, bias=False).cuda()
+     self.memory_bilinear.weight.data.fill_(0)
+     self.modules_memory = [self.memory_mlp_inner, self.memory_mlp_outer, self.memory_mlp_inner_from_pos, self.positional_embeddings, self.perword_baseline_inner, self.perword_baseline_outer, self.memory_word_pos_inter, self.memory_bilinear, self.memory_mlp_inner_bilinear]
 
 def parameters_memory():
    for module in modules_memory:
@@ -170,6 +175,14 @@ parameters_memory_cached = [x for x in parameters_memory()]
 
 
 
+
+def parameters_autoencoder():
+   for module in modules_autoencoder:
+       for param in module.parameters():
+            yield param
+
+
+
 def parameters_lm():
    for module in modules_lm:
        for param in module.parameters():
@@ -181,9 +194,21 @@ parameters_lm_cached = [x for x in parameters_lm()]
 learning_rate = args.learning_rate
 
 assert not TRAIN_LM
-optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+optim = torch.optim.SGD(plus(parameters_autoencoder(), parameters_memory()), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
 
 #named_modules = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
+
+
+if args.load_from_autoencoder is not None:
+  try:
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure_SelectiveLoss.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
+  except FileNotFoundError:
+     checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
+  for i in range(len(checkpoint["components"])):
+      modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
+  
+
+
 
 if args.load_from_lm is not None:
   lm_file = "char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure.py"
@@ -266,27 +291,22 @@ runningAverageBaselineDeviation = 2.0
 runningAveragePredictionLoss = 5.0
 expectedRetentionRate = 0.5
 
+
+
 def forward(numeric, train=True, printHere=False, provideAttention=False):
       global hidden
       global beginning
       global beginning_chars
-      if hidden is None:
+      if True:
           hidden = None
           beginning = zeroBeginning
-   #       beginning_chars = zeroBeginning_chars
-      elif hidden is not None:
-          hidden1 = Variable(hidden[0]).detach()
-          hidden2 = Variable(hidden[1]).detach()
-          forRestart = bernoulli.sample()
-          hidden1 = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroHidden, hidden1)
-          hidden2 = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroHidden, hidden2)
-          hidden = (hidden1, hidden2)
-          beginning = torch.where(forRestart.unsqueeze(0) == 1, zeroBeginning, beginning)
-  #        beginning_chars = torch.where(forRestart.unsqueeze(0).unsqueeze(2) == 1, zeroBeginning_chars, beginning_chars)
 
       numeric, numeric_chars = numeric
 
-#      print(numeric.size())
+      ######################################################
+      ######################################################
+      # Run Loss Model
+
       numeric = numeric.expand(-1, args.NUMBER_OF_REPLICATES)
       numeric = torch.cat([beginning, numeric], dim=0)
       embedded_everything = word_embeddings(numeric)
@@ -295,41 +315,23 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       numeric_positions = torch.LongTensor(range(args.sequence_length+1)).cuda().unsqueeze(1)
       embedded_positions = positional_embeddings(numeric_positions)
       numeric_embedded = memory_word_pos_inter(embedded_positions)
-#      numeric_transformed = memory_mlp_inner_from_pos(numeric_embedded)
-#      print(numeric_transformed.size(), embedded_everything.size())
 
       # Retention probabilities
       memory_byword_inner = memory_mlp_inner(embedded_everything.detach())
       memory_hidden_logit_per_wordtype = memory_mlp_outer(relu(memory_byword_inner))
-      #print(embedded_positions.size(), embedded_everything.size())
-      #print(memory_bilinear(embedded_positions).size(), embedded_everything.size())
       attention_bilinear_term = torch.bmm(memory_bilinear(embedded_positions), relu(memory_mlp_inner_bilinear(embedded_everything.detach())).transpose(1,2)).transpose(1,2)
-      #print(
 
       memory_hidden_logit = numeric_embedded + memory_hidden_logit_per_wordtype + attention_bilinear_term
- #     print("----")
-#      print(numeric_embedded.size(), memory_hidden_logit_per_wordtype.size())
-#      print(positional_embeddings.weight)
- #     print(numeric_embedded)
-#      print(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach()))))
       memory_hidden = sigmoid(memory_hidden_logit)
       if provideAttention:
          return memory_hidden
- #     forWords = memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach())))
-  #    print(numeric_transformed.size(), forWords.size())
-   #   interaction = torch.bmm(memory_word_pos_inter(forWords).transpose(0,1), numeric_transformed.transpose(0,1).transpose(1,2))
-
-    #  memory_hidden = sigmoid(memory_linear_position(numeric_embedded) + interaction + memory_linear_word(forWords))
-     # quit()
-      
-      #memory_hidden = (numeric_transformed + sigmoid(memory_mlp_outer(relu(memory_mlp_inner(embedded_everything.detach()))))
 
       # Baseline predictions for prediction loss
       baselineValues = 10*sigmoid(perword_baseline_outer(relu(perword_baseline_inner(embedded_everything[-1].detach())))).squeeze(1)
       assert tuple(baselineValues.size()) == (args.NUMBER_OF_REPLICATES,)
 
 
-      # Noise decisions
+      # NOISE MEMORY ACCORDING TO MODEL
       memory_filter = torch.bernoulli(input=memory_hidden)
       bernoulli_logprob = torch.where(memory_filter == 1, torch.log(memory_hidden+1e-10), torch.log(1-memory_hidden+1e-10))
       bernoulli_logprob_perBatch = bernoulli_logprob.mean(dim=0)
@@ -338,43 +340,52 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       else:
          entropy=-1.0
       memory_filter = memory_filter.squeeze(2)
+
+      ####################################################################################
       numeric_noised = torch.where(memory_filter==1, numeric, 0*numeric) #[[x if random.random() > args.deletion_rate else 0 for x in y] for y in numeric.cpu().t()]
+      numeric_onlyNoisedOnes = torch.where(memory_filter == 0, numeric, 0*numeric) # target is 0 in those places where no noise has happened
 
-      # Input to language model
-      input_tensor = Variable(numeric_noised[:-1], requires_grad=False)
-      # Target
-      target_tensor = Variable(numeric[1:], requires_grad=False)
+      input_tensor_pure = Variable(numeric[:-1], requires_grad=False)
+      input_tensor_noised = Variable(numeric_noised[:-1], requires_grad=False)
+      target_tensor_full = Variable(numeric[1:], requires_grad=False)
 
-
-#      baselineValues = perword_baseline(target_tensor[-1]).squeeze(1)
-
-
+      target_tensor_onlyNoised = Variable(numeric_onlyNoisedOnes[1:], requires_grad=False)
+      #####################################################################################
 
 
-      embedded = word_embeddings(input_tensor)
-      if TRAIN_LM:
-         embedded = char_dropout(embedded)
-         mask = bernoulli_input.sample()
-         mask = mask.view(1, args.batchSize, 2*args.word_embedding_size)
-         embedded = embedded * mask
+      ##########################################
+      ##########################################
+      # RUN AUTOENCODER (approximately inverting loss model)
+      autoencoder_embedded = autoencoder.word_embeddings(input_tensor_pure)
+      autoencoder_embedded_noised = autoencoder.word_embeddings(input_tensor_noised)
+      autoencoder_out_encoder, _ = autoencoder.rnn_encoder(autoencoder_embedded_noised, None)
+      autoencoder_out_decoder, _ = autoencoder.rnn_decoder(autoencoder_embedded, None)
 
-      out, hidden = rnn_drop(embedded, hidden)
-
-      # Only aim to predict the last word
-      out = out[-1:]
-
-      if TRAIN_LM:
-        mask = bernoulli_output.sample()
-        mask = mask.view(1, args.batchSize, args.hidden_dim)
-        out = out * mask
+      autoencoder_attention = torch.bmm(autoencoder.attention_proj(autoencoder_out_encoder).transpose(0,1), autoencoder_out_decoder.transpose(0,1).transpose(1,2))
+      autoencoder_attention = autoencoder.attention_softmax(autoencoder_attention).transpose(0,1)
+      autoencoder_from_encoder = (autoencoder.out_encoder.unsqueeze(2) * autoencoder_attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
+      autoencoder_out_full = torch.cat([autoencoder_out_decoder, autoencoder_from_encoder], dim=2)
 
 
-
-      logits = output(out) 
-      log_probs = logsoftmax(logits)
+      autoencoder_logits = autoencoder.output(relu(autoencoder.output_mlp(autoencoder_autoencoder_out_full) ))
+      autoencoder_log_probs = logsoftmax(autoencoder_autoencoder_logits)
 
       # Prediction Loss 
-      lossTensor = print_loss(log_probs.view(-1, len(itos)+3), target_tensor[-1].view(-1)).view(-1, args.NUMBER_OF_REPLICATES) # , args.batchSize is 1
+      autoencoder_lossTensor = print_loss(autoencoder_log_probs.view(-1, len(itos)+3), autoencoder_target_tensor.view(-1)).view(-1, args.NUMBER_OF_REPLICATES*args.batchSize)
+
+      ##########################################
+      ##########################################
+      # RUN LANGUAGE MODEL (amortized prediction of next word)
+      lm_embedded = lm.word_embeddings(input_tensor_noised)
+      lm_out, lm_hidden = lm.rnn_drop(lm_embedded, lm_hidden)
+      lm_out = lm_out[-1:]
+      lm_logits = lm.output(lm_out) 
+      log_probs = lm.logsoftmax(lm_logits)
+
+      # Prediction Loss 
+      lossTensor = lm.print_loss(lm_log_probs.view(-1, len(itos)+3), lm_target_tensor[-1].view(-1)).view(-1, args.NUMBER_OF_REPLICATES) # , args.batchSize is 1
+      ##########################################
+      ##########################################
 
       # Reward, term 1
       negativeRewardsTerm1 = lossTensor.mean(dim=0)
@@ -437,6 +448,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
             print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else "", float(numeric_embedded_cpu[i+1,0,0]), float(memory_hidden_logit_per_wordtype_cpu[i+1,0,0]), float(attention_bilinear_term[i+1,0,0])))
+            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
 
 
 
@@ -480,7 +492,7 @@ lastSaved = (None, None)
 devLosses = []
 updatesCount = 0
 
-maxUpdates = 2000000 if args.tuning == 1 else 10000000000
+maxUpdates = 500000 if args.tuning == 1 else 10000000000
 
 def showAttention(word):
     attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)
@@ -495,7 +507,7 @@ for epoch in range(1000):
 
 
 
-   rnn_drop.train(True)
+   lm.rnn_drop.train(True)
    startTime = time.time()
    trainChars = 0
    counter = 0
