@@ -110,28 +110,29 @@ print(torch.__version__)
 
 class Autoencoder:
   def __init__(self):
-    self.rnn_encoder = torch.nn.LSTM(2*args.word_embedding_size, int(args.hidden_dim/2.0), args.layer_num, bidirectional=True).cuda()
-    self.rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
-    self.output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
+    self.rnn_encoder = torch.nn.LSTM(2*args.word_embedding_size, int(args.hidden_dim_autoencoder/2.0), args.layer_num, bidirectional=True).cuda()
+    self.rnn_decoder = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim_autoencoder, args.layer_num).cuda()
+    self.output = torch.nn.Linear(args.hidden_dim_autoencoder, len(itos)+3).cuda()
     self.word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
     self.logsoftmax = torch.nn.LogSoftmax(dim=2)
     self.attention_softmax = torch.nn.Softmax(dim=1)
     self.train_loss = torch.nn.NLLLoss(ignore_index=0)
     self.print_loss = torch.nn.NLLLoss(size_average=False, reduce=False, ignore_index=0)
     self.char_dropout = torch.nn.Dropout2d(p=args.char_dropout_prob)
-    self.attention_proj = torch.nn.Linear(args.hidden_dim, args.hidden_dim, bias=False).cuda()
+    self.attention_proj = torch.nn.Linear(args.hidden_dim_autoencoder, args.hidden_dim_autoencoder, bias=False).cuda()
     self.attention_proj.weight.data.fill_(0)
-    self.output_mlp = torch.nn.Linear(2*args.hidden_dim, args.hidden_dim).cuda()
-    self.modules_autoencoder = [rnn_decoder, rnn_encoder, output, word_embeddings, attention_proj, output_mlp]
+    self.output_mlp = torch.nn.Linear(2*args.hidden_dim_autoencoder, args.hidden_dim_autoencoder).cuda()
+    self.relu = torch.nn.ReLU()
+    self.modules_autoencoder = [self.rnn_decoder, self.rnn_encoder, self.output, self.word_embeddings, self.attention_proj, self.output_mlp]
      
 
 autoencoder = Autoencoder()
 
 class LanguageModel:
    def __init__(self):
-      self.rnn = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim, args.layer_num).cuda()
+      self.rnn = torch.nn.LSTM(2*args.word_embedding_size, args.hidden_dim_lm, args.layer_num).cuda()
       self.rnn_drop = self.rnn
-      self.output = torch.nn.Linear(args.hidden_dim, len(itos)+3).cuda()
+      self.output = torch.nn.Linear(args.hidden_dim_lm, len(itos)+3).cuda()
       self.word_embeddings = torch.nn.Embedding(num_embeddings=len(itos)+3, embedding_dim=2*args.word_embedding_size).cuda()
       self.logsoftmax = torch.nn.LogSoftmax(dim=2)
       self.train_loss = torch.nn.NLLLoss(ignore_index=0)
@@ -162,8 +163,11 @@ class MemoryModel():
      self.memory_bilinear.weight.data.fill_(0)
      self.modules_memory = [self.memory_mlp_inner, self.memory_mlp_outer, self.memory_mlp_inner_from_pos, self.positional_embeddings, self.perword_baseline_inner, self.perword_baseline_outer, self.memory_word_pos_inter, self.memory_bilinear, self.memory_mlp_inner_bilinear]
 
+
+memory = MemoryModel()
+
 def parameters_memory():
-   for module in modules_memory:
+   for module in memory.modules_memory:
        for param in module.parameters():
             yield param
 
@@ -177,14 +181,14 @@ parameters_memory_cached = [x for x in parameters_memory()]
 
 
 def parameters_autoencoder():
-   for module in modules_autoencoder:
+   for module in autoencoder.modules_autoencoder:
        for param in module.parameters():
             yield param
 
 
 
 def parameters_lm():
-   for module in modules_lm:
+   for module in lm.modules_lm:
        for param in module.parameters():
             yield param
 
@@ -205,7 +209,7 @@ if args.load_from_autoencoder is not None:
   except FileNotFoundError:
      checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+"autoencoder2_mlp_bidir_Erasure.py"+"_code_"+str(args.load_from_autoencoder)+".txt")
   for i in range(len(checkpoint["components"])):
-      modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
+      autoencoder.modules_autoencoder[i].load_state_dict(checkpoint["components"][i])
   
 
 
@@ -214,7 +218,7 @@ if args.load_from_lm is not None:
   lm_file = "char-lm-ud-stationary-vocab-wiki-nospaces-bptt-2-words_NoNewWeightDrop_NoChars_Erasure.py"
   checkpoint = torch.load("/u/scr/mhahn/CODEBOOKS/"+args.language+"_"+lm_file+"_code_"+str(args.load_from_lm)+".txt")
   for i in range(len(checkpoint["components"])):
-      modules_lm[i].load_state_dict(checkpoint["components"][i])
+      lm.modules_lm[i].load_state_dict(checkpoint["components"][i])
 
 from torch.autograd import Variable
 
@@ -278,12 +282,12 @@ beginning = None
 zeroBeginning_chars = torch.zeros(1, args.batchSize, 16).long().cuda()
 
 
-zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda()
+#zeroHidden = torch.zeros((args.layer_num, args.batchSize, args.hidden_dim)).cuda()
 
 bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in range(args.batchSize)]).cuda())
 
-bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
-bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
+#bernoulli_input = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_in for _ in range(args.batchSize * 2 * args.word_embedding_size)]).cuda())
+#bernoulli_output = torch.distributions.bernoulli.Bernoulli(torch.tensor([1-args.weight_dropout_out for _ in range(args.batchSize * args.hidden_dim)]).cuda())
 
 #runningAveragePredictionLoss = 1.0
 runningAverageReward = 5.0
@@ -309,25 +313,25 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
 
       numeric = numeric.expand(-1, args.NUMBER_OF_REPLICATES)
       numeric = torch.cat([beginning, numeric], dim=0)
-      embedded_everything = word_embeddings(numeric)
+      embedded_everything = lm.word_embeddings(numeric)
 
       # Positional embeddings
       numeric_positions = torch.LongTensor(range(args.sequence_length+1)).cuda().unsqueeze(1)
-      embedded_positions = positional_embeddings(numeric_positions)
-      numeric_embedded = memory_word_pos_inter(embedded_positions)
+      embedded_positions = memory.positional_embeddings(numeric_positions)
+      numeric_embedded = memory.memory_word_pos_inter(embedded_positions)
 
       # Retention probabilities
-      memory_byword_inner = memory_mlp_inner(embedded_everything.detach())
-      memory_hidden_logit_per_wordtype = memory_mlp_outer(relu(memory_byword_inner))
-      attention_bilinear_term = torch.bmm(memory_bilinear(embedded_positions), relu(memory_mlp_inner_bilinear(embedded_everything.detach())).transpose(1,2)).transpose(1,2)
+      memory_byword_inner = memory.memory_mlp_inner(embedded_everything.detach())
+      memory_hidden_logit_per_wordtype = memory.memory_mlp_outer(memory.relu(memory_byword_inner))
+      attention_bilinear_term = torch.bmm(memory.memory_bilinear(embedded_positions), memory.relu(memory.memory_mlp_inner_bilinear(embedded_everything.detach())).transpose(1,2)).transpose(1,2)
 
       memory_hidden_logit = numeric_embedded + memory_hidden_logit_per_wordtype + attention_bilinear_term
-      memory_hidden = sigmoid(memory_hidden_logit)
+      memory_hidden = memory.sigmoid(memory_hidden_logit)
       if provideAttention:
          return memory_hidden
 
       # Baseline predictions for prediction loss
-      baselineValues = 10*sigmoid(perword_baseline_outer(relu(perword_baseline_inner(embedded_everything[-1].detach())))).squeeze(1)
+      baselineValues = 10*memory.sigmoid(memory.perword_baseline_outer(memory.relu(memory.perword_baseline_inner(embedded_everything[-1].detach())))).squeeze(1)
       assert tuple(baselineValues.size()) == (args.NUMBER_OF_REPLICATES,)
 
 
@@ -363,32 +367,32 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
 
       autoencoder_attention = torch.bmm(autoencoder.attention_proj(autoencoder_out_encoder).transpose(0,1), autoencoder_out_decoder.transpose(0,1).transpose(1,2))
       autoencoder_attention = autoencoder.attention_softmax(autoencoder_attention).transpose(0,1)
-      autoencoder_from_encoder = (autoencoder.out_encoder.unsqueeze(2) * autoencoder_attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
+      autoencoder_from_encoder = (autoencoder_out_encoder.unsqueeze(2) * autoencoder_attention.unsqueeze(3)).sum(dim=0).transpose(0,1)
       autoencoder_out_full = torch.cat([autoencoder_out_decoder, autoencoder_from_encoder], dim=2)
 
 
-      autoencoder_logits = autoencoder.output(relu(autoencoder.output_mlp(autoencoder_autoencoder_out_full) ))
-      autoencoder_log_probs = logsoftmax(autoencoder_autoencoder_logits)
+      autoencoder_logits = autoencoder.output(autoencoder.relu(autoencoder.output_mlp(autoencoder_out_full) ))
+      autoencoder_log_probs = autoencoder.logsoftmax(autoencoder_logits)
 
       # Prediction Loss 
-      autoencoder_lossTensor = print_loss(autoencoder_log_probs.view(-1, len(itos)+3), autoencoder_target_tensor.view(-1)).view(-1, args.NUMBER_OF_REPLICATES*args.batchSize)
+      autoencoder_lossTensor = autoencoder.print_loss(autoencoder_log_probs.view(-1, len(itos)+3), target_tensor_onlyNoised.view(-1)).view(-1, args.NUMBER_OF_REPLICATES*args.batchSize)
 
       ##########################################
       ##########################################
       # RUN LANGUAGE MODEL (amortized prediction of next word)
       lm_embedded = lm.word_embeddings(input_tensor_noised)
-      lm_out, lm_hidden = lm.rnn_drop(lm_embedded, lm_hidden)
+      lm_out, lm_hidden = lm.rnn_drop(lm_embedded, None)
       lm_out = lm_out[-1:]
       lm_logits = lm.output(lm_out) 
-      log_probs = lm.logsoftmax(lm_logits)
+      lm_log_probs = lm.logsoftmax(lm_logits)
 
       # Prediction Loss 
-      lossTensor = lm.print_loss(lm_log_probs.view(-1, len(itos)+3), lm_target_tensor[-1].view(-1)).view(-1, args.NUMBER_OF_REPLICATES) # , args.batchSize is 1
+      lm_lossTensor = lm.print_loss(lm_log_probs.view(-1, len(itos)+3), target_tensor_full[-1].view(-1)).view(-1, args.NUMBER_OF_REPLICATES) # , args.batchSize is 1
       ##########################################
       ##########################################
 
       # Reward, term 1
-      negativeRewardsTerm1 = lossTensor.mean(dim=0)
+      negativeRewardsTerm1 = lm_lossTensor.mean(dim=0)
 
       # Reward, term 2
       # Regularization towards lower retention rates
@@ -438,7 +442,9 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       ############################
 
       if printHere:
-         losses = lossTensor.data.cpu().numpy()
+         lm_losses = lm_lossTensor.data.cpu().numpy()
+         autoencoder_losses = autoencoder_lossTensor.data.cpu().numpy()
+
          numericCPU = numeric.cpu().data.numpy()
          numeric_noisedCPU = numeric_noised.cpu().data.numpy()
          memory_hidden_CPU = memory_hidden[:,0,0].cpu().data.numpy()
@@ -447,14 +453,14 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
          numeric_embedded_cpu = numeric_embedded.cpu().data
          print(("NONE", itos_total[numericCPU[0][0]]))
          for i in range((args.sequence_length)):
-            print((losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else "", float(numeric_embedded_cpu[i+1,0,0]), float(memory_hidden_logit_per_wordtype_cpu[i+1,0,0]), float(attention_bilinear_term[i+1,0,0])))
-            print((losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
+            print((lm_losses[0][0] if i == args.sequence_length-1 else None , itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1], float(baselineValues[0]) if i == args.sequence_length-1 else "", float(numeric_embedded_cpu[i+1,0,0]), float(memory_hidden_logit_per_wordtype_cpu[i+1,0,0]), float(attention_bilinear_term[i+1,0,0])))
+            print((autoencoder_losses[i][0], itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
 
 
 
-         print(lossTensor.view(-1))
+         print(lm_lossTensor.view(-1))
          print(baselineValues.view(-1))
-         print("EMPIRICAL DEVIATION FROM BASELINE", (lossTensor-baselineValues).abs().mean())
+         print("EMPIRICAL DEVIATION FROM BASELINE", (lm_lossTensor-baselineValues).abs().mean())
                
          print("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
          print(dual_weight)
@@ -463,7 +469,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
 
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
 
-      return loss, target_tensor.view(-1).size()[0]
+      return loss, target_tensor_full.view(-1).size()[0]
 
 def backward(loss, printHere):
       optim.zero_grad()
