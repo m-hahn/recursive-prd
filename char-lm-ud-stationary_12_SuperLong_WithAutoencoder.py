@@ -26,7 +26,8 @@ parser.add_argument("--weight_dropout_in", type=float, default=random.choice([0.
 parser.add_argument("--weight_dropout_out", type=float, default=random.choice([0.05]))
 parser.add_argument("--char_dropout_prob", type=float, default=random.choice([0.01]))
 #parser.add_argument("--char_noise_prob", type = float, default=random.choice([0.0]))
-parser.add_argument("--learning_rate", type = float, default= random.choice([1e-7, 0.000001, 0.000002, 0.000005, 0.000007, 0.00001, 0.00002, 0.00005, 0.0001]))
+parser.add_argument("--learning_rate_memory", type = float, default= random.choice([1e-7, 0.000001, 0.000002, 0.000005, 0.000007, 0.00001, 0.00002, 0.00005, 0.0001]))
+parser.add_argument("--learning_rate_autoencoder", type = float, default= random.choice([1e-7, 0.000001, 0.00001, 0.0001, 0.001, 0.01, 0.1]))
 parser.add_argument("--myID", type=int, default=random.randint(0,1000000000))
 parser.add_argument("--sequence_length", type=int, default=random.choice([30]))
 parser.add_argument("--verbose", type=bool, default=False)
@@ -195,10 +196,11 @@ def parameters_lm():
 parameters_lm_cached = [x for x in parameters_lm()]
 
 
-learning_rate = args.learning_rate
+#learning_rate = args.learning_rate
 
 assert not TRAIN_LM
-optim = torch.optim.SGD(plus(parameters_autoencoder(), parameters_memory()), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+optim_autoencoder = torch.optim.SGD(parameters_autoencoder(), lr=args.learning_rate_autoencoder, momentum=0.0) # 0.02, 0.9
+optim_memory = torch.optim.SGD(parameters_memory(), lr=args.learning_rate_memory, momentum=args.momentum) # 0.02, 0.9
 
 #named_modules = {"rnn" : rnn, "output" : output, "word_embeddings" : word_embeddings, "optim" : optim}
 
@@ -478,7 +480,9 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       return loss, target_tensor_full.view(-1).size()[0]
 
 def backward(loss, printHere):
-      optim.zero_grad()
+      optim_autoencoder.zero_grad()
+      optim_memory.zero_grad()
+
       if dual_weight.grad is not None:
          dual_weight.grad.data.fill_(0.0)
       if printHere:
@@ -487,7 +491,9 @@ def backward(loss, printHere):
       torch.nn.utils.clip_grad_value_(parameters_memory_cached, 5.0) #, norm_type="inf")
       if TRAIN_LM:
          torch.nn.utils.clip_grad_value_(parameters_lm_cached, 5.0) #, norm_type="inf")
-      optim.step()
+      optim_autoencoder.step()
+      optim_memory.step()
+
 #      print(dual_weight.grad)
       dual_weight.data.add_(args.dual_learning_rate*dual_weight.grad.data)
  #     print("W", dual_weight)
@@ -504,7 +510,7 @@ lastSaved = (None, None)
 devLosses = []
 updatesCount = 0
 
-maxUpdates = 500000 if args.tuning == 1 else 10000000000
+maxUpdates = 2000000 if args.tuning == 1 else 10000000000
 
 def showAttention(word):
     attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)
@@ -545,9 +551,10 @@ for epoch in range(1000):
          showAttention("about")
 
 
-      if updatesCount % 10000 == 0:
-         learning_rate = args.learning_rate * math.pow(args.lr_decay, int(updatesCount/10000))
-         optim = torch.optim.SGD(parameters_memory(), lr=learning_rate, momentum=args.momentum) # 0.02, 0.9
+#      if updatesCount % 10000 == 0:
+#         optim_autoencoder = torch.optim.SGD(parameters_autoencoder(), lr=args.learning_rate_autoencoder, momentum=0.0) # 0.02, 0.9
+#         optim_memory = torch.optim.SGD(parameters_memory(), lr=args.learning_rate_memory, momentum=args.momentum) # 0.02, 0.9
+#
       try:
          numeric = next(training_chars)
       except StopIteration:
@@ -570,7 +577,7 @@ for epoch in range(1000):
           print("Dev losses")
           print(devLosses)
           print("Words per sec "+str(trainChars/(time.time()-startTime)))
-          print(learning_rate)
+          print(args.learning_rate_memory, args.learning_rate_autoencoder)
           print(lastSaved)
           print(__file__)
           print(args)
