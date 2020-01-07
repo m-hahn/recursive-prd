@@ -295,6 +295,7 @@ bernoulli = torch.distributions.bernoulli.Bernoulli(torch.tensor([0.1 for _ in r
 runningAverageReward = 5.0
 runningAverageBaselineDeviation = 2.0
 runningAveragePredictionLoss = 5.0
+runningAverageReconstructionLoss = 5.0
 expectedRetentionRate = 0.5
 
 
@@ -440,12 +441,15 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       # Update running averages
       global runningAverageBaselineDeviation
       global runningAveragePredictionLoss
+      global runningAverageReconstructionLoss
       global runningAverageReward
       global expectedRetentionRate
 
       expectedRetentionRate = factor * expectedRetentionRate + (1-factor) * float(memory_hidden.mean())
       runningAverageBaselineDeviation = factor * runningAverageBaselineDeviation + (1-factor) * float((rewardMinusBaseline).abs().mean())
-      runningAveragePredictionLoss = factor * runningAveragePredictionLoss + (1-factor) * round(float(negativeRewardsTerm1.mean()),3)
+
+      runningAveragePredictionLoss = factor * runningAveragePredictionLoss + (1-factor) * round(float(lm_lossTensor.mean()),3)
+      runningAverageReconstructionLoss = factor * runningAverageReconstructionLoss + (1-factor) * round(float(autoencoder_lossTensor.mean()),3)
       runningAverageReward = factor * runningAverageReward + (1-factor) * float(negativeRewardsTerm.mean())
       ############################
 
@@ -470,10 +474,10 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
          print(baselineValues.view(-1))
          print("EMPIRICAL DEVIATION FROM BASELINE", (lm_lossTensor-baselineValues).abs().mean())
                
-         print("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
+         print("PREDICTION_LOSS", runningAveragePredictionLoss, "RECONSTRUCTION_LOSS", runningAverageReconstructionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))
          print(dual_weight)
       if updatesCount % 5000 == 0:
-         print("\t".join([str(x) for x in ("PREDICTION_LOSS", runningAveragePredictionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))]), file=sys.stderr)
+         print("\t".join([str(x) for x in ("PREDICTION_LOSS", runningAveragePredictionLoss, "RECONSTRUCTION_LOSS", runningAverageReconstructionLoss, "\tTERM2", round(float(negativeRewardsTerm2.mean()),3), "\tAVERAGE_RETENTION", expectedRetentionRate, "\tDEVIATION FROM BASELINE", runningAverageBaselineDeviation, "\tREWARD", runningAverageReward, "\tENTROPY", float(entropy))]), file=sys.stderr)
 
       #runningAveragePredictionLoss = 0.95 * runningAveragePredictionLoss + (1-0.95) * float(negativeRewardsTerm1.mean())
 
@@ -649,6 +653,7 @@ with open("/u/scr/mhahn/reinforce-logs-both/results/"+__file__+"_"+str(args.myID
    print(expectedRetentionRate, file=outFile)
    print(runningAverageBaselineDeviation, file=outFile)
    print(runningAveragePredictionLoss, file=outFile)
+   print(runningAverageReconstructionLoss, file=outFile)
 
 
 print("=========================")
