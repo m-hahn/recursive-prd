@@ -253,8 +253,8 @@ def prepareDatasetChunks(data, train=True):
          numerified.append((stoi[char]+3 if char in stoi else 2))
          numerified_chars.append([0] + [stoi_chars[x]+3 if x in stoi_chars else 2 for x in char])
 
-       if len(numerified) > (args.batchSize*args.sequence_length):
-         sequenceLengthHere = args.sequence_length
+       if len(numerified) > (args.batchSize*(args.sequence_length+1)):
+         sequenceLengthHere = args.sequence_length+1
 
          cutoff = int(len(numerified)/(args.batchSize*sequenceLengthHere)) * (args.batchSize*sequenceLengthHere)
          numerifiedCurrent = numerified[:cutoff]
@@ -324,7 +324,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       embedded_everything = lm.word_embeddings(numeric)
 
       # Positional embeddings
-      numeric_positions = torch.LongTensor(range(args.sequence_length+1)).cuda().unsqueeze(1)
+      numeric_positions = torch.LongTensor(range(args.sequence_length+2)).cuda().unsqueeze(1)
       embedded_positions = memory.positional_embeddings(numeric_positions)
       numeric_embedded = memory.memory_word_pos_inter(embedded_positions)
 
@@ -368,8 +368,8 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       ##########################################
       ##########################################
       # RUN AUTOENCODER (approximately inverting loss model)
-      autoencoder_embedded = autoencoder.word_embeddings(input_tensor_pure)
-      autoencoder_embedded_noised = autoencoder.word_embeddings(input_tensor_noised)
+      autoencoder_embedded = autoencoder.word_embeddings(input_tensor_pure[:-1])
+      autoencoder_embedded_noised = autoencoder.word_embeddings(input_tensor_noised[:-1])
       autoencoder_out_encoder, _ = autoencoder.rnn_encoder(autoencoder_embedded_noised, None)
       autoencoder_out_decoder, _ = autoencoder.rnn_decoder(autoencoder_embedded, None)
 
@@ -383,7 +383,7 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
       autoencoder_log_probs = autoencoder.logsoftmax(autoencoder_logits)
 
       # Prediction Loss 
-      autoencoder_lossTensor = autoencoder.print_loss(autoencoder_log_probs.view(-1, len(itos)+3), target_tensor_onlyNoised.view(-1)).view(-1, args.NUMBER_OF_REPLICATES*args.batchSize)
+      autoencoder_lossTensor = autoencoder.print_loss(autoencoder_log_probs.view(-1, len(itos)+3), target_tensor_onlyNoised[:-1].view(-1)).view(-1, args.NUMBER_OF_REPLICATES*args.batchSize)
 
       ##########################################
       ##########################################
@@ -469,8 +469,8 @@ def forward(numeric, train=True, printHere=False, provideAttention=False):
          attention_bilinear_term = attention_bilinear_term.cpu().data
          numeric_embedded_cpu = numeric_embedded.cpu().data
          print(("NONE", itos_total[numericCPU[0][0]]))
-         for i in range((args.sequence_length)):
-            print(autoencoder_losses[i][0], "\t", lm_losses[0][0] if i == args.sequence_length-1 else "---" , "\t", itos_total[numericCPU[i+1][0]],"\t", itos_total[numeric_noisedCPU[i+1][0]],"\t", memory_hidden_CPU[i+1],"\t", float(baselineValues[0]) if i == args.sequence_length-1 else "","\t", float(numeric_embedded_cpu[i+1,0,0]),"\t", float(memory_hidden_logit_per_wordtype_cpu[i+1,0,0]),"\t", float(attention_bilinear_term[i+1,0,0]))
+         for i in range((args.sequence_length+1)):
+            print(autoencoder_losses[i][0] if i < args.sequence_length else "--", "\t", lm_losses[0][0] if i == args.sequence_length else "---" , "\t", itos_total[numericCPU[i+1][0]],"\t", itos_total[numeric_noisedCPU[i+1][0]],"\t", memory_hidden_CPU[i+1],"\t", float(baselineValues[0]) if i == args.sequence_length else "","\t", float(numeric_embedded_cpu[i+1,0,0]),"\t", float(memory_hidden_logit_per_wordtype_cpu[i+1,0,0]),"\t", float(attention_bilinear_term[i+1,0,0]))
 #            print((, itos_total[numericCPU[i+1][0]], itos_total[numeric_noisedCPU[i+1][0]], memory_hidden_CPU[i+1]))
 
 
@@ -522,7 +522,7 @@ updatesCount = 0
 maxUpdates = 2000000 if args.tuning == 1 else 10000000000
 
 def showAttention(word):
-    attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)
+    attention = forward((torch.cuda.LongTensor([stoi[word]+3 for _ in range(args.sequence_length+1)]).view(-1, 1), None), train=True, printHere=True, provideAttention=True)
     attention = attention[:,0,0]
     print(*(["SCORES", word, "\t"]+[round(x,2) for x in list(attention.cpu().data.numpy())]))
 
