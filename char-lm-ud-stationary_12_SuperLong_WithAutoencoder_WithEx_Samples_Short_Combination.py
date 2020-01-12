@@ -793,6 +793,7 @@ def getPerNounReconstructions():
               surprisalsPerRun = []
               for RUN in range(1): #args.NUMBER_OF_RUNS):
                  numeric, numeric_noised = forward((numerified, None), train=False, printHere=False, provideAttention=False, onlyProvideMemoryResult=True)
+                 numeric_noised = torch.where(numeric == stoi["."]+3, numeric, numeric_noised)
                  result, resultNumeric, fractions = sampleReconstructions((numeric, None), numeric_noised, NOUN)
                  (nounFraction, thatFraction) = fractions
                  thatFractions.append(thatFraction)
@@ -809,7 +810,6 @@ def getPerNounReconstructions():
     
     
     
-
 
 for epoch in range(1000):
    print(epoch)

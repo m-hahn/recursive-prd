@@ -34,7 +34,7 @@ parser.add_argument("--verbose", type=bool, default=False)
 parser.add_argument("--lr_decay", type=float, default=random.choice([1.0]))
 parser.add_argument("--deletion_rate", type=float, default=0.5)
 
-parser.add_argument("--predictability_weight", type=float, default=random.choice([0.25, 0.75]))
+parser.add_argument("--predictability_weight", type=float, default=random.choice([0.25, 0.5, 0.75]))
 
 
 parser.add_argument("--reward_multiplier_baseline", type=float, default=0.1)
@@ -552,8 +552,10 @@ def sampleReconstructions(numeric, numeric_noised, NOUN):
 
           logits = autoencoder.output(autoencoder.relu(autoencoder.output_mlp(out_full) )) 
           probs = autoencoder.softmax(logits)
-
-#          print(probs.size(), probs.sum(dim=2))
+          if i == 15:
+            assert args.sequence_length == 20
+            thatProbs = float(probs[0,:, stoi["that"]+3].mean())
+#          print(i, probs[0,:, stoi["that"]+3].mean())
  #         quit()
 
           dist = torch.distributions.Categorical(probs=probs)
@@ -574,7 +576,7 @@ def sampleReconstructions(numeric, numeric_noised, NOUN):
 
       thatFraction = (float(len([x for x in result if NOUN+" that" in x]))/len(result))
 
-      return result, torch.LongTensor(result_numeric).cuda(), (nounFraction, thatFraction)
+      return result, torch.LongTensor(result_numeric).cuda(), (nounFraction, thatFraction), thatProbs
 
 
 
@@ -756,9 +758,9 @@ def getPerNounReconstructionsSanity():
               for RUN in range(1): #args.NUMBER_OF_RUNS):
                  numeric, _ = forward((numerified, None), train=False, printHere=False, provideAttention=False, onlyProvideMemoryResult=True)
                  numeric_noised = torch.where(numeric == stoi["that"]+3, 0*numeric, numeric)
-                 result, resultNumeric, fractions = sampleReconstructions((numeric, None), numeric_noised, NOUN)
+                 result, resultNumeric, fractions, thatProbs = sampleReconstructions((numeric, None), numeric_noised, NOUN)
                  (nounFraction, thatFraction) = fractions
-                 thatFractions.append(thatFraction)
+                 thatFractions.append(math.log(thatProbs))
     
                  
               print(thatFractions)
@@ -793,9 +795,10 @@ def getPerNounReconstructions():
               surprisalsPerRun = []
               for RUN in range(1): #args.NUMBER_OF_RUNS):
                  numeric, numeric_noised = forward((numerified, None), train=False, printHere=False, provideAttention=False, onlyProvideMemoryResult=True)
-                 result, resultNumeric, fractions = sampleReconstructions((numeric, None), numeric_noised, NOUN)
+                 numeric_noised = torch.where(numeric == stoi["."]+3, numeric, numeric_noised)
+                 result, resultNumeric, fractions, thatProbs = sampleReconstructions((numeric, None), numeric_noised, NOUN)
                  (nounFraction, thatFraction) = fractions
-                 thatFractions.append(thatFraction)
+                 thatFractions.append(math.log(thatProbs))
     
                  
               print(thatFractions)
@@ -809,7 +812,8 @@ def getPerNounReconstructions():
     
     
     
-
+getPerNounReconstructionsSanity()
+#quit()
 
 for epoch in range(1000):
    print(epoch)
